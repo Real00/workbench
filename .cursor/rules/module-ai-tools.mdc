@@ -1,0 +1,36 @@
+---
+description: 功能模块通过工具向 Pulse AI 暴露操作，不自建 Agent/SSE
+alwaysApply: true
+---
+
+# 模块 AI 工具
+
+平台拥有时钟、流式运行时、确认后写入。功能模块只登记工具，不复制一套 `/ai/run` 或对话框。
+
+## 新模块要交什么
+
+在 `backend/<feature>/ai_tools.py` 提供 `ModuleAiContribution`（参考 `backend/progress/ai_tools.py`），并在 `module.py` 的 `register` 里：
+
+```python
+context.ai_contributions.append(feature_ai_contribution())
+```
+
+贡献内容：`id`、模块专属 `instructions`、工具函数列表。平台会拼上 `PLATFORM_AI_INSTRUCTIONS` 和时钟。
+
+## 工具规则
+
+- 读工具查当前数据；写工具只 `pending.append(...)`，调用 `DomainService.validate_*`，失败用 `ModelRetry`。
+- 禁止用 NativeOutput / 解析模型长文本来改领域对象。
+- 不要提供删除类工具，除非产品明确要求并有额外确认。
+- 不要在工具里写库。确认由平台 token 触发，再走 ApplicationService → DomainService。
+
+## 前端
+
+不要再做第二个 Pulse。新模块的操作通过后端工具进入现有对话框；需要当前页面上下文时，把 id 放进 `context_*`，不要让模型猜。
+
+## 反例
+
+```python
+# 错误：模块自己 new Agent、自己 SSE、自己预览 JSON
+app.router.add_post("/api/v1/knowledge/ai/run", run_knowledge_ai)
+```

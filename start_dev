@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+BACKEND_PORT=8080
+FRONTEND_PORT="${VITE_PORT:-5173}"
+MONGO_URI="${WORKBENCH_MONGO_URI:-mongodb://localhost:27017}"
+SKIP_INSTALL=0
+SKIP_MONGO=0
+PIDS=()
+
+usage() {
+  cat <<'EOF'
+用法: ./start_dev [选项]
+
+一次性启动本地开发环境：Mongo（仅容器）、后端（改 Python 自动重启）、前端（Vite 热更新）。
+
+日常改代码用本脚本，不要 docker compose build。Docker 只用于打包验证。
+
+选项:
+  --skip-install   跳过 uv sync / pnpm install
+  --skip-mongo     不启动 Mongo 容器（使用已有 MongoDB）
+  -h, --help       显示帮助
+
+访问:
+  前端  http://localhost:5173
+  API   http://localhost:8080/api/v1
+
+默认管理员见 .env 中的 WORKBENCH_ADMIN_USERNAME / WORKBENCH_ADMIN_PASSWORD
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-install) SKIP_INSTALL=1 ;;
+    --skip-mongo) SKIP_MONGO=1 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "未知参数: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "缺少命令: $1" >&2
+    exit 1
+  fi
+}
+
+require_cmd uv
+require_cmd pnpm
+require_cmd curl
+
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+elif [[ -f "$ROOT/.env.example" ]]; then
+  echo "提示: 未找到 .env，可先执行 cp .env.example .env" >&2
+fi
+
+FRONTEND_PORT="${VITE_PORT:-5173}"
+MONGO_URI="${WORKBENCH_MONGO_URI:-mongodb://localhost:27017}"
+
+mongo_ready() {
+  if command -v mongosh >/dev/null 2>&1; then
+    mongosh "$MONGO_URI" --quiet --eval "db.adminCommand('ping').ok" >/dev/null 2>&1
+    return
+  fi
+  if command -v nc >/dev/null 2>&1; then
+    nc -z localhost 27017 >/dev/null 2>&1
+    return
+  fi
+  return 1
+}
+
+start_mongo() {
+  if [[ "$SKIP_MONGO" -eq 1 ]]; then
+    echo "[mongo] 跳过启动（--skip-mongo）"
+    if ! mongo_ready; then
+      echo "[mongo] 警告: 未检测到 localhost:27017 上的 MongoDB" >&2
+    fi
+    return
+  fi
+
+  if mongo_ready; then
+    echo "[mongo] 已就绪 ($MONGO_URI)"
+    return
+  fi
+
+  require_cmd docker
+  echo "[mongo] 启动 Docker 容器..."
+  docker compose up -d mongo
+
+  for _ in $(seq 1 40); do
+    if mongo_ready; then
+      echo "[mongo] 已就绪"
+      return
+    fi
+    sleep 0.5
+  done
+
+  echo "[mongo] 启动超时，请检查 docker compose logs mongo" >&2
+  exit 1
+}
+
+install_deps() {
+  if [[ "$SKIP_INSTALL" -eq 1 ]]; then
+    return
+  fi
+  echo "[setup] 同步后端依赖..."
+  (cd "$ROOT/backend" && uv sync)
+  echo "[setup] 同步前端依赖..."
+  (cd "$ROOT/frontend" && pnpm install)
+}
+
+wait_for_backend() {
+  local url="http://127.0.0.1:${BACKEND_PORT}/api/v1/progress/tasks"
+  for _ in $(seq 1 60); do
+    if ! kill -0 "${PIDS[0]}" 2>/dev/null; then
+      echo "[backend] 进程已退出，常见原因是端口被占用，请检查上方日志" >&2
+      exit 1
+    fi
+    local code
+    code="$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)"
+    if [[ "$code" == "401" || "$code" == "200" ]]; then
+      echo "[backend] API 已就绪 (:${BACKEND_PORT})"
+      return
+    fi
+    sleep 0.5
+  done
+  echo "[backend] 启动超时，请查看上方日志" >&2
+  exit 1
+}
+
+cleanup() {
+  local pid
+  for pid in "${PIDS[@]:-}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+  wait 2>/dev/null || true
+}
+
+trap cleanup INT TERM EXIT
+
+start_mongo
+install_deps
+
+if nc -z 127.0.0.1 "$BACKEND_PORT" >/dev/null 2>&1; then
+  echo "[backend] 端口 ${BACKEND_PORT} 已被占用，请先停止已有后端或执行 docker compose stop app" >&2
+  exit 1
+fi
+
+echo "[backend] 启动 aiohttp（监听 Python 变更并自动重启）..."
+(
+  cd "$ROOT/backend"
+  export WORKBENCH_MONGO_URI="${WORKBENCH_MONGO_URI:-mongodb://localhost:27017}"
+  exec uv run watchfiles \
+    --filter python \
+    --ignore-paths .venv \
+    --ignore-paths .mypy_cache \
+    --ignore-paths .ruff_cache \
+    --ignore-paths .pytest_cache \
+    "python -m workbench" \
+    .
+) &
+PIDS+=("$!")
+
+wait_for_backend
+
+echo "[frontend] 启动 Vite..."
+(
+  cd "$ROOT/frontend"
+  exec pnpm dev --host 127.0.0.1 --port "$FRONTEND_PORT"
+) &
+PIDS+=("$!")
+
+cat <<EOF
+
+开发环境已启动
+  前端  http://127.0.0.1:${FRONTEND_PORT}  （Vite 热更新）
+  API   http://127.0.0.1:${BACKEND_PORT}/api/v1  （改 backend/*.py 自动重启）
+按 Ctrl+C 停止前后端（Mongo 容器保持运行）
+
+EOF
+
+wait "${PIDS[@]}"

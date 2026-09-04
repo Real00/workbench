@@ -1,0 +1,39 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      WORKBENCH_MONGO_URI: mongodb://mongo:27017
+      WORKBENCH_MONGO_DATABASE: workbench
+      WORKBENCH_JWT_SECRET: ${WORKBENCH_JWT_SECRET:-change-this-before-production-32b}
+      WORKBENCH_ENCRYPTION_KEY: ${WORKBENCH_ENCRYPTION_KEY:-}
+      WORKBENCH_ADMIN_USERNAME: ${WORKBENCH_ADMIN_USERNAME:-admin}
+      WORKBENCH_ADMIN_PASSWORD: ${WORKBENCH_ADMIN_PASSWORD:-change-me-now}
+      WORKBENCH_UPLOAD_DIR: /app/data/uploads
+    volumes:
+      - app-uploads:/app/data/uploads
+    ports:
+      - "${WORKBENCH_PORT:-8080}:8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mongo-data:
+  app-uploads:
