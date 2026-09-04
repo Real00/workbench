@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { Bot, Check, ChevronDown, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Wrench, X } from '@lucide/vue'
 import { apiError } from './api/client'
 import { pulseApi } from './pulse-api'
@@ -43,9 +44,125 @@ const turns = ref<ChatTurn[]>([])
 const error = ref('')
 const sessionId = ref<string | null>(null)
 const scroller = ref<HTMLElement | null>(null)
+const promptEl = ref<HTMLTextAreaElement | null>(null)
+const route = useRoute()
 let seq = 0
 let abort: AbortController | null = null
 const STREAM_TIMEOUT_MS = 240_000
+const STORAGE_KEY = 'pulse-ai-session-v1'
+
+const contextChips = computed(() => {
+  const chips: string[] = []
+  if (progress.editingTask) chips.push(`关联任务：${progress.editingTask.title}`)
+  if (knowledge.editingDocument) chips.push(`关联文档：${knowledge.editingDocument.title}`)
+  return chips
+})
+
+const quickTemplates = computed<string[]>(() => {
+  const path = route.path
+  if (path.startsWith('/progress/members')) {
+    return ['给「」记一条亮点评价：', '把「」的技能更新为：', '新建成员：']
+  }
+  if (path.startsWith('/progress/projects')) {
+    return ['立项新项目「」：', '把项目「」状态改为：', '给项目「」补充背景：']
+  }
+  if (path.startsWith('/progress/tasks')) {
+    return ['新建任务：', '在当前任务记录进度：', '把当前任务指派给：']
+  }
+  if (path.startsWith('/knowledge')) {
+    return ['在知识库新建条目：', '检索知识库：', '新建知识文档：']
+  }
+  return ['新建任务：', '记一条想法：', '检索知识库：']
+})
+
+const pendingTurn = computed(
+  () => [...turns.value].reverse().find(turn => turn.token && turn.operations.length && !turn.applied) ?? null,
+)
+
+function applyTemplate(template: string) {
+  instruction.value = instruction.value ? `${instruction.value.trimEnd()} ${template}` : template
+  void nextTick(() => {
+    promptEl.value?.focus()
+    promptEl.value?.setSelectionRange(instruction.value.length, instruction.value.length)
+  })
+}
+
+function autosizePrompt() {
+  const el = promptEl.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+}
+
+function onPromptKeydown(event: KeyboardEvent) {
+  if (event.isComposing) return
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    if (instruction.value.trim() && !loading.value) void send()
+    return
+  }
+  if (event.key === 'ArrowUp' && !instruction.value) {
+    const last = [...turns.value].reverse().find(turn => turn.role === 'user' && turn.text)
+    if (last) {
+      event.preventDefault()
+      instruction.value = last.text
+      void nextTick(() => promptEl.value?.setSelectionRange(last.text.length, last.text.length))
+    }
+  }
+}
+
+function onDockKeydown(event: KeyboardEvent) {
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    const turn = pendingTurn.value
+    if (turn && !confirming.value) {
+      event.preventDefault()
+      void confirm(turn)
+    }
+  }
+}
+
+function onGlobalKeydown(event: KeyboardEvent) {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    if (loading.value) return
+    open.value = !open.value
+    if (open.value) void nextTick(() => promptEl.value?.focus())
+  }
+}
+
+function persistSession() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      sessionId: sessionId.value,
+      turns: turns.value.slice(-100),
+      draft: instruction.value,
+    }))
+  } catch { /* localStorage 不可用时静默跳过 */ }
+}
+
+function restoreSession() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return
+    const data = JSON.parse(raw) as { sessionId?: unknown; turns?: unknown; draft?: unknown }
+    if (typeof data.sessionId === 'string') sessionId.value = data.sessionId
+    if (Array.isArray(data.turns)) {
+      turns.value = data.turns.filter(
+        item => item && typeof item.text === 'string' && (item.role === 'user' || item.role === 'assistant'),
+      )
+      seq = turns.value.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0)
+    }
+    if (typeof data.draft === 'string' && data.draft) instruction.value = data.draft
+  } catch { /* 数据损坏时丢弃，重新开始 */ }
+}
+
+onMounted(() => {
+  restoreSession()
+  window.addEventListener('keydown', onGlobalKeydown)
+  void nextTick(() => autosizePrompt())
+})
+onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
+watch([turns, sessionId, instruction], persistSession, { deep: true })
 const abortMessage = ref('已中断')
 const labels: Record<string, string> = {
   title: '标题', description: '描述', status: '状态', priority: '优先级', assignee_id: '负责人',
@@ -162,6 +279,7 @@ async function send() {
   const text = instruction.value.trim()
   if (!text || loading.value) return
   instruction.value = ''
+  await nextTick(() => autosizePrompt())
   await runTurn(text)
 }
 
@@ -277,11 +395,11 @@ function discard(turn: ChatTurn) {
 </script>
 
 <template>
-  <section :class="['ai-dock', open && 'ai-dock--open']" aria-label="Pulse AI 助手">
+  <section :class="['ai-dock', open && 'ai-dock--open']" aria-label="Pulse AI 助手" @keydown.capture="onDockKeydown">
     <button v-if="!open" class="ai-trigger" @click="open = true">
       <span class="relative"><Sparkles :size="17" /><i /></span>
       <b>Pulse AI</b>
-      <small>直接描述，流式回复后再确认</small>
+      <small>随手记一句就行 · ⌘K 快速呼出</small>
       <ChevronDown class="ml-auto rotate-180" :size="16" />
     </button>
     <template v-else>
@@ -337,7 +455,7 @@ function discard(turn: ChatTurn) {
             <div v-if="turn.token && turn.operations.length && !turn.applied" class="mt-3 flex justify-end gap-2">
               <button class="btn-secondary" @click="discard(turn)">放弃</button>
               <button class="btn-primary" :disabled="confirming" @click="confirm(turn)">
-                <Check :size="14" />{{ confirming ? '应用中…' : '确认应用' }}
+                <Check :size="14" />{{ confirming ? '应用中…' : '确认应用 ⌘↩' }}
               </button>
             </div>
             <div v-if="turn.applied" class="success-box mt-3"><Check :size="15" />变更已应用并刷新数据</div>
@@ -349,15 +467,34 @@ function discard(turn: ChatTurn) {
         </article>
         <p v-if="error" class="error-box" role="alert">{{ error }}</p>
       </div>
-      <form class="flex gap-2 border-t border-line p-3" @submit.prevent="send">
-        <label class="sr-only" for="ai-prompt">输入调整要求</label>
-        <input id="ai-prompt" v-model="instruction" class="input !mt-0 flex-1" placeholder="描述任务、成员或知识库变更..." :disabled="loading" />
-        <button v-if="loading" type="button" class="btn-secondary shrink-0" @click="stop">
-          <Square :size="12" fill="currentColor" />中断
-        </button>
-        <button v-else class="btn-primary shrink-0" :disabled="!instruction.trim()">
-          <Send :size="15" />发送
-        </button>
+      <form class="border-t border-line p-3" @submit.prevent="send">
+        <div v-if="contextChips.length" class="mb-2 flex flex-wrap gap-1.5">
+          <span v-for="chip in contextChips" :key="chip" class="status-chip">{{ chip }}</span>
+        </div>
+        <div v-if="!loading" class="mb-2 flex flex-wrap gap-1.5">
+          <button v-for="template in quickTemplates" :key="template" type="button" class="kind-option" @click="applyTemplate(template)">{{ template }}</button>
+        </div>
+        <div class="flex items-end gap-2">
+          <label class="sr-only" for="ai-prompt">输入调整要求</label>
+          <textarea
+            id="ai-prompt"
+            ref="promptEl"
+            v-model="instruction"
+            class="input !mt-0 min-h-[40px] flex-1 resize-none py-2.5"
+            rows="1"
+            placeholder="随手记：任务、成员评价、项目进展…Enter 发送，Shift+Enter 换行"
+            :disabled="loading"
+            @input="autosizePrompt"
+            @keydown="onPromptKeydown"
+          />
+          <button v-if="loading" type="button" class="btn-secondary shrink-0" @click="stop">
+            <Square :size="12" fill="currentColor" />中断
+          </button>
+          <button v-else class="btn-primary shrink-0" :disabled="!instruction.trim()">
+            <Send :size="15" />发送
+          </button>
+        </div>
+        <p class="mt-2 font-mono text-[9px] text-muted">⌘/Ctrl+K 开关面板 · ⌘/Ctrl+Enter 应用待确认变更 · Shift+Enter 换行 · ↑ 召回上一条</p>
       </form>
     </template>
   </section>
