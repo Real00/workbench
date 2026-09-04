@@ -1,4 +1,5 @@
 import asyncio
+from typing import Literal
 
 from aiohttp import web
 from pydantic import BaseModel, Field
@@ -8,11 +9,18 @@ from api.http import body, dumps, response
 from shared.web_keys import ACTOR, AI_TASKS
 
 
+class MentionInput(BaseModel):
+    type: Literal["task", "member", "project", "document", "tool"]
+    id: str | None = Field(default=None, max_length=100)
+    label: str = Field(min_length=1, max_length=200)
+
+
 class AIPreviewInput(BaseModel):
     instruction: str = Field(min_length=1, max_length=4000)
     context_task_id: str | None = None
     context_document_id: str | None = None
     session_id: str | None = Field(default=None, max_length=64)
+    mentions: list[MentionInput] | None = None
 
 
 class AIConfirmInput(BaseModel):
@@ -44,6 +52,7 @@ async def run_ai_task(request: web.Request) -> web.StreamResponse:
             cancel,
             context_document_id=data.get("context_document_id"),
             session_id=data.get("session_id"),
+            mentions=data.get("mentions"),
         ):
             try:
                 await stream.write(f"data: {dumps(event)}\n\n".encode())

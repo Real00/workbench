@@ -31,6 +31,42 @@ KNOWLEDGE_OPS = {
 MAX_SESSIONS = 50
 MAX_SESSION_EXCHANGES = 8
 
+_MENTION_KINDS = {
+    "task": "task_id",
+    "member": "member_id",
+    "project": "project_id",
+    "document": "document_id",
+}
+
+
+def _mention_lines(mentions: list[dict[str, Any]] | None) -> str | None:
+    if not mentions:
+        return None
+    lines: list[str] = []
+    tools: list[str] = []
+    for mention in mentions:
+        kind = str(mention.get("type") or "")
+        label = str(mention.get("label") or "").strip()
+        if not label:
+            continue
+        if kind == "tool":
+            tools.append(label)
+            continue
+        field = _MENTION_KINDS.get(kind)
+        if field:
+            identifier = str(mention.get("id") or "unknown")
+            lines.append(f"- {field}={identifier} 「{label}」")
+    if tools:
+        lines.append("- tools to use: " + ", ".join(tools))
+    if not lines:
+        return None
+    lines.append(
+        "Treat these @-mentions as the user's intended references and prefer them over "
+        "name guessing. If a mentioned tool is not visible yet, discover it with "
+        "search_tools first."
+    )
+    return "The user @-mentioned:\n" + "\n".join(lines)
+
 
 class PulseApplicationService:
     def __init__(
@@ -83,6 +119,7 @@ class PulseApplicationService:
         cancellation_token: CancellationToken | None = None,
         context_document_id: str | None = None,
         session_id: str | None = None,
+        mentions: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         settings = await self.settings_reader.read_ai_settings()
         if not settings:
@@ -104,6 +141,9 @@ class PulseApplicationService:
             parts.append(f"The user is currently viewing task_id={context_task_id}.")
         if context_document_id:
             parts.append(f"The user is currently viewing document_id={context_document_id}.")
+        mention_lines = _mention_lines(mentions)
+        if mention_lines:
+            parts.append(mention_lines)
         parts.append(instruction)
         prompt = "\n\n".join(parts)
         try:

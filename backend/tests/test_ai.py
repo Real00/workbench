@@ -274,6 +274,28 @@ async def test_stream_maintains_multi_turn_session_history() -> None:
     assert all("session_id" not in event or event["session_id"] for event in first_events)
 
 
+async def test_stream_injects_mentions_into_prompt() -> None:
+    service, _, agent, member_id = await build_service()
+    events = [
+        event
+        async for event in service.stream(
+            "给这个人记一条评价",
+            mentions=[
+                {"type": "member", "id": member_id, "label": "Alice"},
+                {"type": "tool", "id": None, "label": "record_member_evaluation"},
+            ],
+        )
+    ]
+    assert events[-1]["type"] == "done"
+    prompt = agent.prompts[0]
+    assert f"member_id={member_id} 「Alice」" in prompt
+    assert "tools to use: record_member_evaluation" in prompt
+    assert "search_tools" in prompt
+
+    plain_events = [event async for event in service.stream("普通消息")]
+    assert "@-mentions" not in plain_events[-1] and "@-mentions" not in agent.prompts[-1]
+
+
 def test_prepare_tools_defers_write_tools_and_keeps_read_tools() -> None:
     from pydantic_ai import Tool
 

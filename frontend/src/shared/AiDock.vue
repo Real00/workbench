@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Bot, Check, ChevronDown, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Wrench, X } from '@lucide/vue'
-import { apiError } from './api/client'
+import { api, apiError } from './api/client'
 import { pulseApi } from './pulse-api'
 import { useKnowledgeStore } from '../modules/knowledge/store'
 import { useProgressStore } from '../modules/progress/store'
@@ -51,6 +51,94 @@ let abort: AbortController | null = null
 const STREAM_TIMEOUT_MS = 240_000
 const STORAGE_KEY = 'pulse-ai-session-v1'
 
+type MentionType = 'task' | 'member' | 'project' | 'document' | 'tool'
+interface MentionCandidate { type: MentionType; id: string | null; label: string; hint?: string }
+interface MentionPayload { type: MentionType; id: string | null; label: string }
+
+const TYPE_LABELS: Record<MentionType, string> = {
+  task: '任务', member: '成员', project: '项目', document: '知识', tool: '工具',
+}
+const MENTION_RE = /@(任务|成员|项目|知识|工具):「([^」]+)」/g
+
+const mentionQuery = ref<string | null>(null)
+const mentionIndex = ref(0)
+const toolRegistry = ref<{ name: string; description: string }[]>([])
+
+const allCandidates = computed<MentionCandidate[]>(() => [
+  ...progress.tasks.map(task => ({ type: 'task' as const, id: task.id, label: task.title, hint: statusMap[task.status] })),
+  ...progress.members.map(member => ({ type: 'member' as const, id: member.id, label: member.name, hint: member.title || undefined })),
+  ...progress.projects.map(project => ({ type: 'project' as const, id: project.id, label: project.name })),
+  ...knowledge.documents.map(document => ({ type: 'document' as const, id: document.id, label: document.title })),
+  ...toolRegistry.value.map(tool => ({ type: 'tool' as const, id: null, label: tool.name, hint: tool.description })),
+])
+
+const mentionCandidates = computed<MentionCandidate[]>(() => {
+  if (mentionQuery.value === null) return []
+  const query = mentionQuery.value.trim().toLowerCase()
+  const filtered = query
+    ? allCandidates.value.filter(candidate => candidate.label.toLowerCase().includes(query))
+    : allCandidates.value
+  return filtered.slice(0, 12)
+})
+
+async function ensureToolRegistry() {
+  if (toolRegistry.value.length) return
+  try {
+    const { data } = await api.get<{ modules: { tools: { name: string; description: string }[] }[] }>('/ai-settings/tools')
+    toolRegistry.value = data.modules.flatMap(module => module.tools)
+  } catch {
+    toolRegistry.value = []
+  }
+}
+
+function updateMentionQuery() {
+  const el = promptEl.value
+  if (!el) {
+    mentionQuery.value = null
+    return
+  }
+  const upToCaret = el.value.slice(0, el.selectionStart ?? el.value.length)
+  const match = upToCaret.match(/@([^@\n「」]*)$/)
+  mentionQuery.value = match ? match[1] : null
+  mentionIndex.value = 0
+  if (match) void ensureToolRegistry()
+}
+
+function selectMention(candidate: MentionCandidate) {
+  const el = promptEl.value
+  if (!el) return
+  const caret = el.selectionStart ?? el.value.length
+  const before = el.value.slice(0, caret)
+  const match = before.match(/@([^@\n「」]*)$/)
+  mentionQuery.value = null
+  if (!match) return
+  const token = `@${TYPE_LABELS[candidate.type]}:「${candidate.label}」`
+  const start = caret - match[0].length
+  instruction.value = before.slice(0, start) + token + ' ' + el.value.slice(caret)
+  void nextTick(() => {
+    const pos = start + token.length + 1
+    el.focus()
+    el.setSelectionRange(pos, pos)
+  })
+}
+
+function extractMentions(text: string): MentionPayload[] {
+  const payloads: MentionPayload[] = []
+  const seen = new Set<string>()
+  for (const match of text.matchAll(MENTION_RE)) {
+    const typeKey = match[1] as keyof typeof TYPE_LABELS
+    const type = (Object.keys(TYPE_LABELS) as MentionType[]).find(key => TYPE_LABELS[key] === typeKey)
+    if (!type) continue
+    const label = match[2]
+    const key = `${type}:${label}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const found = allCandidates.value.find(candidate => candidate.type === type && candidate.label === label)
+    payloads.push({ type, id: found?.id ?? null, label })
+  }
+  return payloads
+}
+
 const contextChips = computed(() => {
   const chips: string[] = []
   if (progress.editingTask) chips.push(`关联任务：${progress.editingTask.title}`)
@@ -96,6 +184,30 @@ function autosizePrompt() {
 
 function onPromptKeydown(event: KeyboardEvent) {
   if (event.isComposing) return
+  const menuOpen = mentionQuery.value !== null && mentionCandidates.value.length > 0
+  if (menuOpen) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      mentionIndex.value = (mentionIndex.value + 1) % mentionCandidates.value.length
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      mentionIndex.value = (mentionIndex.value + mentionCandidates.value.length - 1) % mentionCandidates.value.length
+      return
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault()
+      const candidate = mentionCandidates.value[mentionIndex.value]
+      if (candidate) selectMention(candidate)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      mentionQuery.value = null
+      return
+    }
+  }
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     if (instruction.value.trim() && !loading.value) void send()
@@ -312,10 +424,12 @@ async function runTurn(text: string) {
     abort?.abort()
   }, STREAM_TIMEOUT_MS)
   try {
+    const mentions = extractMentions(text)
     await pulseApi.run(
       {
         instruction: text,
         session_id: sessionId.value,
+        ...(mentions.length && { mentions }),
         ...(progress.editingTask && { context_task_id: progress.editingTask.id }),
         ...(knowledge.editingDocument && { context_document_id: knowledge.editingDocument.id }),
       },
@@ -474,6 +588,23 @@ function discard(turn: ChatTurn) {
         <div v-if="!loading" class="mb-2 flex flex-wrap gap-1.5">
           <button v-for="template in quickTemplates" :key="template" type="button" class="kind-option" @click="applyTemplate(template)">{{ template }}</button>
         </div>
+        <div v-if="mentionQuery !== null && !mentionCandidates.length" class="ai-mention-empty">没有匹配的「{{ mentionQuery }}」，可直接继续输入或按 Esc 关闭</div>
+        <div v-else-if="mentionQuery !== null" class="ai-mention-list" role="listbox" aria-label="引用候选">
+          <button
+            v-for="(candidate, index) in mentionCandidates"
+            :key="`${candidate.type}-${candidate.id ?? candidate.label}`"
+            type="button"
+            role="option"
+            :aria-selected="index === mentionIndex"
+            :class="['ai-mention-item', index === mentionIndex && 'ai-mention-item--active']"
+            @mousedown.prevent="selectMention(candidate)"
+            @mousemove="mentionIndex = index"
+          >
+            <span :class="['entry-kind', `entry-kind--mention-${candidate.type}`]">{{ TYPE_LABELS[candidate.type] }}</span>
+            <b>{{ candidate.label }}</b>
+            <small v-if="candidate.hint">{{ candidate.hint }}</small>
+          </button>
+        </div>
         <div class="flex items-end gap-2">
           <label class="sr-only" for="ai-prompt">输入调整要求</label>
           <textarea
@@ -482,10 +613,11 @@ function discard(turn: ChatTurn) {
             v-model="instruction"
             class="input !mt-0 min-h-[40px] flex-1 resize-none py-2.5"
             rows="1"
-            placeholder="随手记：任务、成员评价、项目进展…Enter 发送，Shift+Enter 换行"
+            placeholder="随手记：任务、成员、项目进展…输入 @ 引用任务/成员/知识/工具"
             :disabled="loading"
-            @input="autosizePrompt"
+            @input="autosizePrompt(); updateMentionQuery()"
             @keydown="onPromptKeydown"
+            @click="updateMentionQuery"
           />
           <button v-if="loading" type="button" class="btn-secondary shrink-0" @click="stop">
             <Square :size="12" fill="currentColor" />中断
@@ -494,7 +626,7 @@ function discard(turn: ChatTurn) {
             <Send :size="15" />发送
           </button>
         </div>
-        <p class="mt-2 font-mono text-[9px] text-muted">⌘/Ctrl+K 开关面板 · ⌘/Ctrl+Enter 应用待确认变更 · Shift+Enter 换行 · ↑ 召回上一条</p>
+        <p class="mt-2 font-mono text-[9px] text-muted">⌘/Ctrl+K 开关面板 · @ 引用任务/成员/项目/知识/工具 · ⌘/Ctrl+Enter 应用变更 · Shift+Enter 换行 · ↑ 召回</p>
       </form>
     </template>
   </section>
