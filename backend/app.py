@@ -10,6 +10,7 @@ from api.http import auth_middleware, error_middleware
 from capture.module import CaptureModule
 from identity.module import IdentityModule
 from knowledge.module import KnowledgeModule
+from mcp.routes import register_mcp_routes
 from progress.module import ProgressModule
 from pulse.module import PulseModule
 from shared.config import Settings, cors_origin_set, get_settings
@@ -74,6 +75,7 @@ def create_app(settings: Settings | None = None, **overrides: Any) -> web.Applic
     for module in modules:
         module.register(app, context)
     app[AI_CONTRIBUTIONS] = context.ai_contributions
+    register_mcp_routes(app)
 
     async def cleanup(_: web.Application) -> None:
         if "mongo_client" not in overrides:
