@@ -457,6 +457,13 @@ async def test_cors_preflight_and_origin_allowlist() -> None:
         assert preflight.headers["Access-Control-Allow-Origin"] == "https://desktop.example"
         assert "Authorization" in preflight.headers["Access-Control-Allow-Headers"]
 
+        tauri_preflight = await client.options(
+            "/api/v1/progress/tasks",
+            headers={"Origin": "tauri://localhost", "Access-Control-Request-Method": "POST"},
+        )
+        assert tauri_preflight.status == 204
+        assert tauri_preflight.headers["Access-Control-Allow-Origin"] == "tauri://localhost"
+
         blocked_preflight = await client.options(
             "/api/v1/progress/tasks",
             headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"},

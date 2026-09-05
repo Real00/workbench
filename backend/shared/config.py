@@ -41,10 +41,19 @@ def get_settings() -> Settings:
     return Settings()
 
 
+TAURI_DEFAULT_ORIGINS = ("tauri://localhost", "http://tauri.localhost")
+
+
 def cors_origin_set(cors_origins: str) -> frozenset[str]:
-    """解析逗号分隔的放行来源，统一去掉尾部斜杠。"""
-    return frozenset(
+    """解析逗号分隔的放行来源，统一去掉尾部斜杠。
+
+    Tauri 桌面壳的默认来源始终放行：自定义 scheme 无法被网页伪造，
+    不构成跨源风险；这样打包的桌面应用无需额外配置即可连接后端。
+    """
+    origins = {
         origin.strip().rstrip("/")
         for origin in cors_origins.split(",")
         if origin.strip()
-    )
+    }
+    origins.update(TAURI_DEFAULT_ORIGINS)
+    return frozenset(origins)
