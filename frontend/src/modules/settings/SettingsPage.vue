@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CheckCircle2, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench } from '@lucide/vue'
-import { api, apiError, getDeviceId, setDeviceCredentials } from '../../shared/api/client'
+import { CheckCircle2, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable } from '@lucide/vue'
+import { api, apiError, getApiBase, getDeviceId, getDeviceToken, setDeviceCredentials } from '../../shared/api/client'
 
 interface Settings { base_url: string; model: string; api_key_masked: string }
 interface Secret { api_key: string }
@@ -10,7 +10,7 @@ interface AiTool { name: string; description: string; parameters: AiToolParam[] 
 interface AiModuleTools { id: string; instructions: string; tools: AiTool[] }
 interface DeviceBindingInfo { id: string; device_id: string; device_name: string; created_at: string; last_active_at: string }
 
-const tab = ref<'connection' | 'tools' | 'devices'>('connection')
+const tab = ref<'connection' | 'tools' | 'devices' | 'mcp'>('connection')
 const baseUrl = ref('')
 const model = ref('')
 const apiKey = ref('')
@@ -127,6 +127,42 @@ async function unbindDevice(binding: DeviceBindingInfo) {
   } catch (cause) { devicesError.value = apiError(cause) }
   finally { unbindingId.value = '' }
 }
+
+const mcpUrl = `${getApiBase() || window.location.origin}/mcp`
+const curlLoginBase = (getApiBase() || window.location.origin).replace(/\/+$/, '')
+const deviceCredentialsReady = Boolean(getDeviceToken() && getDeviceId())
+const copied = ref('')
+
+function copyConfig(kind: 'url' | 'device' | 'jwt') {
+  const text = kind === 'url'
+    ? mcpUrl
+    : JSON.stringify(
+        kind === 'device'
+          ? {
+              mcpServers: {
+                workbench: {
+                  type: 'http',
+                  url: mcpUrl,
+                  headers: { 'X-Device-Id': getDeviceId() ?? '', 'X-Device-Token': getDeviceToken() ?? '' },
+                },
+              },
+            }
+          : {
+              mcpServers: {
+                workbench: {
+                  type: 'http',
+                  url: mcpUrl,
+                  headers: { Authorization: 'Bearer <登录后的 access_token，1 天有效>' },
+                },
+              },
+            },
+        null,
+        2,
+      )
+  copied.value = kind
+  void navigator.clipboard?.writeText(text).catch(() => { /* 剪贴板不可用时忽略 */ })
+  window.setTimeout(() => { copied.value = '' }, 1600)
+}
 </script>
 
 <template>
@@ -137,6 +173,7 @@ async function unbindDevice(binding: DeviceBindingInfo) {
         <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'connection' }]" @click="tab = 'connection'"><PlugZap :size="17" />模型连接</button>
         <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'tools' }]" @click="showTools"><Wrench :size="17" />AI 工具注册</button>
         <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'devices' }]" @click="showDevices"><MonitorSmartphone :size="17" />绑定设备</button>
+        <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'mcp' }]" @click="tab = 'mcp'"><Cable :size="17" />MCP 接入</button>
       </nav>
       <section v-if="tab === 'connection'" class="card">
         <div class="card-head"><div><p class="eyebrow">OpenAI compatible</p><h2>模型连接</h2><p class="mt-2 text-xs text-muted">浏览器仅调用工作台后端，不直接连接模型服务</p></div><span class="status-live"><span class="size-1.5 rounded-full bg-cyan" /> ENCRYPTED</span></div>
@@ -220,6 +257,45 @@ async function unbindDevice(binding: DeviceBindingInfo) {
             </div>
             <button type="button" class="btn-secondary shrink-0" :disabled="unbindingId === device.id" @click="unbindDevice(device)"><LoaderCircle v-if="unbindingId === device.id" :size="14" class="animate-spin" /><Trash2 v-else :size="14" />解绑</button>
           </article>
+        </div>
+      </section>
+      <section v-else-if="tab === 'mcp'">
+        <div class="card p-5">
+          <div class="card-head"><div><p class="eyebrow">Model Context Protocol</p><h2>MCP 接入</h2><p class="mt-2 text-xs text-muted">把工作台的 19 个工具（任务/成员/项目/评价/知识库）开放给任意支持 MCP 的客户端（Claude、Codex、Cursor 等）。协议版本 2025-11-25，Streamable HTTP 传输。注意：MCP 调用立即生效，没有站内 AI 的排队确认环节。</p></div><Cable :size="17" class="text-cyan" /></div>
+          <div class="mt-5 space-y-4">
+            <div class="field-label">接入地址
+              <div class="mt-1 flex items-center gap-2">
+                <code class="min-w-0 flex-1 rounded-lg border border-line bg-[#09141f] px-3 py-2 font-mono text-[11px] text-cyan">{{ mcpUrl }}</code>
+                <button type="button" class="btn-secondary shrink-0" @click="copyConfig('url')"><Check v-if="copied === 'url'" :size="14" /><Copy v-else :size="14" />{{ copied === 'url' ? '已复制' : '复制' }}</button>
+              </div>
+            </div>
+            <div class="field-label">
+              <span class="flex items-center justify-between gap-3">认证方式一：设备凭证（推荐，长期有效，可在「绑定设备」随时吊销）
+                <button type="button" class="text-[10px] font-semibold text-cyan" @click="copyConfig('device')">{{ copied === 'device' ? '已复制配置' : '复制客户端配置' }}</button>
+              </span>
+              <template v-if="deviceCredentialsReady">
+                <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-[#09141f] p-3 font-mono text-[10px] leading-5 text-slate-300">{{ JSON.stringify({
+                  mcpServers: { workbench: { type: 'http', url: mcpUrl, headers: { 'X-Device-Id': getDeviceId(), 'X-Device-Token': getDeviceToken() } } }
+                }, null, 2) }}</pre>
+                <small>以上为本机已绑定的设备凭证，可直接粘贴到 MCP 客户端配置中。</small>
+              </template>
+              <template v-else>
+                <small class="!mt-2">本设备还没有绑定凭证：在登录页勾选「保持登录」登录一次即可生成，然后回到本页复制配置。也可以用下方命令手动获取（返回体中的 device_token 字段）：</small>
+                <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-[#09141f] p-3 font-mono text-[10px] leading-5 text-slate-300">curl -X POST {{ curlLoginBase }}/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"你的账号","password":"你的密码","device_id":"my-mcp-client","device_name":"MCP 客户端"}'</pre>
+              </template>
+            </div>
+            <div class="field-label">
+              <span class="flex items-center justify-between gap-3">认证方式二：登录令牌（短期，1 天有效）
+                <button type="button" class="text-[10px] font-semibold text-cyan" @click="copyConfig('jwt')">{{ copied === 'jwt' ? '已复制配置' : '复制客户端配置' }}</button>
+              </span>
+              <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-[#09141f] p-3 font-mono text-[10px] leading-5 text-slate-300">{{ JSON.stringify({
+                mcpServers: { workbench: { type: 'http', url: mcpUrl, headers: { Authorization: 'Bearer <access_token>' } } }
+              }, null, 2) }}</pre>
+            </div>
+            <p class="text-[11px] leading-5 text-muted">安全说明：设备凭证与服务端绑定记录一一对应，可在「绑定设备」页解绑使其立即失效；令牌与凭证请勿写入公开仓库。</p>
+          </div>
         </div>
       </section>
     </div>
