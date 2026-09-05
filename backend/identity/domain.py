@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 
@@ -51,9 +51,44 @@ class UserRepository(Protocol):
     async def ensure_indexes(self) -> None: ...
 
 
+@dataclass
+class DeviceBinding:
+    """设备绑定：登录一次后，该设备可凭长效凭证静默换发短期 JWT。
+
+    token 只存 SHA-256 哈希，泄露原文也无法反查；解绑即失效。"""
+
+    id: str
+    user_id: str
+    device_id: str
+    device_name: str
+    token_hash: str
+    created_at: datetime
+    last_active_at: datetime
+
+    def public(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "device_id": self.device_id,
+            "device_name": self.device_name,
+            "created_at": self.created_at,
+            "last_active_at": self.last_active_at,
+        }
+
+
+class DeviceRepository(Protocol):
+    async def save(self, binding: DeviceBinding) -> None: ...
+    async def by_device(self, device_id: str) -> DeviceBinding | None: ...
+    async def list_for_user(self, user_id: str) -> list[DeviceBinding]: ...
+    async def delete(self, user_id: str, binding_id: str) -> bool: ...
+    async def ensure_indexes(self) -> None: ...
+
+
 class IdentityDomainService:
     def __init__(self, repository: UserRepository):
         self.repository = repository
+
+    async def get_user(self, user_id: str) -> User | None:
+        return await self.repository.by_id(user_id)
 
     async def ensure_indexes(self) -> None:
         await self.repository.ensure_indexes()

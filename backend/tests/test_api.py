@@ -519,3 +519,72 @@ async def test_ai_stream_endpoint_sends_cors_headers_for_desktop_shell() -> None
         assert "text/event-stream" in response.headers["Content-Type"]
     finally:
         await client.close()
+
+
+async def test_device_binding_and_silent_login_flow() -> None:
+    app = create_app(
+        Settings(admin_password="password123"),
+        user_repository=MemoryUserRepository(),
+        task_repository=MemoryTaskRepository(),
+        member_repository=MemoryMemberRepository(),
+        project_repository=MemoryProjectRepository(),
+        ai_repository=MemoryAISettingsRepository(),
+        resource_storage=MemoryResourceStorage(),
+        **knowledge_overrides(),
+    )
+    client = TestClient(TestServer(app))
+    await client.start_server()
+    try:
+        login = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "username": "admin",
+                "password": "password123",
+                "device_id": "desk-001",
+                "device_name": "桌面端（macOS）",
+            },
+        )
+        body = await login.json()
+        assert login.status == 200
+        assert body["device_token"]
+        assert body["user"]["role"] == "admin"
+
+        exchange = await client.post(
+            "/api/v1/auth/device",
+            json={"device_id": "desk-001", "device_token": body["device_token"]},
+        )
+        assert exchange.status == 200
+        exchanged = await exchange.json()
+        assert exchanged["user"]["username"] == "admin"
+
+        silent_headers = {"Authorization": f"Bearer {exchanged['access_token']}"}
+        assert (await client.get("/api/v1/progress/tasks", headers=silent_headers)).status == 200
+
+        wrong = await client.post(
+            "/api/v1/auth/device",
+            json={"device_id": "desk-001", "device_token": "bad-token"},
+        )
+        assert wrong.status == 401
+
+        listed = await client.get("/api/v1/auth/devices", headers=silent_headers)
+        devices = await listed.json()
+        assert len(devices) == 1
+        assert devices[0]["device_name"] == "桌面端（macOS）"
+        assert "token_hash" not in devices[0]
+
+        unbind = await client.delete(
+            f"/api/v1/auth/devices/{devices[0]['id']}", headers=silent_headers
+        )
+        assert unbind.status == 200
+        revoked = await client.post(
+            "/api/v1/auth/device",
+            json={"device_id": "desk-001", "device_token": body["device_token"]},
+        )
+        assert revoked.status == 401
+
+        plain = await client.post(
+            "/api/v1/auth/login", json={"username": "admin", "password": "password123"}
+        )
+        assert "device_token" not in await plain.json()
+    finally:
+        await client.close()

@@ -2,7 +2,7 @@ from dataclasses import asdict
 
 from pymongo import AsyncMongoClient
 
-from identity.domain import User, UserRepository
+from identity.domain import DeviceBinding, DeviceRepository, User, UserRepository
 
 
 class MongoUserRepository(UserRepository):
@@ -26,3 +26,31 @@ class MongoUserRepository(UserRepository):
     async def ensure_indexes(self) -> None:
         await self.collection.create_index("username", unique=True)
         await self.collection.create_index("id", unique=True)
+
+
+class MongoDeviceRepository(DeviceRepository):
+    def __init__(self, client: AsyncMongoClient, database: str):
+        self.collection = client[database]["devices"]
+
+    async def save(self, binding: DeviceBinding) -> None:
+        await self.collection.replace_one(
+            {"user_id": binding.user_id, "device_id": binding.device_id},
+            asdict(binding),
+            upsert=True,
+        )
+
+    async def by_device(self, device_id: str) -> DeviceBinding | None:
+        data = await self.collection.find_one({"device_id": device_id}, {"_id": 0})
+        return DeviceBinding(**data) if data else None
+
+    async def list_for_user(self, user_id: str) -> list[DeviceBinding]:
+        cursor = self.collection.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1)
+        return [DeviceBinding(**row) async for row in cursor]
+
+    async def delete(self, user_id: str, binding_id: str) -> bool:
+        deleted = await self.collection.delete_one({"user_id": user_id, "id": binding_id})
+        return deleted.deleted_count > 0
+
+    async def ensure_indexes(self) -> None:
+        await self.collection.create_index("device_id", unique=True)
+        await self.collection.create_index([("user_id", 1), ("device_id", 1)], unique=True)

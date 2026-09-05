@@ -20,6 +20,60 @@ export function setApiBase(base: string) {
   api.defaults.baseURL = `${apiBase}/api/v1`
 }
 
+const DEVICE_ID_KEY = 'workbench_device_id'
+const DEVICE_TOKEN_KEY = 'workbench_device_token'
+
+/** 当前设备 ID：绑定设备时生成并持久化，服务端据此识别与吊销 */
+export function getDeviceId() {
+  if (typeof localStorage === 'undefined') return null
+  return localStorage.getItem(DEVICE_ID_KEY)
+}
+
+export function ensureDeviceId() {
+  if (typeof localStorage === 'undefined') return 'test-device'
+  let id = localStorage.getItem(DEVICE_ID_KEY)
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem(DEVICE_ID_KEY, id)
+  }
+  return id
+}
+
+export function getDeviceToken() {
+  if (typeof localStorage === 'undefined') return null
+  return localStorage.getItem(DEVICE_TOKEN_KEY)
+}
+
+export function setDeviceCredentials(token: string | null) {
+  if (typeof localStorage === 'undefined') return
+  if (token) localStorage.setItem(DEVICE_TOKEN_KEY, token)
+  else localStorage.removeItem(DEVICE_TOKEN_KEY)
+}
+
+/** 无有效 JWT 时，用设备绑定凭证静默换发新会话；成功返回 true */
+export async function ensureSession(): Promise<boolean> {
+  if (hasToken()) return true
+  const deviceToken = getDeviceToken()
+  const deviceId = getDeviceId()
+  if (!deviceToken || !deviceId) return false
+  try {
+    const response = await fetch(`${getApiBase()}/api/v1/auth/device`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, device_token: deviceToken }),
+    })
+    if (!response.ok) {
+      setDeviceCredentials(null)
+      return false
+    }
+    const data = await response.json() as { access_token: string }
+    setToken(data.access_token, true)
+    return true
+  } catch {
+    return false
+  }
+}
+
 const TOKEN_KEY = 'pulse_access_token'
 
 export const api = axios.create({
@@ -34,8 +88,19 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-api.interceptors.response.use(undefined, (error: AxiosError) => {
-  if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
+api.interceptors.response.use(undefined, async (error: AxiosError) => {
+  const config = error.config as (AxiosError['config'] & { _deviceRetried?: boolean }) | undefined
+  const isAuthPath = Boolean(config?.url?.includes('/auth/login') || config?.url?.includes('/auth/device'))
+  if (error.response?.status === 401 && config && !isAuthPath) {
+    // JWT 过期但存在设备绑定凭证：静默换发后重试一次原请求
+    if (!config._deviceRetried && getDeviceToken() && getDeviceId()) {
+      config._deviceRetried = true
+      if (await ensureSession()) {
+        config.headers = config.headers ?? {}
+        config.headers.Authorization = `Bearer ${getToken()}`
+        return api.request(config)
+      }
+    }
     clearToken()
     if (window.location.pathname !== '/login') window.location.assign('/login')
   }

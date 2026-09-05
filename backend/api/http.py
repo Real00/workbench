@@ -50,7 +50,7 @@ async def error_middleware(
 async def auth_middleware(
     request: web.Request, handler: Callable[[web.Request], Awaitable[web.StreamResponse]]
 ) -> web.StreamResponse:
-    if not request.path.startswith("/api/v1") or request.path == "/api/v1/auth/login":
+    if not request.path.startswith("/api/v1") or request.path in {"/api/v1/auth/login", "/api/v1/auth/device"}:
         return await handler(request)
     header = request.headers.get("Authorization", "")
     if not header.startswith("Bearer "):

@@ -1,7 +1,7 @@
 from typing import Any
 
 from ai_settings.domain import AISettings
-from identity.domain import User
+from identity.domain import DeviceBinding, User
 from knowledge.domain import KnowledgeDocument, KnowledgeEntry, KnowledgeTag
 from progress.domain import Project, Task, TeamMember
 
@@ -111,6 +111,30 @@ class MemoryProjectRepository:
 
     async def delete(self, project_id: str) -> bool:
         return self.items.pop(project_id, None) is not None
+
+    async def ensure_indexes(self) -> None:
+        return None
+
+
+class MemoryDeviceRepository:
+    def __init__(self):
+        self.items: dict[tuple[str, str], DeviceBinding] = {}
+
+    async def save(self, binding: DeviceBinding) -> None:
+        self.items[(binding.user_id, binding.device_id)] = binding
+
+    async def by_device(self, device_id: str) -> DeviceBinding | None:
+        return next((item for item in self.items.values() if item.device_id == device_id), None)
+
+    async def list_for_user(self, user_id: str) -> list[DeviceBinding]:
+        return [item for item in self.items.values() if item.user_id == user_id]
+
+    async def delete(self, user_id: str, binding_id: str) -> bool:
+        found = next(
+            (key for key, item in self.items.items() if key[0] == user_id and item.id == binding_id),
+            None,
+        )
+        return self.items.pop(found, None) is not None if found else False
 
     async def ensure_indexes(self) -> None:
         return None

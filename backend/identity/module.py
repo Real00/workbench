@@ -1,8 +1,8 @@
 from aiohttp import web
 
 from identity.application import IdentityApplicationService
-from identity.domain import IdentityDomainService, UserRepository
-from identity.repository import MongoUserRepository
+from identity.domain import DeviceRepository, IdentityDomainService, UserRepository
+from identity.repository import MongoDeviceRepository, MongoUserRepository
 from identity.routes import register_routes
 from shared.module import ModuleContext
 from shared.web_keys import IDENTITY
@@ -13,8 +13,11 @@ class IdentityModule:
         repository: UserRepository = context.overrides.get(
             "user_repository"
         ) or MongoUserRepository(context.mongo, context.settings.mongo_database)
+        devices: DeviceRepository = context.overrides.get(
+            "device_repository"
+        ) or MongoDeviceRepository(context.mongo, context.settings.mongo_database)
         service = IdentityApplicationService(
-            IdentityDomainService(repository), context.security
+            IdentityDomainService(repository), context.security, devices
         )
         app[IDENTITY] = service
 

@@ -2,25 +2,41 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Boxes, Globe, LockKeyhole, UserRound } from '@lucide/vue'
-import { api, apiError, getApiBase, isDesktopShell, setApiBase, setToken } from '../../shared/api/client'
+import { api, apiError, ensureDeviceId, getApiBase, isDesktopShell, setApiBase, setDeviceCredentials, setToken } from '../../shared/api/client'
 
 const router = useRouter()
 const route = useRoute()
 const username = ref('')
 const password = ref('')
-const remember = ref(false)
+const remember = ref(isDesktopShell)
 const loading = ref(false)
 const error = ref('')
 // 桌面壳没有同源后端：首次启动需要指定服务器地址；默认指向本机后端
 const server = ref(isDesktopShell ? getApiBase() || 'http://127.0.0.1:8080' : getApiBase())
+
+const platform = /Mac/i.test(navigator.userAgent)
+  ? 'macOS'
+  : /Win/i.test(navigator.userAgent)
+    ? 'Windows'
+    : /Linux/i.test(navigator.userAgent)
+      ? 'Linux'
+      : '未知系统'
+const deviceName = isDesktopShell ? `桌面端（${platform}）` : `网页端（${platform}）`
 
 async function login() {
   loading.value = true
   error.value = ''
   try {
     if (isDesktopShell) setApiBase(server.value)
-    const { data } = await api.post<{ access_token: string }>('/auth/login', { username: username.value, password: password.value })
+    const payload: Record<string, unknown> = { username: username.value, password: password.value }
+    if (remember.value) {
+      payload.device_id = ensureDeviceId()
+      payload.device_name = deviceName
+    }
+    const { data } = await api.post<{ access_token: string; device_token?: string }>('/auth/login', payload)
     setToken(data.access_token, remember.value)
+    // 勾选保持登录即绑定设备（颁发长效凭证）；取消勾选则清除旧绑定凭证
+    setDeviceCredentials(remember.value ? data.device_token ?? null : null)
     await router.replace(typeof route.query.redirect === 'string' ? route.query.redirect : '/')
   } catch (cause) {
     error.value = apiError(cause)

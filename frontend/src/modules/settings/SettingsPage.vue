@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CheckCircle2, Eye, EyeOff, LoaderCircle, PlugZap, RefreshCw, Save, Wrench } from '@lucide/vue'
-import { api, apiError } from '../../shared/api/client'
+import { CheckCircle2, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench } from '@lucide/vue'
+import { api, apiError, getDeviceId, setDeviceCredentials } from '../../shared/api/client'
 
 interface Settings { base_url: string; model: string; api_key_masked: string }
 interface Secret { api_key: string }
 interface AiToolParam { name: string; type: string; required: boolean; default: string | null; values: string[] }
 interface AiTool { name: string; description: string; parameters: AiToolParam[] }
 interface AiModuleTools { id: string; instructions: string; tools: AiTool[] }
+interface DeviceBindingInfo { id: string; device_id: string; device_name: string; created_at: string; last_active_at: string }
 
-const tab = ref<'connection' | 'tools'>('connection')
+const tab = ref<'connection' | 'tools' | 'devices'>('connection')
 const baseUrl = ref('')
 const model = ref('')
 const apiKey = ref('')
@@ -25,6 +26,10 @@ const testResult = ref('')
 const toolModules = ref<AiModuleTools[]>([])
 const toolsLoading = ref(false)
 const toolsError = ref('')
+const devices = ref<DeviceBindingInfo[]>([])
+const devicesLoading = ref(false)
+const devicesError = ref('')
+const unbindingId = ref('')
 
 const moduleLabels: Record<string, string> = { progress: '进度模块', knowledge: '知识库' }
 
@@ -39,6 +44,10 @@ const providerPresets = [
 
 function moduleLabel(id: string) {
   return moduleLabels[id] ?? id
+}
+
+function formatStamp(value: string | null) {
+  return value ? value.slice(0, 16) : '—'
 }
 
 onMounted(load)
@@ -92,6 +101,32 @@ async function loadTools() {
   } catch (cause) { toolsError.value = apiError(cause) }
   finally { toolsLoading.value = false }
 }
+async function showDevices() {
+  tab.value = 'devices'
+  if (!devices.value.length && !devicesLoading.value) await loadDevices()
+}
+async function loadDevices() {
+  devicesLoading.value = true
+  devicesError.value = ''
+  try {
+    const { data } = await api.get<DeviceBindingInfo[]>('/auth/devices')
+    devices.value = data
+  } catch (cause) { devicesError.value = apiError(cause) }
+  finally { devicesLoading.value = false }
+}
+async function unbindDevice(binding: DeviceBindingInfo) {
+  unbindingId.value = binding.id
+  devicesError.value = ''
+  try {
+    await api.delete(`/auth/devices/${binding.id}`)
+    if (binding.device_id === getDeviceId()) {
+      // 解绑当前设备：清除本地凭证，会话令牌到期后需要重新登录
+      setDeviceCredentials(null)
+    }
+    await loadDevices()
+  } catch (cause) { devicesError.value = apiError(cause) }
+  finally { unbindingId.value = '' }
+}
 </script>
 
 <template>
@@ -101,6 +136,7 @@ async function loadTools() {
       <nav class="card h-fit p-2" aria-label="设置分类">
         <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'connection' }]" @click="tab = 'connection'"><PlugZap :size="17" />模型连接</button>
         <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'tools' }]" @click="showTools"><Wrench :size="17" />AI 工具注册</button>
+        <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'devices' }]" @click="showDevices"><MonitorSmartphone :size="17" />绑定设备</button>
       </nav>
       <section v-if="tab === 'connection'" class="card">
         <div class="card-head"><div><p class="eyebrow">OpenAI compatible</p><h2>模型连接</h2><p class="mt-2 text-xs text-muted">浏览器仅调用工作台后端，不直接连接模型服务</p></div><span class="status-live"><span class="size-1.5 rounded-full bg-cyan" /> ENCRYPTED</span></div>
@@ -162,6 +198,27 @@ async function loadTools() {
                 </ul>
               </div>
             </div>
+          </article>
+        </div>
+      </section>
+      <section v-else-if="tab === 'devices'">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <p class="text-xs text-muted">勾选「保持登录」的设备可静默续登；在这里解绑后该设备需重新输入密码。</p>
+          <button type="button" class="btn-secondary shrink-0" :disabled="devicesLoading" @click="loadDevices"><LoaderCircle v-if="devicesLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新</button>
+        </div>
+        <p v-if="devicesError" class="error-box" role="alert">{{ devicesError }}</p>
+        <p v-else-if="devicesLoading && !devices.length" class="empty-inline">正在读取绑定设备…</p>
+        <p v-else-if="!devices.length" class="empty-inline">还没有绑定的设备；在登录页勾选「保持登录」即可绑定。</p>
+        <div v-else class="space-y-3">
+          <article v-for="device in devices" :key="device.id" class="card flex flex-wrap items-center justify-between gap-3 p-4">
+            <div class="min-w-0">
+              <b class="flex items-center gap-2 text-sm text-white">
+                {{ device.device_name }}
+                <span v-if="device.device_id === getDeviceId()" class="status-chip">当前设备</span>
+              </b>
+              <p class="mt-1 font-mono text-[10px] text-muted">绑定 {{ formatStamp(device.created_at) }} · 最近活跃 {{ formatStamp(device.last_active_at) }}</p>
+            </div>
+            <button type="button" class="btn-secondary shrink-0" :disabled="unbindingId === device.id" @click="unbindDevice(device)"><LoaderCircle v-if="unbindingId === device.id" :size="14" class="animate-spin" /><Trash2 v-else :size="14" />解绑</button>
           </article>
         </div>
       </section>
