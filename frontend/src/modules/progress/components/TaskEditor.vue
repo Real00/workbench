@@ -7,6 +7,7 @@ import AppSelect, { type AppSelectOption } from '../../../shared/AppSelect.vue'
 import MarkdownView from '../../../shared/MarkdownView.vue'
 import RichTextarea from '../../../shared/RichTextarea.vue'
 import TaskResources from './TaskResources.vue'
+import { confirmDialog } from '../../../shared/confirm'
 
 const store = useProgressStore()
 const blank = (): TaskInput => ({ title: '', description: '', status: 'todo', priority: 'medium', assignee_id: null, project_id: null, start_date: null, due_date: null, progress: 0, estimated_hours: null, tags: [] })
@@ -69,6 +70,12 @@ async function recordEntry() {
   })
   if (ok) entryContent.value = ''
 }
+async function removeTask() {
+  const task = store.editingTask
+  if (!task) return
+  const ok = await confirmDialog({ title: `删除任务「${task.title}」？`, message: '进度记录与相关资源会一并删除，操作无法恢复。', confirmText: '删除任务' })
+  if (ok) await store.deleteTask(task.id)
+}
 </script>
 
 <template>
@@ -91,7 +98,7 @@ async function recordEntry() {
             </div>
           </div>
           <label class="field-label">
-            <span class="flex items-center justify-between gap-3">负责人<button v-if="store.operatorMember && !assignedToMe" type="button" class="text-[10px] font-semibold text-cyan" @click="assignToMe">分配给我</button></span>
+            <span class="flex items-center justify-between gap-3">负责人<button v-if="store.operatorMember && !assignedToMe" type="button" class="text-[11px] font-semibold text-cyan" @click="assignToMe">分配给我</button></span>
             <AppSelect v-model="form.assignee_id" :options="assigneeOptions" placeholder="未分配" />
           </label>
           <label class="field-label">所属项目<AppSelect v-model="form.project_id" :options="projectOptions" placeholder="不关联项目" /></label>
@@ -107,7 +114,7 @@ async function recordEntry() {
           <label class="field-label">完成进度 <span class="float-right font-mono text-cyan">{{ form.progress }}%</span><input v-model.number="form.progress" type="range" min="0" max="100" class="mt-3 w-full accent-cyan" /></label>
           <section v-if="store.editingTask" class="rounded-xl border border-line bg-panel-2 p-4">
             <p class="eyebrow">进度记录</p>
-            <p class="mt-1 text-[11px] text-muted">记录阻塞、额外处理和推进过程，不要为此另开任务。</p>
+            <p class="mt-1 text-[12px] text-muted">记录阻塞、额外处理和推进过程，不要为此另开任务。</p>
             <div class="mt-3 grid gap-2">
               <label class="field-label">类型<AppSelect v-model="entryKind" :options="entryKindOptions" /></label>
               <label class="field-label">发生了什么<RichTextarea v-model="entryContent" :min-height="84" :maxlength="2000" placeholder="例如：验证码超时，先切备用通道才能继续" /></label>
@@ -125,7 +132,7 @@ async function recordEntry() {
           <TaskResources v-if="store.editingTask" />
           <p v-else class="empty-inline !py-2">保存任务后可以上传图片、文档或添加外链。</p>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingTask" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteTask(store.editingTask.id)"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.taskEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" type="submit" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存任务' }}</button></footer>
+          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingTask" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeTask"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.taskEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" type="submit" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存任务' }}</button></footer>
         </form>
       </aside>
     </div>

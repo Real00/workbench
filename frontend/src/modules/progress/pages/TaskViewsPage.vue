@@ -31,9 +31,15 @@ const views = [
           <component :is="item.icon" :size="15" />{{ item.label }}
         </button>
       </div>
-      <label class="search-box"><Search :size="15" /><span class="sr-only">搜索任务</span><input v-model="query" placeholder="搜索任务..." /></label>
+      <label class="search-box"><Search :size="15" /><span class="sr-only">搜索任务</span><input v-model="query" autocomplete="off" placeholder="搜索任务..." /></label>
     </div>
-    <div v-if="!store.loading && !store.tasks.length" class="empty-state"><CheckSquare2 :size="28" /><h2>尚无任务</h2><p>创建第一个任务后，可在列表、看板、日历和甘特图中查看。</p><button class="btn-primary" @click="store.openTask()">新建任务</button></div>
+    <div v-if="store.loading" class="card p-2">
+      <div v-for="i in 6" :key="i" class="flex items-center gap-4 px-3 py-3">
+        <div class="skeleton h-6 w-1.5 rounded" /><div class="flex-1"><div class="skeleton h-3.5 w-2/5" /><div class="skeleton mt-2 h-2.5 w-1/4" /></div>
+        <div class="skeleton h-5 w-14 rounded-full" /><div class="skeleton h-5 w-20 rounded-full" /><div class="skeleton h-2.5 w-28" /><div class="skeleton h-2.5 w-24" />
+      </div>
+    </div>
+    <div v-else-if="!store.tasks.length" class="empty-state"><CheckSquare2 :size="28" /><h2>尚无任务</h2><p>创建第一个任务后，可在列表、看板、日历和甘特图中查看。</p><button class="btn-primary" @click="store.openTask()">新建任务</button></div>
     <template v-else><TaskList v-if="view === 'list'" :query="query" /><TaskBoard v-else-if="view === 'board'" /><TaskCalendar v-else-if="view === 'calendar'" /><TaskGantt v-else /></template>
   </div>
 </template>

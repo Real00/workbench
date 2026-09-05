@@ -47,7 +47,7 @@ function onNodeClick(event: NodeMouseEvent) {
           <div class="mt-2 flex flex-wrap gap-1">
             <span v-for="tagId in data.document.tag_ids" :key="tagId" class="skill-chip">{{ tagName(tagId) }}</span>
           </div>
-          <ul class="mt-3 space-y-1 text-[11px] text-slate-300">
+          <ul class="mt-3 space-y-1 text-[12px] text-slate-300">
             <li v-for="entryId in data.document.entry_ids.slice(0, 6)" :key="entryId">{{ entrySummary(entryId) }}</li>
             <li v-if="!data.document.entry_ids.length" class="text-muted">尚未关联条目</li>
           </ul>

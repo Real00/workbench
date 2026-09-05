@@ -6,6 +6,7 @@ import { memberPixelUri } from '../pixel-avatar'
 import { projectStatusMap, type ProjectInput, type ProjectStatus } from '../types'
 import AppSelect, { type AppSelectOption } from '../../../shared/AppSelect.vue'
 import RichTextarea from '../../../shared/RichTextarea.vue'
+import { confirmDialog } from '../../../shared/confirm'
 
 const coverPresets = ['#36d9e9', '#5ce0ae', '#fcd34d', '#f87171', '#a78bfa', '#f472b6', '#38bdf8', '#94a3b8']
 
@@ -60,6 +61,12 @@ async function submit() {
   }
   await store.saveProject(payload)
 }
+async function removeProject() {
+  const project = store.editingProject
+  if (!project) return
+  const ok = await confirmDialog({ title: `删除项目「${project.name}」？`, message: '项目下的任务会自动解除关联，任务本身不受影响。', confirmText: '删除项目' })
+  if (ok) await store.deleteProject(project.id)
+}
 </script>
 
 <template>
@@ -100,10 +107,10 @@ async function submit() {
           </section>
           <section class="space-y-3 border-t border-line pt-5">
             <p class="eyebrow">关联人</p>
-            <p class="text-[11px] text-muted">从团队成员中选择与该项目相关的人，便于说明分工与查找。</p>
+            <p class="text-[12px] text-muted">从团队成员中选择与该项目相关的人，便于说明分工与查找。</p>
             <div class="flex flex-wrap gap-1.5">
               <button v-for="member in store.members" :key="member.id" type="button" :class="['kind-option', 'flex items-center gap-1.5', { 'kind-option--active': form.member_ids.includes(member.id) }]" :aria-pressed="form.member_ids.includes(member.id)" @click="toggleMember(member.id)">
-                <img :src="memberPixelUri(member.id, member.color)" alt="" width="14" height="14" class="rounded" />{{ member.name }}<span v-if="member.operator" class="text-[9px] text-muted">（我）</span>
+                <img :src="memberPixelUri(member.id, member.color)" alt="" width="14" height="14" class="rounded" />{{ member.name }}<span v-if="member.operator" class="text-[10px] text-muted">（我）</span>
               </button>
             </div>
             <p v-if="!store.members.length" class="empty-inline !py-2">还没有团队成员，先到成员管理中添加。</p>
@@ -114,12 +121,12 @@ async function submit() {
             <ul v-if="linkedTasks.length" class="space-y-1">
               <li v-for="task in linkedTasks.slice(0, 8)" :key="task.id" class="flex items-center justify-between gap-2 rounded-lg border border-line bg-panel-2 px-3 py-2 text-xs">
                 <span class="truncate text-white">{{ task.title }}</span>
-                <span class="shrink-0 font-mono text-[10px] text-muted">{{ task.progress }}%</span>
+                <span class="shrink-0 font-mono text-[11px] text-muted">{{ task.progress }}%</span>
               </li>
             </ul>
           </section>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingProject" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteProject(store.editingProject.id)"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.projectEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存项目' }}</button></footer>
+          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingProject" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeProject"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.projectEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存项目' }}</button></footer>
         </form>
       </aside>
     </div>

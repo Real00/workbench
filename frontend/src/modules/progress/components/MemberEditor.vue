@@ -4,6 +4,7 @@ import { Save, Trash2, X } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { memberPixelUri } from '../pixel-avatar'
 import RichTextarea from '../../../shared/RichTextarea.vue'
+import { confirmDialog } from '../../../shared/confirm'
 import {
   evaluationKindMap,
   type MemberEvaluationInput,
@@ -104,6 +105,12 @@ async function removeEvaluation(evaluationId: string) {
 function formatTime(value: string) {
   return value.replace('T', ' ').slice(0, 16)
 }
+async function removeMember() {
+  const member = store.editingMember
+  if (!member) return
+  const ok = await confirmDialog({ title: `删除成员「${member.name}」？`, message: '该成员的历史评价将一并删除，操作无法恢复。', confirmText: '删除成员' })
+  if (ok) await store.deleteMember(member.id)
+}
 </script>
 
 <template>
@@ -135,7 +142,7 @@ function formatTime(value: string) {
             </div>
             <label class="field-label">识别色<span class="mt-2 flex items-center gap-3"><input v-model="form.color" type="color" class="h-10 w-14 rounded border border-line bg-transparent p-1" /><input v-model="form.color" class="input !mt-0 font-mono" /></span></label>
             <label class="flex items-center gap-3 text-xs text-slate-300"><input v-model="form.active" type="checkbox" class="accent-cyan" :disabled="isOperator" />成员当前可参与任务分配</label>
-            <p v-if="isOperator" class="text-[11px] leading-5 text-muted">管理员对应的成员不能停用或删除，否则无法把任务分给自己。</p>
+            <p v-if="isOperator" class="text-[12px] leading-5 text-muted">管理员对应的成员不能停用或删除，否则无法把任务分给自己。</p>
           </section>
           <section class="space-y-4 border-t border-line pt-5">
             <p class="eyebrow">能力与背景</p>
@@ -162,7 +169,7 @@ function formatTime(value: string) {
           </section>
           <section v-if="store.editingMember" class="space-y-3 border-t border-line pt-5">
             <p class="eyebrow">评价记录</p>
-            <p class="text-[11px] text-muted">随手记录对这位成员的观察；也可以直接在 AI 对话里说一句，让 Pulse 帮你记。</p>
+            <p class="text-[12px] text-muted">随手记录对这位成员的观察；也可以直接在 AI 对话里说一句，让 Pulse 帮你记。</p>
             <div class="flex flex-wrap gap-1.5">
               <button v-for="(label, kind) in evaluationKindMap" :key="kind" type="button" :class="['kind-option', { 'kind-option--active': evaluationKind === kind }]" @click="evaluationKind = kind">{{ label }}</button>
             </div>
@@ -182,7 +189,7 @@ function formatTime(value: string) {
           </section>
           <p v-else class="empty-inline !py-2">保存成员后即可随时补充评价记录。</p>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingMember && !isOperator" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteMember(store.editingMember.id)"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.memberEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存成员' }}</button></footer>
+          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingMember && !isOperator" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeMember"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.memberEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存成员' }}</button></footer>
         </form>
       </aside>
     </div>

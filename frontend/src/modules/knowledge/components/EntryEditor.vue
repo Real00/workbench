@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { Save, Trash2, X } from '@lucide/vue'
 import RichTextarea from '../../../shared/RichTextarea.vue'
+import { confirmDialog } from '../../../shared/confirm'
 import { useKnowledgeStore } from '../store'
 import type { EntryInput } from '../types'
 
@@ -29,6 +30,12 @@ async function submit() {
     ...form,
     aliases: aliasesText.value.split(',').map(item => item.trim()).filter(Boolean),
   })
+}
+async function removeEntry() {
+  const entry = store.editingEntry
+  if (!entry) return
+  const ok = await confirmDialog({ title: `删除条目「${entry.key}」？`, message: '挂到文档上的引用会同步移除，操作无法恢复。', confirmText: '删除条目' })
+  if (ok) await store.deleteEntry(entry.id)
 }
 </script>
 
@@ -62,7 +69,7 @@ async function submit() {
           </fieldset>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
           <footer class="flex justify-end gap-2 border-t border-line pt-5">
-            <button v-if="store.editingEntry" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteEntry(store.editingEntry.id)"><Trash2 :size="14" />删除</button>
+            <button v-if="store.editingEntry" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeEntry"><Trash2 :size="14" />删除</button>
             <button type="button" class="btn-secondary" @click="store.entryEditorOpen = false"><X :size="14" />取消</button>
             <button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存条目' }}</button>
           </footer>

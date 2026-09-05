@@ -52,7 +52,7 @@ async function login() {
         <div class="mt-12 pulse-track"><i style="left: 18%" /><i style="left: 51%" /><i style="left: 82%" /></div>
         <p class="mt-6 max-w-md text-sm leading-7 text-muted">在一个安全入口访问个人工作模块，让信息有序、操作直接。</p>
       </div>
-      <p class="relative font-mono text-[10px] uppercase tracking-[.2em] text-muted">Authenticated personal workspace</p>
+      <p class="relative font-mono text-[11px] uppercase tracking-[.2em] text-muted">Authenticated personal workspace</p>
     </section>
     <section class="grid place-items-center px-6 py-12">
       <form class="w-full max-w-sm" @submit.prevent="login">
@@ -73,7 +73,7 @@ async function login() {
         </div>
         <p v-if="error" class="error-box mt-4">{{ error }}</p>
         <button class="btn-primary mt-7 w-full" type="submit" :disabled="loading">{{ loading ? '登录中…' : '进入工作台' }} <ArrowRight :size="16" /></button>
-        <p class="mt-6 text-center text-[11px] text-muted">访问令牌仅用于工作台 API 鉴权</p>
+        <p class="mt-6 text-center text-[12px] text-muted">访问令牌仅用于工作台 API 鉴权</p>
       </form>
     </section>
   </main>

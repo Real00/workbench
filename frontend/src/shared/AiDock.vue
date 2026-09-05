@@ -530,7 +530,7 @@ function discard(turn: ChatTurn) {
         <span class="grid size-8 place-items-center rounded-lg bg-cyan/10 text-cyan"><Bot :size="17" /></span>
         <div>
           <b class="text-sm text-white">Pulse AI</b>
-          <p class="text-[10px] text-muted">{{ sessionId ? '多轮对话中，可指代上文' : '工具会排队变更，确认后才写入' }}</p>
+          <p class="text-[11px] text-muted">{{ sessionId ? '多轮对话中，可指代上文' : '工具会排队变更，确认后才写入' }}</p>
         </div>
         <button class="icon-btn ml-auto" :disabled="loading" :aria-label="sessionId ? '清空对话，开始新会话' : '新对话'" :title="sessionId ? '清空历史，开始新会话' : '新对话'" @click="newConversation"><MessageSquarePlus :size="16" /></button>
         <button class="icon-btn" aria-label="收起助手" @click="open = false"><X :size="16" /></button>
@@ -563,13 +563,13 @@ function discard(turn: ChatTurn) {
                   <span class="ml-2">{{ operation.evaluation.content }}</span>
                 </p>
                 <p v-if="operation.op === 'create_project' || operation.op === 'update_project'" class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                  <span v-for="row in projectChangeRows(operation)" :key="row.label" class="flex items-center gap-1.5 text-[11px] text-muted">
+                  <span v-for="row in projectChangeRows(operation)" :key="row.label" class="flex items-center gap-1.5 text-[12px] text-muted">
                     {{ row.label }}
                     <span v-if="row.color" class="size-2.5 rounded-full" :style="{ backgroundColor: row.color }" />
                     <span class="text-white">{{ row.text }}</span>
                   </span>
                 </p>
-                <p v-for="[field, after] in operationChanges(operation)" :key="field" class="mt-2 text-[11px] text-muted">
+                <p v-for="[field, after] in operationChanges(operation)" :key="field" class="mt-2 text-[12px] text-muted">
                   {{ labels[field] ?? field }}
                   <span class="ml-1 text-white">{{ display(field, after) }}</span>
                 </p>
@@ -635,7 +635,7 @@ function discard(turn: ChatTurn) {
             <Send :size="15" />发送
           </button>
         </div>
-        <p class="mt-2 font-mono text-[9px] text-muted">⌘/Ctrl+K 开关面板 · @ 引用任务/成员/项目/知识/工具 · ⌘/Ctrl+Enter 应用变更 · Shift+Enter 换行 · ↑ 召回</p>
+        <p class="mt-2 font-mono text-[10px] text-muted">⌘/Ctrl+K 开关面板 · @ 引用任务/成员/项目/知识/工具 · ⌘/Ctrl+Enter 应用变更 · Shift+Enter 换行 · ↑ 召回</p>
       </form>
     </template>
   </section>

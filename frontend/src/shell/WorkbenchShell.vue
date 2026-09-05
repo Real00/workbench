@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { Boxes, ChevronLeft, House, LogOut, Menu } from '@lucide/vue'
 import { moduleNavigation } from '../app/modules'
 import AiDock from '../shared/AiDock.vue'
+import ConfirmDialog from '../shared/ConfirmDialog.vue'
 import CaptureComposer from '../modules/capture/CaptureComposer.vue'
 import { useCaptureStore } from '../modules/capture/store'
 import { clearToken } from '../shared/api/client'
@@ -38,7 +39,7 @@ function logout() {
         <span class="grid size-8 place-items-center rounded-lg bg-cyan text-ink"><Boxes :size="17" /></span>
         <div v-if="!collapsed" class="leading-tight">
           <strong class="font-display tracking-wide text-white">个人工作台</strong>
-          <p class="font-mono text-[9px] uppercase tracking-[.2em] text-muted">Personal workspace</p>
+          <p class="font-mono text-[10px] uppercase tracking-[.2em] text-muted">Personal workspace</p>
         </div>
       </div>
       <button class="nav-link m-2" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></button>
@@ -47,7 +48,7 @@ function logout() {
           <House :size="18" /><span v-if="!collapsed">工作台首页</span>
         </RouterLink>
         <section v-for="group in moduleNavigation" :key="group.id" class="mt-5">
-          <p v-if="!collapsed" class="px-3 pb-2 font-mono text-[9px] uppercase tracking-[.18em] text-muted">{{ group.label }}</p>
+          <p v-if="!collapsed" class="px-3 pb-2 font-mono text-[10px] uppercase tracking-[.18em] text-muted">{{ group.label }}</p>
           <RouterLink v-for="item in group.items" :key="item.to" :to="item.to" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">
             <component :is="item.icon" :size="18" /><span v-if="!collapsed">{{ item.label }}</span>
           </RouterLink>
@@ -70,5 +71,6 @@ function logout() {
         <CaptureComposer v-if="captures.quickOpen" autofocus />
       </dialog>
     </main>
+    <ConfirmDialog />
   </div>
 </template>

@@ -76,7 +76,7 @@ async function openResource(resource: TaskResource) {
 <template>
   <section class="rounded-xl border border-line bg-panel-2 p-4">
     <p class="eyebrow">相关资源</p>
-    <p class="mt-1 text-[11px] text-muted">图片、文档或外链。单文件不超过 20MB。</p>
+    <p class="mt-1 text-[12px] text-muted">图片、文档或外链。单文件不超过 20MB。</p>
     <div class="mt-3 flex flex-wrap gap-2">
       <input ref="fileInput" class="sr-only" type="file" :accept="resourceAccept" @change="onFile" />
       <button type="button" class="btn-secondary" :disabled="store.saving" @click="fileInput?.click()"><Upload :size="14" />上传文件</button>
@@ -89,7 +89,7 @@ async function openResource(resource: TaskResource) {
     <ul v-if="resources.length" class="mt-4 grid gap-2">
       <li v-for="resource in resources" :key="resource.id" class="resource-item">
         <button type="button" class="resource-main" @click="openResource(resource)">
-          <img v-if="previews[resource.id]" :src="previews[resource.id]" :alt="resource.name" class="resource-thumb" />
+          <img v-if="previews[resource.id]" :src="previews[resource.id]" :alt="resource.name" width="42" height="42" class="resource-thumb" />
           <span v-else class="resource-icon">
             <FileText v-if="resource.kind === 'document'" :size="16" />
             <Link2 v-else-if="resource.kind === 'link'" :size="16" />

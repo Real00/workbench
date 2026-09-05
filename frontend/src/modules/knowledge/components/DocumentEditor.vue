@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { Save, Trash2, X } from '@lucide/vue'
 import { apiError } from '../../../shared/api/client'
+import { confirmDialog } from '../../../shared/confirm'
 import MarkdownView from '../../../shared/MarkdownView.vue'
 import RichTextarea from '../../../shared/RichTextarea.vue'
 import { knowledgeApi } from '../api'
@@ -59,6 +60,12 @@ function applyExtract() {
 async function submit() {
   await store.saveDocument({ ...form }, pendingFile.value)
 }
+async function removeDocument() {
+  const document = store.editingDocument
+  if (!document) return
+  const ok = await confirmDialog({ title: `删除文档「${document.title}」？`, message: '正文与已导入的原件将删除，已关联的条目会保留。', confirmText: '删除文档' })
+  if (ok) await store.deleteDocument(document.id)
+}
 </script>
 
 <template>
@@ -88,11 +95,11 @@ async function submit() {
             <input type="file" class="mt-2 text-xs text-muted" accept=".md,.txt,.docx" @change="onFile" />
           </label>
           <div v-if="extracted && store.editingDocument?.body && form.body !== extracted" class="rounded-xl border border-line bg-panel-2 p-4">
-            <p class="text-[11px] text-muted">抽出的正文尚未覆盖当前内容。确认后才会写入编辑区；保存时原件进 raw/，不会再抽一次。</p>
-            <pre class="mt-3 max-h-32 overflow-auto text-[11px] text-slate-300">{{ extracted }}</pre>
+            <p class="text-[12px] text-muted">抽出的正文尚未覆盖当前内容。确认后才会写入编辑区；保存时原件进 raw/，不会再抽一次。</p>
+            <pre class="mt-3 max-h-32 overflow-auto text-[12px] text-slate-300">{{ extracted }}</pre>
             <button type="button" class="btn-secondary mt-3" @click="applyExtract">用抽出的正文覆盖</button>
           </div>
-          <p v-else-if="confirmOverwrite && pendingFile" class="text-[11px] text-muted">已使用 {{ pendingFile.name }} 的抽出正文，保存时只归档原件。</p>
+          <p v-else-if="confirmOverwrite && pendingFile" class="text-[12px] text-muted">已使用 {{ pendingFile.name }} 的抽出正文，保存时只归档原件。</p>
           <fieldset class="field-label">标签
             <div class="mt-2 flex flex-wrap gap-2">
               <label v-for="tag in store.tags" :key="tag.id" class="flex items-center gap-2 text-xs text-slate-300">
@@ -112,7 +119,7 @@ async function submit() {
           </fieldset>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
           <footer class="flex justify-end gap-2 border-t border-line pt-5">
-            <button v-if="store.editingDocument" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteDocument(store.editingDocument.id)"><Trash2 :size="14" />删除</button>
+            <button v-if="store.editingDocument" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeDocument"><Trash2 :size="14" />删除</button>
             <button type="button" class="btn-secondary" @click="store.documentEditorOpen = false"><X :size="14" />取消</button>
             <button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存文档' }}</button>
           </footer>

@@ -46,7 +46,7 @@ function tagNames(ids: string[]) {
         <button :class="['view-tab', view === 'list' && 'view-tab--active']" @click="view = 'list'"><List :size="15" />列表</button>
         <button :class="['view-tab', view === 'canvas' && 'view-tab--active']" @click="view = 'canvas'"><FileText :size="15" />画布</button>
       </div>
-      <label class="search-box"><Search :size="15" /><span class="sr-only">搜索</span><input v-model="query" placeholder="搜索标题、正文或条目键..." /></label>
+      <label class="search-box"><Search :size="15" /><span class="sr-only">搜索</span><input v-model="query" autocomplete="off" placeholder="搜索标题、正文或条目键..." /></label>
     </div>
     <KnowledgeCanvas v-if="view === 'canvas'" />
     <template v-else>
@@ -55,7 +55,12 @@ function tagNames(ids: string[]) {
         <button :class="['view-tab', kind === 'entries' && 'view-tab--active']" @click="kind = 'entries'">条目</button>
         <button :class="['view-tab', kind === 'tags' && 'view-tab--active']" @click="kind = 'tags'">标签</button>
       </div>
-      <div v-if="kind === 'documents' && !filteredDocuments.length" class="empty-state">
+      <div v-if="kind === 'documents' && store.loading" class="card p-2">
+        <div v-for="i in 5" :key="i" class="flex items-center gap-4 px-3 py-3">
+          <div class="skeleton h-3.5 w-1/3" /><div class="skeleton h-3 w-1/4" /><div class="skeleton h-3 w-10" />
+        </div>
+      </div>
+      <div v-else-if="kind === 'documents' && !filteredDocuments.length" class="empty-state">
         <BookOpen :size="28" /><h2>尚无文档</h2><p>文档是画布上的节点，可挂标签和知识条目。</p>
         <button class="btn-primary" @click="store.openDocument()">新建文档</button>
       </div>

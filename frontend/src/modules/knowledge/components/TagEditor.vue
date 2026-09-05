@@ -2,6 +2,7 @@
 import { computed, reactive, watch } from 'vue'
 import { Save, Trash2, X } from '@lucide/vue'
 import { useKnowledgeStore } from '../store'
+import { confirmDialog } from '../../../shared/confirm'
 import type { TagInput } from '../types'
 
 const store = useKnowledgeStore()
@@ -18,6 +19,12 @@ watch(() => store.tagEditorOpen, (open) => {
 async function submit() {
   await store.saveTag({ ...form })
 }
+async function removeTag() {
+  const tag = store.editingTag
+  if (!tag) return
+  const ok = await confirmDialog({ title: `删除标签「${tag.name}」？`, message: '使用该标签的条目会自动解除关联。', confirmText: '删除标签' })
+  if (ok) await store.deleteTag(tag.id)
+}
 </script>
 
 <template>
@@ -33,7 +40,7 @@ async function submit() {
           <label class="field-label">解释<textarea v-model="form.explanation" class="input min-h-28 py-3" required maxlength="2000" /></label>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
           <footer class="flex justify-end gap-2 border-t border-line pt-5">
-            <button v-if="store.editingTag" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteTag(store.editingTag.id)"><Trash2 :size="14" />删除</button>
+            <button v-if="store.editingTag" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeTag"><Trash2 :size="14" />删除</button>
             <button type="button" class="btn-secondary" @click="store.tagEditorOpen = false"><X :size="14" />取消</button>
             <button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存标签' }}</button>
           </footer>
