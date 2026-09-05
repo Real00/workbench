@@ -1,12 +1,29 @@
 import axios, { AxiosError } from 'axios'
 
-/** 网页端同源部署留空；桌面端 / 跨源部署通过 VITE_API_BASE_URL 指向云端 API（如 https://api.example.com） */
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+const API_BASE_KEY = 'workbench_api_base'
+/** 打包期默认值：桌面端可留空，登录页会写入运行时地址；网页端同源部署为空即同源 */
+const ENV_API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+export const isDesktopShell = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
+let apiBase =
+  (typeof localStorage !== 'undefined' ? localStorage.getItem(API_BASE_KEY) : null) ?? ENV_API_BASE
+
+/** 当前 API 地址（运行时可变，登录页可设置） */
+export function getApiBase() {
+  return apiBase
+}
+
+export function setApiBase(base: string) {
+  apiBase = base.trim().replace(/\/+$/, '')
+  if (apiBase) localStorage.setItem(API_BASE_KEY, apiBase)
+  else localStorage.removeItem(API_BASE_KEY)
+  api.defaults.baseURL = `${apiBase}/api/v1`
+}
 
 const TOKEN_KEY = 'pulse_access_token'
 
 export const api = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
+  baseURL: `${apiBase}/api/v1`,
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
 })
@@ -50,7 +67,7 @@ export async function streamSse(
   signal?: AbortSignal,
 ) {
   const token = getToken()
-  const response = await fetch(`${API_BASE_URL}/api/v1${path}`, {
+  const response = await fetch(`${getApiBase()}/api/v1${path}`, {
     method: 'POST',
     signal,
     headers: {

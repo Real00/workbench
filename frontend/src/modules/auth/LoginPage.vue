@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Boxes, LockKeyhole, UserRound } from '@lucide/vue'
-import { api, apiError, setToken } from '../../shared/api/client'
+import { ArrowRight, Boxes, Globe, LockKeyhole, UserRound } from '@lucide/vue'
+import { api, apiError, getApiBase, isDesktopShell, setApiBase, setToken } from '../../shared/api/client'
 
 const router = useRouter()
 const route = useRoute()
@@ -11,11 +11,14 @@ const password = ref('')
 const remember = ref(false)
 const loading = ref(false)
 const error = ref('')
+// 桌面壳没有同源后端：首次启动需要指定服务器地址；默认指向本机后端
+const server = ref(isDesktopShell ? getApiBase() || 'http://127.0.0.1:8080' : getApiBase())
 
 async function login() {
   loading.value = true
   error.value = ''
   try {
+    if (isDesktopShell) setApiBase(server.value)
     const { data } = await api.post<{ access_token: string }>('/auth/login', { username: username.value, password: password.value })
     setToken(data.access_token, remember.value)
     await router.replace(typeof route.query.redirect === 'string' ? route.query.redirect : '/')
@@ -50,6 +53,9 @@ async function login() {
         <p class="mt-2 text-sm text-muted">使用组织账号继续</p>
         <label class="field-label mt-8">用户名
           <span class="input-wrap"><UserRound :size="16" /><input v-model="username" autocomplete="username" required /></span>
+        </label>
+        <label v-if="isDesktopShell" class="field-label mt-8">服务器地址
+          <span class="input-wrap"><Globe :size="16" /><input v-model="server" autocomplete="url" spellcheck="false" placeholder="https://你的云端域名或 http://127.0.0.1:8080" /></span>
         </label>
         <label class="field-label mt-4">密码
           <span class="input-wrap"><LockKeyhole :size="16" /><input v-model="password" type="password" autocomplete="current-password" required /></span>

@@ -13,3 +13,5 @@ backend/static/
 .coverage
 htmlcov/
 .pnpm-store/
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
