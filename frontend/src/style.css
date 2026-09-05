@@ -263,3 +263,29 @@ select.input { color-scheme: dark; }
   .ai-trigger { flex-direction: row; gap: 8px; padding: 8px 12px; }
   .ai-trigger b { writing-mode: horizontal-tb; font-size: 9px; letter-spacing: .1em; }
 }
+
+/* ===== UI 打磨：滚动条 / 焦点 / 按压态 / 自定义下拉 ===== */
+html { color-scheme: dark; }
+* { scrollbar-width: thin; scrollbar-color: #2b4155 transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 99px; background: #2b4155; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: #3d5a73; }
+:is(button, a, input, textarea, summary, [role="option"], [role="tab"]):focus-visible { outline: 2px solid rgb(54 217 233 / .55); outline-offset: 2px; }
+.btn-primary:active, .btn-secondary:active, .btn-danger:active, .icon-btn:active { transform: translateY(1px); }
+.btn-primary, .btn-secondary, .btn-danger, .icon-btn, .kind-option, .skill-chip-remove, .view-tab, .nav-link { transition: background-color .15s, border-color .15s, color .15s, opacity .15s; }
+
+.select-wrap { position: relative; margin-top: 7px; }
+.select-trigger { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 8px; border: 1px solid #263a4c; border-radius: 8px; background: #09141f; padding: 0 11px; font-size: 12px; color: white; text-align: left; }
+.select-trigger:focus, .select-trigger:focus-visible { border-color: #36d9e9; outline: none; }
+.select-trigger:hover { border-color: #365368; }
+.select-trigger span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-trigger .placeholder { color: #60788d; }
+.select-trigger > svg { flex-shrink: 0; color: #7890a5; transition: transform .15s; }
+.select-trigger--open > svg { transform: rotate(180deg); }
+.select-menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 40; max-height: 236px; overflow-y: auto; border: 1px solid #2b4155; border-radius: 10px; background: #0d1824; padding: 4px; box-shadow: 0 14px 36px rgb(0 0 0 / .5); }
+.select-option { display: flex; width: 100%; align-items: center; gap: 8px; border-radius: 7px; padding: 8px 9px; text-align: left; font-size: 12px; color: #d7e2eb; }
+.select-option b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.select-option small { max-width: 55%; overflow: hidden; flex-shrink: 0; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: #7890a5; }
+.select-option--active { background: #1a2b3b; }
+.select-option--selected { color: #36d9e9; }

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
-import { Trash2, X } from '@lucide/vue'
+import { Save, Trash2, X } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { memberPixelUri } from '../pixel-avatar'
 import { projectStatusMap, type ProjectInput, type ProjectStatus } from '../types'
+import AppSelect, { type AppSelectOption } from '../../../shared/AppSelect.vue'
 
 const coverPresets = ['#36d9e9', '#5ce0ae', '#fcd34d', '#f87171', '#a78bfa', '#f472b6', '#38bdf8', '#94a3b8']
 
@@ -21,6 +22,9 @@ const form = reactive({
 
 const linkedTasks = computed(() =>
   store.editingProject ? store.tasks.filter(task => task.project_id === store.editingProject?.id) : [],
+)
+const statusOptions: AppSelectOption<ProjectStatus>[] = Object.entries(projectStatusMap).map(
+  ([value, label]) => ({ value: value as ProjectStatus, label }),
 )
 
 function toggleMember(memberId: string) {
@@ -73,7 +77,7 @@ async function submit() {
             <p class="eyebrow">基本信息</p>
             <div class="grid grid-cols-2 gap-3">
               <label class="field-label">项目名称<input v-model="form.name" class="input" required maxlength="200" placeholder="例如：MYAI 工单平台" /></label>
-              <label class="field-label">项目状态<select v-model="form.status" class="input"><option v-for="(label, status) in projectStatusMap" :key="status" :value="status">{{ label }}</option></select></label>
+              <label class="field-label">项目状态<AppSelect v-model="form.status" :options="statusOptions" /></label>
             </div>
             <label class="field-label">立项时间<input v-model="form.started_at" type="date" class="input" /></label>
             <div class="field-label">封面色
@@ -114,7 +118,7 @@ async function submit() {
             </ul>
           </section>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingProject" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteProject(store.editingProject.id)"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.projectEditorOpen = false">取消</button><button class="btn-primary" :disabled="store.saving">{{ store.saving ? '保存中…' : '保存项目' }}</button></footer>
+          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingProject" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteProject(store.editingProject.id)"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.projectEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存项目' }}</button></footer>
         </form>
       </aside>
     </div>

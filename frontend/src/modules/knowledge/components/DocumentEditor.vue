@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { Trash2, X } from '@lucide/vue'
+import { Save, Trash2, X } from '@lucide/vue'
 import { apiError } from '../../../shared/api/client'
 import { knowledgeApi } from '../api'
 import { useKnowledgeStore } from '../store'
@@ -99,8 +99,8 @@ async function submit() {
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
           <footer class="flex justify-end gap-2 border-t border-line pt-5">
             <button v-if="store.editingDocument" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteDocument(store.editingDocument.id)"><Trash2 :size="14" />删除</button>
-            <button type="button" class="btn-secondary" @click="store.documentEditorOpen = false">取消</button>
-            <button class="btn-primary" :disabled="store.saving">{{ store.saving ? '保存中…' : '保存文档' }}</button>
+            <button type="button" class="btn-secondary" @click="store.documentEditorOpen = false"><X :size="14" />取消</button>
+            <button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存文档' }}</button>
           </footer>
         </form>
       </aside>

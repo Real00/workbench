@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Bot, Check, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Wrench, X } from '@lucide/vue'
+import { Bot, Check, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Undo2, Wrench, X } from '@lucide/vue'
 import { api, apiError } from './api/client'
 import { pulseApi } from './pulse-api'
 import { useKnowledgeStore } from '../modules/knowledge/store'
@@ -576,7 +576,7 @@ function discard(turn: ChatTurn) {
               </article>
             </div>
             <div v-if="turn.token && turn.operations.length && !turn.applied" class="mt-3 flex justify-end gap-2">
-              <button class="btn-secondary" @click="discard(turn)">放弃</button>
+              <button class="btn-secondary" @click="discard(turn)"><Undo2 :size="13" />放弃</button>
               <button class="btn-primary" :disabled="confirming" @click="confirm(turn)">
                 <Check :size="14" />{{ confirming ? '应用中…' : '确认应用 ⌘↩' }}
               </button>

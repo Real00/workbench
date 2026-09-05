@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { Trash2, X } from '@lucide/vue'
+import { Save, Trash2, X } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { entryKindMap, priorityMap, statusMap, type Priority, type ProgressEntryKind, type TaskInput, type TaskStatus } from '../types'
+import AppSelect, { type AppSelectOption } from '../../../shared/AppSelect.vue'
 import TaskResources from './TaskResources.vue'
 
 const store = useProgressStore()
@@ -14,6 +15,19 @@ const entryContent = ref('')
 const title = computed(() => store.editingTask ? '编辑任务' : '创建任务')
 const entries = computed(() => [...(store.editingTask?.entries ?? [])].reverse())
 const assignedToMe = computed(() => form.assignee_id === store.operatorMember?.id)
+const assigneeOptions = computed<AppSelectOption[]>(() =>
+  store.assignableMembers.map(member => ({
+    value: member.id,
+    label: member.operator ? `${member.name}（我）` : member.name,
+    hint: member.skills.length ? member.skills.slice(0, 2).join(' / ') : undefined,
+  })),
+)
+const projectOptions = computed<AppSelectOption[]>(() =>
+  store.projects.map(project => ({ value: project.id, label: project.name })),
+)
+const statusOptions: AppSelectOption<TaskStatus>[] = Object.entries(statusMap).map(([value, label]) => ({ value: value as TaskStatus, label }))
+const priorityOptions: AppSelectOption<Priority>[] = Object.entries(priorityMap).map(([value, label]) => ({ value: value as Priority, label }))
+const entryKindOptions: AppSelectOption<ProgressEntryKind>[] = Object.entries(entryKindMap).map(([value, label]) => ({ value: value as ProgressEntryKind, label }))
 
 function assignToMe() {
   if (store.operatorMember) form.assignee_id = store.operatorMember.id
@@ -63,12 +77,12 @@ async function recordEntry() {
           <label class="field-label">描述<textarea v-model="form.description" class="input min-h-24 py-3" /></label>
           <label class="field-label">
             <span class="flex items-center justify-between gap-3">负责人<button v-if="store.operatorMember && !assignedToMe" type="button" class="text-[10px] font-semibold text-cyan" @click="assignToMe">分配给我</button></span>
-            <select v-model="form.assignee_id" class="input"><option :value="null">未分配</option><option v-for="member in store.assignableMembers" :key="member.id" :value="member.id">{{ member.operator ? `${member.name}（我）` : member.name }}{{ member.skills.length ? ` · ${member.skills.slice(0, 2).join(' / ')}` : '' }}</option></select>
+            <AppSelect v-model="form.assignee_id" :options="assigneeOptions" placeholder="未分配" />
           </label>
-          <label class="field-label">所属项目<select v-model="form.project_id" class="input"><option :value="null">不关联项目</option><option v-for="project in store.projects" :key="project.id" :value="project.id">{{ project.name }}</option></select></label>
+          <label class="field-label">所属项目<AppSelect v-model="form.project_id" :options="projectOptions" placeholder="不关联项目" /></label>
           <div class="grid grid-cols-2 gap-3">
-            <label class="field-label">状态<select v-model="form.status" class="input"><option v-for="item in (Object.keys(statusMap) as TaskStatus[])" :key="item" :value="item">{{ statusMap[item] }}</option></select></label>
-            <label class="field-label">优先级<select v-model="form.priority" class="input"><option v-for="item in (Object.keys(priorityMap) as Priority[])" :key="item" :value="item">{{ priorityMap[item] }}</option></select></label>
+            <label class="field-label">状态<AppSelect v-model="form.status" :options="statusOptions" /></label>
+            <label class="field-label">优先级<AppSelect v-model="form.priority" :options="priorityOptions" /></label>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <label class="field-label">开始日期<input v-model="form.start_date" type="date" class="input" /></label>
@@ -80,7 +94,7 @@ async function recordEntry() {
             <p class="eyebrow">进度记录</p>
             <p class="mt-1 text-[11px] text-muted">记录阻塞、额外处理和推进过程，不要为此另开任务。</p>
             <div class="mt-3 grid gap-2">
-              <label class="field-label">类型<select v-model="entryKind" class="input"><option v-for="(label, kind) in entryKindMap" :key="kind" :value="kind">{{ label }}</option></select></label>
+              <label class="field-label">类型<AppSelect v-model="entryKind" :options="entryKindOptions" /></label>
               <label class="field-label">发生了什么<textarea v-model="entryContent" class="input min-h-20 py-3" maxlength="2000" placeholder="例如：验证码超时，先切备用通道才能继续" /></label>
             </div>
             <button type="button" class="btn-secondary mt-3" :disabled="store.saving || !entryContent.trim()" @click="recordEntry">记录进度</button>
@@ -96,7 +110,7 @@ async function recordEntry() {
           <TaskResources v-if="store.editingTask" />
           <p v-else class="empty-inline !py-2">保存任务后可以上传图片、文档或添加外链。</p>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingTask" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteTask(store.editingTask.id)"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.taskEditorOpen = false">取消</button><button class="btn-primary" type="submit" :disabled="store.saving">{{ store.saving ? '保存中…' : '保存任务' }}</button></footer>
+          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingTask" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="store.deleteTask(store.editingTask.id)"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.taskEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" type="submit" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存任务' }}</button></footer>
         </form>
       </aside>
     </div>
