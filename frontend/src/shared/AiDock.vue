@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Bot, Check, ChevronDown, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Wrench, X } from '@lucide/vue'
+import { Bot, Check, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Wrench, X } from '@lucide/vue'
 import { api, apiError } from './api/client'
 import { pulseApi } from './pulse-api'
 import { useKnowledgeStore } from '../modules/knowledge/store'
@@ -510,11 +510,9 @@ function discard(turn: ChatTurn) {
 
 <template>
   <section :class="['ai-dock', open && 'ai-dock--open']" aria-label="Pulse AI 助手" @keydown.capture="onDockKeydown">
-    <button v-if="!open" class="ai-trigger" @click="open = true">
+    <button v-if="!open" class="ai-trigger" aria-label="打开 Pulse AI 对话（快捷键 Ctrl/Cmd+K）" title="随手记一句就行 · Ctrl/Cmd+K 快速呼出" @click="open = true">
       <span class="relative"><Sparkles :size="17" /><i /></span>
       <b>Pulse AI</b>
-      <small>随手记一句就行 · ⌘K 快速呼出</small>
-      <ChevronDown class="ml-auto rotate-180" :size="16" />
     </button>
     <template v-else>
       <header class="flex items-center gap-3 border-b border-line px-4 py-3">
