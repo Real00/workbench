@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import CancellationToken
 
 from api.http import body, dumps, response
-from shared.web_keys import ACTOR, AI_TASKS
+from shared.web_keys import ACTOR, AI_TASKS, CORS_ORIGIN
 
 
 class MentionInput(BaseModel):
@@ -38,6 +38,10 @@ async def run_ai_task(request: web.Request) -> web.StreamResponse:
             "X-Accel-Buffering": "no",
         },
     )
+    # SSE 响应在此处 prepare 后即开始写出，CORS 头必须由路由在 prepare 前补齐
+    if origin := request.get(CORS_ORIGIN):
+        stream.headers["Access-Control-Allow-Origin"] = origin
+        stream.headers["Vary"] = "Origin"
     await stream.prepare(request)
     try:
         await stream.write(b": connected\n\n")

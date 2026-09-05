@@ -2,6 +2,8 @@ from collections.abc import Awaitable, Callable
 
 from aiohttp import web
 
+from shared.web_keys import CORS_ORIGIN
+
 ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 ALLOWED_HEADERS = "Authorization, Content-Type"
 MAX_AGE = "86400"
@@ -40,10 +42,13 @@ def cors_middleware(allowed_origins: frozenset[str]) -> Callable[
                     "Vary": "Origin",
                 },
             )
+        # 流式响应在路由内部 prepare 并写出，中间件事后补头无效——
+        # 把放行来源挂到请求上，由路由在 prepare 前自行应用（见 pulse/routes）。
+        request[CORS_ORIGIN] = origin if allowed else None
         response = await handler(request)
         if allowed and origin:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Vary"] = "Origin"
+            response.headers.setdefault("Access-Control-Allow-Origin", origin)
+            response.headers.setdefault("Vary", "Origin")
         return response
 
     return middleware

@@ -487,3 +487,35 @@ async def test_cors_preflight_and_origin_allowlist() -> None:
         assert "Access-Control-Allow-Origin" not in denied.headers
     finally:
         await client.close()
+
+
+async def test_ai_stream_endpoint_sends_cors_headers_for_desktop_shell() -> None:
+    app = create_app(
+        Settings(admin_password="password123"),
+        user_repository=MemoryUserRepository(),
+        task_repository=MemoryTaskRepository(),
+        member_repository=MemoryMemberRepository(),
+        project_repository=MemoryProjectRepository(),
+        ai_repository=MemoryAISettingsRepository(),
+        resource_storage=MemoryResourceStorage(),
+        **knowledge_overrides(),
+    )
+    client = TestClient(TestServer(app))
+    await client.start_server()
+    try:
+        login = await client.post(
+            "/api/v1/auth/login", json={"username": "admin", "password": "password123"}
+        )
+        headers = {
+            "Authorization": f"Bearer {(await login.json())['access_token']}",
+            "Origin": "tauri://localhost",
+        }
+        # 流式响应在路由内部 prepare，CORS 头必须在写出前就位
+        response = await client.post(
+            "/api/v1/ai/run", json={"instruction": "hi"}, headers=headers
+        )
+        assert response.status == 200
+        assert response.headers["Access-Control-Allow-Origin"] == "tauri://localhost"
+        assert "text/event-stream" in response.headers["Content-Type"]
+    finally:
+        await client.close()
