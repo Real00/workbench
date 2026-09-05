@@ -10,6 +10,7 @@ from tests.fakes import (
     MemoryProjectRepository,
     MemoryResourceStorage,
     MemoryTaskRepository,
+    MemoryDeviceRepository,
     MemoryUserRepository,
     knowledge_overrides,
 )
@@ -586,5 +587,44 @@ async def test_device_binding_and_silent_login_flow() -> None:
             "/api/v1/auth/login", json={"username": "admin", "password": "password123"}
         )
         assert "device_token" not in await plain.json()
+    finally:
+        await client.close()
+
+
+async def test_logged_in_session_can_bind_device_after_upgrade() -> None:
+    app = create_app(
+        Settings(admin_password="password123"),
+        user_repository=MemoryUserRepository(),
+        task_repository=MemoryTaskRepository(),
+        member_repository=MemoryMemberRepository(),
+        project_repository=MemoryProjectRepository(),
+        device_repository=MemoryDeviceRepository(),
+        ai_repository=MemoryAISettingsRepository(),
+        resource_storage=MemoryResourceStorage(),
+        **knowledge_overrides(),
+    )
+    client = TestClient(TestServer(app))
+    await client.start_server()
+    try:
+        login = await client.post(
+            "/api/v1/auth/login", json={"username": "admin", "password": "password123"}
+        )
+        headers = {"Authorization": f"Bearer {(await login.json())['access_token']}"}
+        # 旧版本会话升级：无设备凭证时用 JWT 补绑定
+        bound = await client.post(
+            "/api/v1/auth/devices/bind",
+            json={"device_id": "desk-upgrade", "device_name": "桌面端（macOS）"},
+            headers=headers,
+        )
+        assert bound.status == 200
+        device_token = (await bound.json())["device_token"]
+        exchange = await client.post(
+            "/api/v1/auth/device",
+            json={"device_id": "desk-upgrade", "device_token": device_token},
+        )
+        assert exchange.status == 200
+        assert (await exchange.json())["user"]["username"] == "admin"
+        # 换账号在同一设备登录会重新绑定（device_id 唯一）
+        assert (await client.get("/api/v1/auth/devices", headers=headers)).status == 200
     finally:
         await client.close()

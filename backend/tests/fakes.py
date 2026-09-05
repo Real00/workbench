@@ -118,13 +118,13 @@ class MemoryProjectRepository:
 
 class MemoryDeviceRepository:
     def __init__(self):
-        self.items: dict[tuple[str, str], DeviceBinding] = {}
+        self.items: dict[str, DeviceBinding] = {}
 
     async def save(self, binding: DeviceBinding) -> None:
-        self.items[(binding.user_id, binding.device_id)] = binding
+        self.items[binding.device_id] = binding
 
     async def by_device(self, device_id: str) -> DeviceBinding | None:
-        return next((item for item in self.items.values() if item.device_id == device_id), None)
+        return self.items.get(device_id)
 
     async def list_for_user(self, user_id: str) -> list[DeviceBinding]:
         return [item for item in self.items.values() if item.user_id == user_id]

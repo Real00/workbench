@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { ensureSession, hasToken } from '../shared/api/client'
+import { bindCurrentDevice, ensureSession, hasToken } from '../shared/api/client'
 import WorkbenchShell from '../shell/WorkbenchShell.vue'
 import WorkbenchHome from '../modules/home/WorkbenchHome.vue'
 import { publicRoutes, shellRoutes } from './modules'
@@ -20,11 +20,11 @@ export const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  if (!to.meta.public && !hasToken()) {
-    // JWT 缺失/过期时尝试用设备绑定凭证静默续登，失败才进登录页
-    if (!(await ensureSession())) {
-      return { path: '/login', query: { redirect: to.fullPath } }
-    }
+  if (to.meta.public) return
+  if (!hasToken() && !(await ensureSession())) {
+    return { path: '/login', query: { redirect: to.fullPath } }
   }
+  // 已登录但缺设备凭证（旧版本会话升级）时静默补绑；已绑定则立即返回
+  void bindCurrentDevice()
   if (to.path === '/login' && hasToken()) return '/'
 })

@@ -50,6 +50,36 @@ export function setDeviceCredentials(token: string | null) {
   else localStorage.removeItem(DEVICE_TOKEN_KEY)
 }
 
+/** 平台标识：桌面壳/网页端 + 操作系统，用于设备命名 */
+export function deviceLabel() {
+  if (typeof navigator === 'undefined') return '未知设备'
+  const platform = /Mac/i.test(navigator.userAgent)
+    ? 'macOS'
+    : /Win/i.test(navigator.userAgent)
+      ? 'Windows'
+      : /Linux/i.test(navigator.userAgent)
+        ? 'Linux'
+        : '未知系统'
+  return `${isDesktopShell ? '桌面端' : '网页端'}（${platform}）`
+}
+
+let bindAttempted = false
+
+/** 已有会话但缺设备凭证时（如应用升级前登录过），静默补绑定一次 */
+export async function bindCurrentDevice(): Promise<boolean> {
+  if (getDeviceToken() || !hasToken()) return Boolean(getDeviceToken())
+  try {
+    const { data } = await api.post<{ device_token: string }>('/auth/devices/bind', {
+      device_id: ensureDeviceId(),
+      device_name: deviceLabel(),
+    })
+    setDeviceCredentials(data.device_token ?? null)
+    return Boolean(data.device_token)
+  } catch {
+    return false
+  }
+}
+
 /** 无有效 JWT 时，用设备绑定凭证静默换发新会话；成功返回 true */
 export async function ensureSession(): Promise<boolean> {
   if (hasToken()) return true

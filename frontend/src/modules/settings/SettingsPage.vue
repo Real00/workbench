@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { CheckCircle2, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable } from '@lucide/vue'
 import { api, apiError, getApiBase, getDeviceId, getDeviceToken, setDeviceCredentials } from '../../shared/api/client'
 
@@ -130,7 +130,8 @@ async function unbindDevice(binding: DeviceBindingInfo) {
 
 const mcpUrl = `${getApiBase() || window.location.origin}/mcp`
 const curlLoginBase = (getApiBase() || window.location.origin).replace(/\/+$/, '')
-const deviceCredentialsReady = Boolean(getDeviceToken() && getDeviceId())
+// 登录/补绑定后凭证才出现，必须响应式读取而非模块期常量
+const deviceCredentialsReady = computed(() => Boolean(getDeviceToken() && getDeviceId()))
 const copied = ref('')
 
 function copyConfig(kind: 'url' | 'device' | 'jwt') {

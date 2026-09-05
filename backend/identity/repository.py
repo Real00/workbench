@@ -33,8 +33,9 @@ class MongoDeviceRepository(DeviceRepository):
         self.collection = client[database]["devices"]
 
     async def save(self, binding: DeviceBinding) -> None:
+        # 设备与绑定一一对应（换账号登录即重新绑定），按 device_id 覆盖
         await self.collection.replace_one(
-            {"user_id": binding.user_id, "device_id": binding.device_id},
+            {"device_id": binding.device_id},
             asdict(binding),
             upsert=True,
         )
@@ -53,4 +54,4 @@ class MongoDeviceRepository(DeviceRepository):
 
     async def ensure_indexes(self) -> None:
         await self.collection.create_index("device_id", unique=True)
-        await self.collection.create_index([("user_id", 1), ("device_id", 1)], unique=True)
+        await self.collection.create_index("user_id")

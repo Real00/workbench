@@ -56,7 +56,7 @@ class IdentityApplicationService:
             "user": public_user(user),
         }
 
-    async def bind_device(self, user: dict[str, Any], device_id: str, device_name: str) -> str | None:
+    async def bind_device(self, user_id: str, device_id: str, device_name: str) -> str | None:
         """颁发设备长效凭证（仅返回一次原文，服务端只留哈希）。同设备重复绑定则轮换。"""
         if not self.devices:
             return None
@@ -69,7 +69,7 @@ class IdentityApplicationService:
         existing = await self.devices.by_device(clean_id)
         binding = DeviceBinding(
             id=existing.id if existing else str(uuid4()),
-            user_id=str(user["id"]),
+            user_id=user_id,
             device_id=clean_id,
             device_name=clean_name,
             token_hash=hash_device_token(token),
