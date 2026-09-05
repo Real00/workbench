@@ -5,13 +5,14 @@ from aiohttp import web
 from pymongo import AsyncMongoClient
 
 from ai_settings.module import AISettingsModule
+from api.cors import cors_middleware
 from api.http import auth_middleware, error_middleware
 from capture.module import CaptureModule
 from identity.module import IdentityModule
 from knowledge.module import KnowledgeModule
 from progress.module import ProgressModule
 from pulse.module import PulseModule
-from shared.config import Settings, get_settings
+from shared.config import Settings, cors_origin_set, get_settings
 from shared.module import AppModule, ModuleContext
 from shared.security import SecurityService
 from shared.web_keys import AI_CONTRIBUTIONS, MONGO_CLIENT, SECURITY, SETTINGS
@@ -46,7 +47,11 @@ def create_app(settings: Settings | None = None, **overrides: Any) -> web.Applic
     )
 
     app = web.Application(
-        middlewares=[error_middleware, auth_middleware],
+        middlewares=[
+            cors_middleware(cors_origin_set(settings.cors_origins)),
+            error_middleware,
+            auth_middleware,
+        ],
         client_max_size=21 * 1024 * 1024,
     )
     app[SETTINGS] = settings

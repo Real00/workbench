@@ -27,6 +27,10 @@ class Settings(BaseSettings):
         default=Path(__file__).parents[2] / "data" / "knowledge",
         validation_alias=AliasChoices("WORKBENCH_KNOWLEDGE_DIR", "KNOWLEDGE_DIR"),
     )
+    cors_origins: str = Field(
+        default="",
+        validation_alias=AliasChoices("WORKBENCH_CORS_ORIGINS", "CORS_ORIGINS"),
+    )
     model_config = SettingsConfigDict(
         env_prefix="WORKBENCH_", env_file=".env", extra="ignore", populate_by_name=True
     )
@@ -35,3 +39,12 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def cors_origin_set(cors_origins: str) -> frozenset[str]:
+    """解析逗号分隔的放行来源，统一去掉尾部斜杠。"""
+    return frozenset(
+        origin.strip().rstrip("/")
+        for origin in cors_origins.split(",")
+        if origin.strip()
+    )

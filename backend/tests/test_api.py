@@ -424,3 +424,59 @@ async def test_ai_tools_registry_requires_admin_and_lists_modules() -> None:
         assert name["type"] == "string | null"
     finally:
         await client.close()
+
+
+async def test_cors_preflight_and_origin_allowlist() -> None:
+    security = SecurityService("test-secret-with-at-least-32-characters", 60)
+    app = create_app(
+        Settings(
+            admin_password="password123",
+            cors_origins="https://desktop.example, https://web.example/",
+        ),
+        security=security,
+        user_repository=MemoryUserRepository(),
+        task_repository=MemoryTaskRepository(),
+        member_repository=MemoryMemberRepository(),
+        project_repository=MemoryProjectRepository(),
+        ai_repository=MemoryAISettingsRepository(),
+        resource_storage=MemoryResourceStorage(),
+        **knowledge_overrides(),
+    )
+    client = TestClient(TestServer(app))
+    await client.start_server()
+    try:
+        preflight = await client.options(
+            "/api/v1/progress/tasks",
+            headers={
+                "Origin": "https://desktop.example",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization, content-type",
+            },
+        )
+        assert preflight.status == 204
+        assert preflight.headers["Access-Control-Allow-Origin"] == "https://desktop.example"
+        assert "Authorization" in preflight.headers["Access-Control-Allow-Headers"]
+
+        blocked_preflight = await client.options(
+            "/api/v1/progress/tasks",
+            headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"},
+        )
+        assert blocked_preflight.status == 403
+
+        login = await client.post(
+            "/api/v1/auth/login", json={"username": "admin", "password": "password123"}
+        )
+        headers = {"Authorization": f"Bearer {(await login.json())['access_token']}"}
+        allowed = await client.get(
+            "/api/v1/progress/tasks", headers={**headers, "Origin": "https://web.example"}
+        )
+        assert allowed.status == 200
+        assert allowed.headers["Access-Control-Allow-Origin"] == "https://web.example"
+
+        denied = await client.get(
+            "/api/v1/progress/tasks", headers={**headers, "Origin": "https://evil.example"}
+        )
+        assert denied.status == 200
+        assert "Access-Control-Allow-Origin" not in denied.headers
+    finally:
+        await client.close()

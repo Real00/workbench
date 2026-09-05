@@ -1,9 +1,12 @@
 import axios, { AxiosError } from 'axios'
 
+/** 网页端同源部署留空；桌面端 / 跨源部署通过 VITE_API_BASE_URL 指向云端 API（如 https://api.example.com） */
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+
 const TOKEN_KEY = 'pulse_access_token'
 
 export const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: `${API_BASE_URL}/api/v1`,
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
 })
@@ -47,7 +50,7 @@ export async function streamSse(
   signal?: AbortSignal,
 ) {
   const token = getToken()
-  const response = await fetch(`/api/v1${path}`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1${path}`, {
     method: 'POST',
     signal,
     headers: {
