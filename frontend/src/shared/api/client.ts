@@ -63,8 +63,6 @@ export function deviceLabel() {
   return `${isDesktopShell ? '桌面端' : '网页端'}（${platform}）`
 }
 
-let bindAttempted = false
-
 /** 已有会话但缺设备凭证时（如应用升级前登录过），静默补绑定一次 */
 export async function bindCurrentDevice(): Promise<boolean> {
   if (getDeviceToken() || !hasToken()) return Boolean(getDeviceToken())
