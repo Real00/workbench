@@ -14,6 +14,7 @@ from progress.domain import ProgressDomainService
 from pulse.agent import PulseAgent, PydanticPulseAgent
 from pulse.deps import AgentDeps
 from shared.ai import ModuleAiContribution, clock_block
+from shared.model_errors import model_error_message
 from shared.security import SecurityService
 
 AI_STREAM_TIMEOUT_SECONDS = 240
@@ -168,7 +169,7 @@ class PulseApplicationService:
             yield dict(_CANCELLED)
             return
         except Exception as exc:
-            yield {"type": "error", "message": f"AI run failed: {exc}"}
+            yield {"type": "error", "message": model_error_message(exc)}
             return
         if cancellation_token and cancellation_token.cancelled:
             yield dict(_CANCELLED)

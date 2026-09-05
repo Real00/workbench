@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { RouterView } from 'vue-router'
+import { onMounted, watch } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
 import DocumentEditor from '../components/DocumentEditor.vue'
 import EntryEditor from '../components/EntryEditor.vue'
 import TagEditor from '../components/TagEditor.vue'
 import { useKnowledgeStore } from '../store'
 
 const store = useKnowledgeStore()
-onMounted(() => store.initialize())
+const route = useRoute()
+function openLinkedKnowledge() {
+  const document = store.documents.find(item => item.id === route.query.document)
+  const entry = store.entries.find(item => item.id === route.query.entry)
+  if (document) store.openDocument(document)
+  else if (entry) store.openEntry(entry)
+}
+onMounted(async () => { await store.initialize(); openLinkedKnowledge() })
+watch(() => [route.query.document, route.query.entry], openLinkedKnowledge)
 </script>
 
 <template>

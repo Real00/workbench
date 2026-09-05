@@ -191,6 +191,14 @@ class MongoMemberRepository(MemberRepository):
         await self.collection.create_index("user_id", unique=True, sparse=True)
 
 
+def project_document(project: Project) -> dict[str, Any]:
+    data = asdict(project)
+    value = data.get("started_at")
+    if isinstance(value, date) and not isinstance(value, datetime):
+        data["started_at"] = datetime.combine(value, datetime.min.time(), UTC)
+    return data
+
+
 def project_from_document(data: dict[str, Any]) -> Project:
     payload = dict(data)
     if isinstance(payload.get("started_at"), datetime):
@@ -204,7 +212,7 @@ class MongoProjectRepository(ProjectRepository):
         self.collection = client[database]["projects"]
 
     async def save(self, project: Project) -> None:
-        await self.collection.replace_one({"id": project.id}, asdict(project), upsert=True)
+        await self.collection.replace_one({"id": project.id}, project_document(project), upsert=True)
 
     async def by_id(self, project_id: str) -> Project | None:
         data = await self.collection.find_one({"id": project_id}, {"_id": 0})

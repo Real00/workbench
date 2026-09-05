@@ -1,4 +1,5 @@
 import type { ModuleNavGroup, WorkbenchModule } from './module-types'
+import { captureModule } from '../modules/capture'
 import { authModule } from '../modules/auth'
 import { knowledgeModule } from '../modules/knowledge'
 import { progressModule } from '../modules/progress'
@@ -6,6 +7,7 @@ import { settingsModule } from '../modules/settings'
 
 export const modules: WorkbenchModule[] = [
   authModule,
+  captureModule,
   progressModule,
   knowledgeModule,
   settingsModule,

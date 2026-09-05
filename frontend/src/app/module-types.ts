@@ -27,7 +27,21 @@ export interface WorkbenchModule {
   icon: Component
   order: number
   homeCard: ModuleHomeCard | false
+  workbench?: WorkbenchContribution
   nav: ModuleNavGroup[]
   routes: RouteRecordRaw[]
   routeScope: 'public' | 'shell'
+}
+
+/** A module owns its source data; the home only renders these projections. */
+export interface WorkbenchItem {
+  id: string
+  title: string
+  summary: string
+  to: string
+  occurredAt: string
+  kind: 'attention' | 'activity'
+}
+export interface WorkbenchContribution {
+  load: () => Promise<WorkbenchItem[]>
 }

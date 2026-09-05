@@ -1,3 +1,4 @@
+import { loadProgressWorkbench } from './workbench'
 import { ChartNoAxesCombined, CheckSquare2, FolderKanban, Gauge, Users } from '@lucide/vue'
 import type { WorkbenchModule } from '../../app/module-types'
 import { progressRoutes } from './routes'
@@ -9,6 +10,7 @@ export const progressModule: WorkbenchModule = {
   icon: Gauge,
   order: 10,
   homeCard: { to: '/progress', action: '进入进度管理' },
+  workbench: { load: loadProgressWorkbench },
   routeScope: 'shell',
   nav: [
     {

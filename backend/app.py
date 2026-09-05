@@ -6,6 +6,7 @@ from pymongo import AsyncMongoClient
 
 from ai_settings.module import AISettingsModule
 from api.http import auth_middleware, error_middleware
+from capture.module import CaptureModule
 from identity.module import IdentityModule
 from knowledge.module import KnowledgeModule
 from progress.module import ProgressModule
@@ -62,6 +63,7 @@ def create_app(settings: Settings | None = None, **overrides: Any) -> web.Applic
         AISettingsModule(),
         ProgressModule(),
         KnowledgeModule(),
+        CaptureModule(),
         PulseModule(),
     )
     for module in modules:

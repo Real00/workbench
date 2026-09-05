@@ -1,3 +1,4 @@
+import { loadKnowledgeWorkbench } from './workbench'
 import { BookOpen } from '@lucide/vue'
 import type { WorkbenchModule } from '../../app/module-types'
 import { knowledgeRoutes } from './routes'
@@ -9,6 +10,7 @@ export const knowledgeModule: WorkbenchModule = {
   icon: BookOpen,
   order: 20,
   homeCard: { to: '/knowledge', action: '进入知识库' },
+  workbench: { load: loadKnowledgeWorkbench },
   routeScope: 'shell',
   nav: [
     {

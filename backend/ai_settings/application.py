@@ -1,11 +1,15 @@
+import asyncio
 from dataclasses import asdict
 from typing import Any
 
-from openai import AsyncOpenAI
+from pydantic_ai import Agent
+from pydantic_ai.exceptions import UnexpectedModelBehavior
 
 from ai_settings.domain import AISettingsDomainService
 from ai_settings.ports import AIConnectionSettings
+from shared.model_errors import model_error_message
 from shared.security import SecurityService, mask_secret
+from shared.structured_llm import ai_model
 
 
 class AISettingsApplicationService:
@@ -61,9 +65,22 @@ class AISettingsApplicationService:
         api_key = override.get("api_key") or self.security.decrypt(
             settings.encrypted_api_key if settings else ""
         )
-        client = AsyncOpenAI(base_url=base_url, api_key=api_key)
-        models = await client.models.list()
-        return {"ok": True, "models": [item.id for item in models.data[:10]]}
+        model = override.get("model") or (settings.model if settings else "")
+        if not model.strip():
+            raise ValueError("请填写要测试的模型名称")
+        connection = AIConnectionSettings(base_url=base_url, model=model, api_key=api_key)
+        agent = Agent(ai_model(connection), output_type=str)
+        try:
+            async with asyncio.timeout(45):
+                async with agent.run_stream("Reply only OK.") as result:
+                    output = await result.get_output()
+                    if not output.strip():
+                        raise ValueError("模型返回了空内容，请检查模型配置")
+        except UnexpectedModelBehavior as exc:
+            raise ValueError(model_error_message(exc)) from exc
+        except TimeoutError as exc:
+            raise ValueError("模型流式测试超时，请检查服务状态或稍后重试") from exc
+        return {"ok": True, "model": model, "streaming": True}
 
     def _public(self, settings: Any) -> dict[str, Any]:
         data = asdict(settings)

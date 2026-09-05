@@ -1,11 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { Boxes, ChevronLeft, House, LogOut, Menu } from '@lucide/vue'
 import { moduleNavigation } from '../app/modules'
 import AiDock from '../shared/AiDock.vue'
+import CaptureComposer from '../modules/capture/CaptureComposer.vue'
+import { useCaptureStore } from '../modules/capture/store'
 import { clearToken } from '../shared/api/client'
 
+const captures = useCaptureStore()
+const captureDialog = ref<HTMLDialogElement | null>(null)
+function quickKey(event: KeyboardEvent) {
+  if (event.isComposing) return
+  if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'j') {
+    event.preventDefault(); captures.quickOpen = !captures.quickOpen
+  }
+}
+onMounted(() => { captures.initialize(); window.addEventListener('keydown', quickKey) })
+onUnmounted(() => { window.removeEventListener('keydown', quickKey); captures.reset() })
+watch(() => captures.quickOpen, open => { if (open) captureDialog.value?.showModal(); else captureDialog.value?.close() })
 const router = useRouter()
 const collapsed = ref(false)
 const mobileOpen = ref(false)
@@ -28,6 +41,7 @@ function logout() {
           <p class="font-mono text-[9px] uppercase tracking-[.2em] text-muted">Personal workspace</p>
         </div>
       </div>
+      <button class="nav-link m-2" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></button>
       <nav class="flex-1 overflow-y-auto p-2" aria-label="主导航">
         <RouterLink to="/" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">
           <House :size="18" /><span v-if="!collapsed">工作台首页</span>
@@ -51,6 +65,10 @@ function logout() {
     <main :class="['main-content', collapsed && 'main-content--wide']">
       <RouterView />
       <AiDock />
+      <dialog ref="captureDialog" class="quick-capture-dialog" aria-label="快速记录" @close="captures.quickOpen = false">
+        <div class="mb-4 flex justify-between"><h2>快速记录</h2><button class="icon-btn" aria-label="关闭快记" @click="captures.quickOpen = false">×</button></div>
+        <CaptureComposer v-if="captures.quickOpen" autofocus />
+      </dialog>
     </main>
   </div>
 </template>

@@ -160,7 +160,7 @@ const quickTemplates = computed<string[]>(() => {
   if (path.startsWith('/knowledge')) {
     return ['在知识库新建条目：', '检索知识库：', '新建知识文档：']
   }
-  return ['新建任务：', '记一条想法：', '检索知识库：']
+  return ['新建任务：', '分析一个想法：', '检索知识库：']
 })
 
 const pendingTurn = computed(
@@ -242,6 +242,14 @@ function onGlobalKeydown(event: KeyboardEvent) {
   }
 }
 
+function composeCapture(event: Event) {
+  const text = (event as CustomEvent<string>).detail
+  if (typeof text !== 'string') return
+  open.value = true
+  instruction.value = instruction.value.trim() ? `${instruction.value}\n\n${text}` : text
+  void nextTick(() => { autosizePrompt(); promptEl.value?.focus() })
+}
+
 function persistSession() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -271,9 +279,10 @@ function restoreSession() {
 onMounted(() => {
   restoreSession()
   window.addEventListener('keydown', onGlobalKeydown)
+  window.addEventListener('pulse-compose', composeCapture)
   void nextTick(() => autosizePrompt())
 })
-onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
+onUnmounted(() => { window.removeEventListener('keydown', onGlobalKeydown); window.removeEventListener('pulse-compose', composeCapture) })
 watch([turns, sessionId, instruction], persistSession, { deep: true })
 const abortMessage = ref('已中断')
 const labels: Record<string, string> = {
@@ -390,6 +399,7 @@ async function scrollBottom() {
 async function send() {
   const text = instruction.value.trim()
   if (!text || loading.value) return
+  if (text.length > 32000) { error.value = '内容超过 32000 字符，请分段发送。'; return }
   instruction.value = ''
   await nextTick(() => autosizePrompt())
   await runTurn(text)
@@ -493,6 +503,7 @@ async function confirm(turn: ChatTurn) {
       const fresh = knowledge.documents.find(item => item.id === knowledge.editingDocument?.id)
       if (fresh) knowledge.editingDocument = fresh
     }
+    window.dispatchEvent(new Event('workbench-changed'))
     turn.applied = true
     turn.token = null
   } catch (cause) {
@@ -510,7 +521,7 @@ function discard(turn: ChatTurn) {
 
 <template>
   <section :class="['ai-dock', open && 'ai-dock--open']" aria-label="Pulse AI 助手" @keydown.capture="onDockKeydown">
-    <button v-if="!open" class="ai-trigger" aria-label="打开 Pulse AI 对话（快捷键 Ctrl/Cmd+K）" title="随手记一句就行 · Ctrl/Cmd+K 快速呼出" @click="open = true">
+    <button v-if="!open" class="ai-trigger" aria-label="打开 Pulse AI 对话（快捷键 Ctrl/Cmd+K）" title="提问、分析或发起操作 · Ctrl/Cmd+K 快速呼出" @click="open = true">
       <span class="relative"><Sparkles :size="17" /><i /></span>
       <b>Pulse AI</b>
     </button>
@@ -525,7 +536,7 @@ function discard(turn: ChatTurn) {
         <button class="icon-btn" aria-label="收起助手" @click="open = false"><X :size="16" /></button>
       </header>
       <div ref="scroller" class="ai-transcript">
-        <p v-if="!turns.length" class="empty-inline !py-8">可以说任务、成员，或让我检索知识库。例如「登录页卡在验证码超时」或「grep 工单对接」。</p>
+        <p v-if="!turns.length" class="empty-inline !py-8">可以分析想法、检索知识或操作已接入的模块。只想保存原文时，使用「随手记」。</p>
         <article v-for="turn in turns" :key="turn.id" :class="['ai-turn', `ai-turn--${turn.role}`]">
           <p v-if="turn.role === 'user'" class="ai-bubble ai-bubble--user">{{ turn.text }}</p>
           <template v-else>
@@ -611,7 +622,7 @@ function discard(turn: ChatTurn) {
             v-model="instruction"
             class="input !mt-0 min-h-[40px] flex-1 resize-none py-2.5"
             rows="1"
-            placeholder="随手记：任务、成员、项目进展…输入 @ 引用任务/成员/知识/工具"
+            placeholder="提问或描述你想执行的操作…输入 @ 引用上下文"
             :disabled="loading"
             @input="autosizePrompt(); updateMentionQuery()"
             @keydown="onPromptKeydown"

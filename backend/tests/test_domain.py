@@ -123,7 +123,6 @@ def test_member_normalizes_skills_and_background() -> None:
 
 def test_project_validates_name_dates_and_members() -> None:
     from progress.domain import Project
-
     project = Project.create(
         {
             "name": "  MYAI 工单平台  ",
@@ -159,6 +158,22 @@ def test_project_validates_name_dates_and_members() -> None:
     project.update({"started_at": None, "member_ids": []})
     assert project.started_at is None
     assert project.member_ids == []
+
+
+def test_project_document_converts_started_at_for_bson() -> None:
+    from datetime import datetime
+
+    from progress.domain import Project
+    from progress.repository import project_document, project_from_document
+
+    project = Project.create({"name": "MYAI", "started_at": "2026-09-05"})
+    document = project_document(project)
+    assert isinstance(document["started_at"], datetime)
+    restored = project_from_document(document)
+    assert str(restored.started_at) == "2026-09-05"
+
+    no_date = project_document(Project.create({"name": "无日期"}))
+    assert no_date["started_at"] is None
 
 
 def test_member_evaluation_add_remove_and_roundtrip() -> None:

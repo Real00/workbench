@@ -16,7 +16,7 @@ class MentionInput(BaseModel):
 
 
 class AIPreviewInput(BaseModel):
-    instruction: str = Field(min_length=1, max_length=4000)
+    instruction: str = Field(min_length=1, max_length=32000)
     context_task_id: str | None = None
     context_document_id: str | None = None
     session_id: str | None = Field(default=None, max_length=64)

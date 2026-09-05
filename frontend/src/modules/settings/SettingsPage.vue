@@ -74,8 +74,8 @@ async function test() {
   try {
     const payload: Record<string, string> = { base_url: baseUrl.value, model: model.value }
     if (apiKey.value) payload.api_key = apiKey.value
-    await api.post('/ai-settings/test', payload)
-    testResult.value = '连接成功'
+    await api.post('/ai-settings/test', payload, { timeout: 60_000 })
+    testResult.value = '模型流式输出正常'
   } catch (cause) { error.value = apiError(cause); testResult.value = '连接失败' }
   finally { testing.value = false }
 }
@@ -112,7 +112,7 @@ async function loadTools() {
               <button v-for="preset in providerPresets" :key="preset.label" type="button" :class="['kind-option', { 'kind-option--active': baseUrl === preset.base_url }]" @click="baseUrl = preset.base_url; model = preset.model">{{ preset.label }}</button>
             </span>
           </div>
-          <label class="field-label">Base URL<input v-model="baseUrl" class="input font-mono" type="url" required /></label>
+          <label class="field-label">Base URL<input v-model="baseUrl" class="input font-mono" type="url" required placeholder="https://api.example.com/v1" /><small>填写服务商的 API 基础地址，包含要求的路径（如 /v1 或 /api/paas/v4）；网站首页地址可能无法调用模型。</small></label>
           <label class="field-label">模型名称<input v-model="model" class="input font-mono" required /></label>
           <div v-if="maskedKey" class="field-label">
             已保存 API Key
@@ -125,9 +125,9 @@ async function loadTools() {
           <label class="field-label">API Key<input v-model="apiKey" class="input font-mono" type="password" autocomplete="new-password" placeholder="sk-..." :required="!maskedKey" /><small>{{ maskedKey ? '输入新密钥可替换，留空则保留现有密钥。' : '密钥提交至后端加密保存，不写入浏览器存储。' }}</small></label>
           <p v-if="error" class="error-box" role="alert">{{ error }}</p>
           <p v-if="saveResult" class="success-box"><CheckCircle2 :size="14" />{{ saveResult }}</p>
-          <p v-if="testResult" :class="testResult === '连接成功' ? 'success-box' : 'error-box'">{{ testResult }}</p>
+          <p v-if="testResult" :class="testResult === '模型流式输出正常' ? 'success-box' : 'error-box'">{{ testResult }}</p>
           <footer class="flex flex-wrap justify-end gap-2 border-t border-line pt-5">
-            <button type="button" class="btn-secondary" :disabled="testing || saving" @click="test"><LoaderCircle v-if="testing" :size="15" class="animate-spin" /><PlugZap v-else :size="15" />{{ testing ? '测试中…' : '测试连接' }}</button>
+            <button type="button" class="btn-secondary" :disabled="testing || saving" @click="test"><LoaderCircle v-if="testing" :size="15" class="animate-spin" /><PlugZap v-else :size="15" />{{ testing ? '验证模型输出中…' : '测试模型连接' }}</button>
             <button class="btn-primary" :disabled="saving || testing"><LoaderCircle v-if="saving" :size="15" class="animate-spin" /><Save v-else :size="15" />{{ saving ? '保存中…' : '保存设置' }}</button>
           </footer>
         </form>
