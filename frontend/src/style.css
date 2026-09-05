@@ -289,3 +289,30 @@ html { color-scheme: dark; }
 .select-option small { max-width: 55%; overflow: hidden; flex-shrink: 0; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: #7890a5; }
 .select-option--active { background: #1a2b3b; }
 .select-option--selected { color: #36d9e9; }
+
+/* ===== 富文本输入与 Markdown 阅读 ===== */
+.rich-textarea { margin-top: 7px; overflow: hidden; border: 1px solid #263a4c; border-radius: 8px; background: #09141f; }
+.rich-textarea:focus-within { border-color: #36d9e9; }
+.rich-toolbar { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid #1c2f3f; padding: 5px 7px; }
+.rich-tool { display: grid; width: 26px; height: 24px; place-items: center; border-radius: 6px; color: #7890a5; }
+.rich-tool:hover { background: #1a2b3b; color: #d7e2eb; }
+.rich-input { display: block; width: 100%; border: 0; outline: none; background: transparent; padding: 10px 11px; font-size: 12px; line-height: 1.65; color: white; resize: none; overflow-y: auto; }
+.rich-textarea--mono .rich-input { font-family: var(--font-mono); }
+.rich-counter { display: flex; justify-content: flex-end; border-top: 1px solid #1c2f3f; padding: 4px 8px; font-size: 9px; color: #60788d; }
+.md-body { overflow-wrap: anywhere; font-size: 12px; line-height: 1.75; color: #d7e2eb; }
+.md-body p { margin: 0 0 8px; }
+.md-body p:last-child { margin-bottom: 0; }
+.md-body h2, .md-body h3, .md-body h4, .md-body h5 { margin: 14px 0 6px; font-weight: 600; color: white; }
+.md-body h2 { font-size: 15px; }
+.md-body h3 { font-size: 13px; }
+.md-body h4, .md-body h5 { font-size: 12px; }
+.md-body h2:first-child, .md-body h3:first-child { margin-top: 0; }
+.md-body ul, .md-body ol { margin: 0 0 8px; padding-left: 18px; }
+.md-body li { margin: 2px 0; }
+.md-body blockquote { margin: 0 0 8px; border-left: 2px solid #2b4155; padding: 2px 10px; color: #9bafc0; }
+.md-body code { border-radius: 5px; background: #0c1a26; padding: 1px 5px; font-family: var(--font-mono); font-size: 11px; color: #5ce0ae; }
+.md-body pre.md-pre { overflow-x: auto; margin: 0 0 8px; border: 1px solid #1c2f3f; border-radius: 8px; background: #0c1a26; padding: 10px 12px; }
+.md-body pre.md-pre code { background: transparent; padding: 0; color: #c9d7e2; }
+.md-body a { color: #36d9e9; text-decoration: underline; }
+.md-body hr { margin: 12px 0; border: 0; border-top: 1px solid #213244; }
+.md-body strong { color: white; }

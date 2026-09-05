@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { Save, Trash2, X } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { memberPixelUri } from '../pixel-avatar'
+import RichTextarea from '../../../shared/RichTextarea.vue'
 import {
   evaluationKindMap,
   type MemberEvaluationInput,
@@ -155,8 +156,8 @@ function formatTime(value: string) {
               </div>
             </div>
             <label class="field-label">项目背景
-              <small class="flex items-center justify-between gap-3"><span>做过什么、熟悉哪些系统或业务，帮助分配时说明理由</span><span class="font-mono">{{ form.background.length }}/2000</span></small>
-              <textarea v-model="form.background" class="input min-h-28 py-3" maxlength="2000" placeholder="例如：主导过 MYAI 与 IT 工单系统联调，熟悉审批流和回调。" />
+              <small>做过什么、熟悉哪些系统或业务，帮助分配时说明理由</small>
+              <RichTextarea v-model="form.background" :min-height="128" :maxlength="2000" counter placeholder="例如：主导过 MYAI 与 IT 工单系统联调，熟悉审批流和回调。" />
             </label>
           </section>
           <section v-if="store.editingMember" class="space-y-3 border-t border-line pt-5">
@@ -165,7 +166,7 @@ function formatTime(value: string) {
             <div class="flex flex-wrap gap-1.5">
               <button v-for="(label, kind) in evaluationKindMap" :key="kind" type="button" :class="['kind-option', { 'kind-option--active': evaluationKind === kind }]" @click="evaluationKind = kind">{{ label }}</button>
             </div>
-            <textarea v-model="evaluationContent" class="input min-h-20 py-3" maxlength="2000" placeholder="例如：本周主动接管 MYAI 联调，排查问题很稳。" />
+            <RichTextarea v-model="evaluationContent" :min-height="88" :maxlength="2000" counter placeholder="例如：本周主动接管 MYAI 联调，排查问题很稳。" />
             <button type="button" class="btn-secondary" :disabled="store.saving || !evaluationContent.trim()" @click="recordEvaluation">添加评价</button>
             <ol v-if="evaluations.length" class="entry-timeline">
               <li v-for="evaluation in evaluations" :key="evaluation.id" class="entry-item">

@@ -2,6 +2,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { Save, Trash2, X } from '@lucide/vue'
 import { apiError } from '../../../shared/api/client'
+import MarkdownView from '../../../shared/MarkdownView.vue'
+import RichTextarea from '../../../shared/RichTextarea.vue'
 import { knowledgeApi } from '../api'
 import { useKnowledgeStore } from '../store'
 import type { DocumentInput } from '../types'
@@ -12,10 +14,12 @@ const form = reactive<DocumentInput>(blank())
 const pendingFile = ref<File | null>(null)
 const extracted = ref('')
 const confirmOverwrite = ref(false)
+const bodyPreview = ref(false)
 const title = computed(() => store.editingDocument ? '编辑文档' : '新建文档')
 
 watch(() => store.documentEditorOpen, (open) => {
   if (!open) return
+  bodyPreview.value = false
   const source = store.editingDocument
   Object.assign(form, source ? {
     title: source.title,
@@ -67,9 +71,19 @@ async function submit() {
         </header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
           <label class="field-label">标题<input v-model="form.title" class="input" required maxlength="200" /></label>
-          <label class="field-label">正文<small>UTF-8 Markdown，一行一段，供 Pulse grep</small>
-            <textarea v-model="form.body" class="input min-h-48 py-3 font-mono text-[12px]" maxlength="200000" />
-          </label>
+          <div class="field-label">
+            <span class="flex items-center justify-between gap-3">正文
+              <span class="flex gap-1">
+                <button type="button" :class="['kind-option', !bodyPreview && 'kind-option--active']" @click="bodyPreview = false">编辑</button>
+                <button type="button" :class="['kind-option', bodyPreview && 'kind-option--active']" @click="bodyPreview = true">预览</button>
+              </span>
+            </span>
+            <small>UTF-8 Markdown，供 Pulse grep 与阅读渲染</small>
+            <RichTextarea v-if="!bodyPreview" v-model="form.body" :min-height="360" :max-height="640" :maxlength="200000" mono toolbar />
+            <div v-else class="mt-2 min-h-[360px] rounded-lg border border-line bg-[#09141f] p-4">
+              <MarkdownView :source="form.body" />
+            </div>
+          </div>
           <label class="field-label">导入 Markdown / Word
             <input type="file" class="mt-2 text-xs text-muted" accept=".md,.txt,.docx" @change="onFile" />
           </label>

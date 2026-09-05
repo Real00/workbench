@@ -5,6 +5,7 @@ import { useProgressStore } from '../store'
 import { memberPixelUri } from '../pixel-avatar'
 import { projectStatusMap, type ProjectInput, type ProjectStatus } from '../types'
 import AppSelect, { type AppSelectOption } from '../../../shared/AppSelect.vue'
+import RichTextarea from '../../../shared/RichTextarea.vue'
 
 const coverPresets = ['#36d9e9', '#5ce0ae', '#fcd34d', '#f87171', '#a78bfa', '#f472b6', '#38bdf8', '#94a3b8']
 
@@ -89,12 +90,12 @@ async function submit() {
               </span>
             </div>
             <label class="field-label">项目描述
-              <small class="flex items-center justify-between gap-3"><span>这个项目做什么、当前处于什么阶段</span><span class="font-mono">{{ form.description.length }}/5000</span></small>
-              <textarea v-model="form.description" class="input min-h-24 py-3" maxlength="5000" placeholder="例如：工单系统二期，目标是打通 MYAI 与 IT 审批流，当前处于联调阶段。" />
+              <small>这个项目做什么、当前处于什么阶段</small>
+              <RichTextarea v-model="form.description" :min-height="104" :maxlength="5000" counter placeholder="例如：工单系统二期，目标是打通 MYAI 与 IT 审批流，当前处于联调阶段。" />
             </label>
             <label class="field-label">项目背景
-              <small class="flex items-center justify-between gap-3"><span>为什么立项、有哪些前置依赖或历史沿革</span><span class="font-mono">{{ form.background.length }}/2000</span></small>
-              <textarea v-model="form.background" class="input min-h-20 py-3" maxlength="2000" placeholder="例如：一期工单系统仅覆盖 IT 内部，二期扩展到 HR 与行政流程。" />
+              <small>为什么立项、有哪些前置依赖或历史沿革</small>
+              <RichTextarea v-model="form.background" :min-height="88" :maxlength="2000" counter placeholder="例如：一期工单系统仅覆盖 IT 内部，二期扩展到 HR 与行政流程。" />
             </label>
           </section>
           <section class="space-y-3 border-t border-line pt-5">

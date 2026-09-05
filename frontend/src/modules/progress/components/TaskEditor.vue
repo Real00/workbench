@@ -4,6 +4,8 @@ import { Save, Trash2, X } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { entryKindMap, priorityMap, statusMap, type Priority, type ProgressEntryKind, type TaskInput, type TaskStatus } from '../types'
 import AppSelect, { type AppSelectOption } from '../../../shared/AppSelect.vue'
+import MarkdownView from '../../../shared/MarkdownView.vue'
+import RichTextarea from '../../../shared/RichTextarea.vue'
 import TaskResources from './TaskResources.vue'
 
 const store = useProgressStore()
@@ -28,6 +30,7 @@ const projectOptions = computed<AppSelectOption[]>(() =>
 const statusOptions: AppSelectOption<TaskStatus>[] = Object.entries(statusMap).map(([value, label]) => ({ value: value as TaskStatus, label }))
 const priorityOptions: AppSelectOption<Priority>[] = Object.entries(priorityMap).map(([value, label]) => ({ value: value as Priority, label }))
 const entryKindOptions: AppSelectOption<ProgressEntryKind>[] = Object.entries(entryKindMap).map(([value, label]) => ({ value: value as ProgressEntryKind, label }))
+const descriptionPreview = ref(false)
 
 function assignToMe() {
   if (store.operatorMember) form.assignee_id = store.operatorMember.id
@@ -51,6 +54,7 @@ watch(() => store.taskEditorOpen, (open) => {
   tagsText.value = source.tags.join(', ')
   entryKind.value = 'update'
   entryContent.value = ''
+  descriptionPreview.value = false
 })
 
 async function submit() {
@@ -74,7 +78,18 @@ async function recordEntry() {
         <header class="flex items-center justify-between border-b border-line px-5 py-4"><div><p class="eyebrow">{{ store.editingTask?.id ?? 'NEW TASK' }}</p><h2 class="mt-1 font-display text-xl text-white">{{ title }}</h2></div><button class="icon-btn" aria-label="关闭" @click="store.taskEditorOpen = false"><X :size="18" /></button></header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
           <label class="field-label">任务名称<input v-model="form.title" class="input" required maxlength="200" /></label>
-          <label class="field-label">描述<textarea v-model="form.description" class="input min-h-24 py-3" /></label>
+          <div class="field-label">
+            <span class="flex items-center justify-between gap-3">描述
+              <span class="flex gap-1">
+                <button type="button" :class="['kind-option', !descriptionPreview && 'kind-option--active']" @click="descriptionPreview = false">编辑</button>
+                <button type="button" :class="['kind-option', descriptionPreview && 'kind-option--active']" @click="descriptionPreview = true">预览</button>
+              </span>
+            </span>
+            <RichTextarea v-if="!descriptionPreview" v-model="form.description" :min-height="112" :max-height="320" placeholder="支持 Markdown：## 标题、**加粗**、- 列表、换行" />
+            <div v-else class="mt-2 min-h-[112px] rounded-lg border border-line bg-[#09141f] p-4">
+              <MarkdownView :source="form.description" />
+            </div>
+          </div>
           <label class="field-label">
             <span class="flex items-center justify-between gap-3">负责人<button v-if="store.operatorMember && !assignedToMe" type="button" class="text-[10px] font-semibold text-cyan" @click="assignToMe">分配给我</button></span>
             <AppSelect v-model="form.assignee_id" :options="assigneeOptions" placeholder="未分配" />
@@ -95,7 +110,7 @@ async function recordEntry() {
             <p class="mt-1 text-[11px] text-muted">记录阻塞、额外处理和推进过程，不要为此另开任务。</p>
             <div class="mt-3 grid gap-2">
               <label class="field-label">类型<AppSelect v-model="entryKind" :options="entryKindOptions" /></label>
-              <label class="field-label">发生了什么<textarea v-model="entryContent" class="input min-h-20 py-3" maxlength="2000" placeholder="例如：验证码超时，先切备用通道才能继续" /></label>
+              <label class="field-label">发生了什么<RichTextarea v-model="entryContent" :min-height="84" :maxlength="2000" placeholder="例如：验证码超时，先切备用通道才能继续" /></label>
             </div>
             <button type="button" class="btn-secondary mt-3" :disabled="store.saving || !entryContent.trim()" @click="recordEntry">记录进度</button>
             <ol v-if="entries.length" class="entry-timeline mt-4">

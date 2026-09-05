@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { Save, Trash2, X } from '@lucide/vue'
+import RichTextarea from '../../../shared/RichTextarea.vue'
 import { useKnowledgeStore } from '../store'
 import type { EntryInput } from '../types'
 
@@ -41,7 +42,7 @@ async function submit() {
         </header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
           <label class="field-label">键 / 概念<input v-model="form.key" class="input" required maxlength="200" /></label>
-          <label class="field-label">值<textarea v-model="form.value" class="input min-h-28 py-3" required maxlength="20000" /></label>
+          <label class="field-label">值<RichTextarea v-model="form.value" :min-height="128" :maxlength="20000" counter required /></label>
           <label class="field-label">别名<small>逗号分隔，写入正文供 grep 命中同义词</small>
             <input v-model="aliasesText" class="input" maxlength="400" />
           </label>
