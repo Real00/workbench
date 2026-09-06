@@ -17,6 +17,7 @@ services:
       WORKBENCH_UPLOAD_DIR: /app/data/uploads
     volumes:
       - app-uploads:/app/data/uploads
+      - app-knowledge:/app/data/knowledge
     ports:
       - "${WORKBENCH_PORT:-8080}:8080"
     depends_on:
@@ -37,3 +38,4 @@ services:
 volumes:
   mongo-data:
   app-uploads:
+  app-knowledge:

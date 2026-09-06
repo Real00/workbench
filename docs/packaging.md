@@ -91,7 +91,7 @@ docker compose up --build
 | `WORKBENCH_UPLOAD_DIR` | 容器内固定 `/app/data/uploads` |
 | `WORKBENCH_CORS_ORIGINS` | 独立网页域名访问 API 时配置（桌面端来源始终放行） |
 
-数据持久化在两个 named volume：`mongo-data`（数据库）、`app-uploads`（上传文件），`docker compose down` 不会丢失，加 `-v` 才会。
+数据持久化在三个 named volume：`mongo-data`（数据库）、`app-uploads`（上传文件）、`app-knowledge`（知识库 Markdown 文件），`docker compose down` 不会丢失，加 `-v` 才会。
 
 ## CI 自动打包（GitHub Actions）
 
