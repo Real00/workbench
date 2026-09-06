@@ -5,7 +5,8 @@ from aiohttp import web
 from shared.web_keys import CORS_ORIGIN
 
 ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-ALLOWED_HEADERS = "Authorization, Content-Type"
+# MCP Streamable HTTP 客户端（浏览器端 Inspector 等）会带上协议/会话头，缺了预检就被浏览器拦下
+ALLOWED_HEADERS = "Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id, Last-Event-ID, X-Device-Id, X-Device-Token"
 MAX_AGE = "86400"
 
 

@@ -184,3 +184,26 @@ async def test_mcp_accepts_device_credentials_header() -> None:
         assert tools
     finally:
         await client.close()
+
+
+async def test_mcp_browser_preflight_allows_mcp_headers() -> None:
+    """浏览器端客户端（Inspector 等）预检必须放行 MCP 专有头，否则连不上。"""
+    client, _ = await build_mcp_client(cors_origins="http://localhost:6274")
+    try:
+        preflight = await client.options(
+            "/mcp",
+            headers={
+                "Origin": "http://localhost:6274",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": (
+                    "authorization, content-type, mcp-protocol-version, mcp-session-id, x-device-id"
+                ),
+            },
+        )
+        assert preflight.status == 204
+        allow = preflight.headers["Access-Control-Allow-Headers"]
+        assert "MCP-Protocol-Version" in allow
+        assert "MCP-Session-Id" in allow
+        assert "X-Device-Id" in allow
+    finally:
+        await client.close()
