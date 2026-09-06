@@ -1,6 +1,7 @@
 from collections.abc import Awaitable, Callable
 
 from aiohttp import web
+from aiohttp.typedefs import Middleware
 
 from shared.web_keys import CORS_ORIGIN
 
@@ -10,10 +11,7 @@ ALLOWED_HEADERS = "Authorization, Content-Type, MCP-Protocol-Version, MCP-Sessio
 MAX_AGE = "86400"
 
 
-def cors_middleware(allowed_origins: frozenset[str]) -> Callable[
-    [web.Request, Callable[[web.Request], Awaitable[web.StreamResponse]]],
-    Awaitable[web.StreamResponse],
-]:
+def cors_middleware(allowed_origins: frozenset[str]) -> Middleware:
     """跨源支持：桌面端（tauri://）或独立网页域访问云端 API 时启用。
 
     通过 WORKBENCH_CORS_ORIGINS 配置放行来源（逗号分隔）；留空时全部请求
