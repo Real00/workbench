@@ -12,6 +12,7 @@ import { useKnowledgeStore } from '../modules/knowledge/store'
 import { useProgressStore } from '../modules/progress/store'
 import { subscribeEvents, type ChangeEvent } from '../shared/api/events'
 import { clearToken } from '../shared/api/client'
+import { setupDesktopBridge } from '../shared/tauri'
 
 const captures = useCaptureStore()
 const progress = useProgressStore()
@@ -50,14 +51,17 @@ function quickKey(event: KeyboardEvent) {
     event.preventDefault(); paletteOpen.value = !paletteOpen.value
   }
 }
+let stopDesktopBridge: (() => void) | undefined
 onMounted(() => {
   captures.initialize()
   window.addEventListener('keydown', quickKey)
   stopEvents = subscribeEvents(handleChange)
+  stopDesktopBridge = setupDesktopBridge({ quickCapture: () => { captures.quickOpen = true } })
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', quickKey)
   stopEvents?.()
+  stopDesktopBridge?.()
   if (coalesceTimer) clearTimeout(coalesceTimer)
   captures.reset()
 })
