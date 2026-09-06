@@ -121,3 +121,10 @@ docker compose up --build
 ### 迁移旧数据注意加密密钥
 
 AI 设置的 API Key 用 `WORKBENCH_ENCRYPTION_KEY` 加密存储（未配置时由 `WORKBENCH_JWT_SECRET` 派生）。把别的环境导出的 Mongo 数据导入本环境时，该密钥必须与数据来源一致，否则读取 AI 设置会报 `cryptography.fernet.InvalidToken`。密钥不一致时最简单的处理：清空 `ai_settings` 集合后在系统设置里重新保存 API Key（用本环境密钥重新加密）。
+
+重建管理员（清空 `users`）后，导入数据里绑定了旧用户 ID 的操作者成员（如「管理员」）无法被 `ensure_operator` 认领，会因 `members.name` 唯一索引冲突导致启动报 `DuplicateKeyError`。需手动重绑：
+
+```bash
+docker compose exec mongo mongosh workbench --eval '
+db.members.updateOne({ name: "管理员" }, { $set: { user_id: db.users.findOne().id, active: true } })'
+```
