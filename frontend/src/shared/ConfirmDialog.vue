@@ -1,25 +1,27 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useDialogFocus } from './useDialogFocus'
 import { AlertTriangle } from '@lucide/vue'
 import { confirmState, resolveConfirm } from './confirm'
 
 const state = confirmState()
 
-function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') resolveConfirm(false)
-}
+const panel = ref<HTMLElement | null>(null)
+useDialogFocus(panel, () => state.open, () => resolveConfirm(false))
+
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="state.open"
+      ref="panel"
       class="fixed inset-0 z-[70] grid place-items-center bg-black/65 p-4"
       role="alertdialog"
       aria-modal="true"
       :aria-label="state.title"
       tabindex="-1"
       @click.self="resolveConfirm(false)"
-      @keydown="onKeydown"
     >
       <div class="w-[min(92vw,400px)] rounded-xl border border-line bg-panel p-5 shadow-[0_24px_60px_rgb(0_0_0/.5)]">
         <div class="flex items-start gap-3">

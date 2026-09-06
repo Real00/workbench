@@ -1,9 +1,9 @@
 import type { RouteRecordRaw } from 'vue-router'
-import ProgressLayout from './layout/ProgressLayout.vue'
-import DashboardPage from './pages/DashboardPage.vue'
-import MembersPage from './pages/MembersPage.vue'
-import ProjectsPage from './pages/ProjectsPage.vue'
-import TaskViewsPage from './pages/TaskViewsPage.vue'
+const ProgressLayout = () => import('./layout/ProgressLayout.vue')
+const DashboardPage = () => import('./pages/DashboardPage.vue')
+const MembersPage = () => import('./pages/MembersPage.vue')
+const ProjectsPage = () => import('./pages/ProjectsPage.vue')
+const TaskViewsPage = () => import('./pages/TaskViewsPage.vue')
 
 export const progressRoutes: RouteRecordRaw[] = [
   {

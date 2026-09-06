@@ -41,13 +41,11 @@ function openRecent(taskId: string) {
         <p class="mt-2 font-mono text-[11px] text-muted">{{ stat.delta }}</p>
       </article>
     </section>
-    <section class="mt-5 grid gap-5 xl:grid-cols-[1.55fr_.8fr]">
+    <section class="dashboard-grid mt-5 grid gap-5 xl:grid-cols-[1.55fr_.8fr]">
       <article class="card">
-        <div class="card-head"><div><p class="eyebrow">Iteration pulse</p><h2>迭代脉冲轨道</h2></div><span class="status-live"><Radio :size="12" /> API</span></div>
-        <div class="mt-8 pulse-track pulse-track--large" :aria-label="`任务平均进度 ${progress}%`">
-          <span class="pulse-progress" :style="{ width: `${progress}%` }" /><i v-for="n in 5" :key="n" :style="{ left: `${n * 17}%` }" />
-        </div>
-        <div class="mt-4 flex justify-between font-mono text-[10px] text-muted"><span>0%</span><span>{{ progress }}%</span><span>100%</span></div>
+        <div class="card-head"><div><h2>进行中的任务</h2><p class="mt-2 text-xs text-muted">关注当前推进与交付进度</p></div><span class="count-badge">{{ active.length }}</span></div>
+        <div class="mt-6 flex items-center justify-between text-xs text-muted"><span>全部任务平均完成度</span><span class="font-mono text-cyan">{{ progress }}%</span></div>
+        <div class="progress-line mt-3" role="progressbar" aria-label="全部任务平均完成度" :aria-valuenow="progress" :aria-valuemin="0" :aria-valuemax="100"><i :style="{ width: `${progress}%` }" /></div>
         <div class="mt-8 space-y-3">
           <button v-for="task in active" :key="task.id" class="task-row w-full text-left" @click="store.openTask(task)">
             <span class="priority-dot" /><span class="min-w-0 flex-1"><b>{{ task.title }}</b><small>{{ task.id.slice(0, 8) }} · {{ store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配' }}</small></span>
@@ -61,7 +59,7 @@ function openRecent(taskId: string) {
           <div class="card-head"><h2>风险摘要</h2><CircleAlert :size="17" class="text-amber-300" /></div>
           <div v-if="risks.length || store.dashboard?.overdue" class="mt-5 space-y-4">
             <div v-if="store.dashboard?.overdue"><p class="text-sm text-white">{{ store.dashboard.overdue }} 个任务已逾期</p><p class="mt-1 text-xs text-muted">请检查截止日期与任务进度</p></div>
-            <div v-for="risk in risks" :key="risk.member.id"><div class="divider mb-4" /><p class="text-sm text-white">{{ risk.member.name }} 的任务临近截止</p><p class="mt-1 text-xs text-muted">{{ risk.current_tasks.length }} 个进行中任务</p></div>
+            <div v-for="risk in risks" :key="risk.member.id"><div class="divider mb-4" /><p class="text-sm text-white">{{ risk.member.name }} 有临期或逾期任务</p><p class="mt-1 text-xs text-muted">{{ risk.current_tasks.length }} 个未完成任务</p></div>
           </div><p v-else class="empty-inline">当前没有识别到交付风险</p>
         </article>
         <article class="card"><div class="card-head"><h2>操作记录</h2><TimerReset :size="17" class="text-cyan" /></div>

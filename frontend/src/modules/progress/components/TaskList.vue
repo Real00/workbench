@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { ChevronRight } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { entryKindMap, isBlocked, latestEntry, priorityMap, statusMap, type Task } from '../types'
 
-const props = defineProps<{ query: string }>()
+defineProps<{ tasks: Task[] }>()
 const store = useProgressStore()
-const tasks = computed(() => store.tasks.filter((task) => task.title.toLowerCase().includes(props.query.toLowerCase())))
 
 function taskHint(task: Task) {
   const entry = latestEntry(task)
@@ -24,7 +22,7 @@ function taskHint(task: Task) {
       <tbody>
         <tr v-for="task in tasks" :key="task.id" tabindex="0" @click="store.openTask(task)" @keydown.enter="store.openTask(task)">
           <td><div class="flex items-center gap-3"><span :class="['priority', `priority--${task.priority}`]">{{ priorityMap[task.priority] }}</span><div><b>{{ task.title }}<span v-if="task.project_id" class="ml-2 font-mono text-[10px] font-normal text-cyan">{{ store.projects.find(project => project.id === task.project_id)?.name ?? '' }}</span></b><small>{{ taskHint(task) }}</small></div></div></td>
-          <td><span class="status-chip">{{ statusMap[task.status] }}</span></td>
+          <td><span :class="['status-chip', `status-chip--${isBlocked(task) ? 'blocked' : task.status}`]">{{ isBlocked(task) ? '阻塞' : statusMap[task.status] }}</span></td>
           <td><span class="flex items-center gap-2"><span class="avatar avatar--sm">{{ store.memberMap.get(task.assignee_id ?? '')?.name.slice(0, 2) ?? '--' }}</span>{{ store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配' }}</span></td>
           <td class="font-mono text-[11px] text-muted">{{ task.start_date?.slice(0, 10) ?? '—' }} → {{ task.due_date?.slice(0, 10) ?? '—' }}</td>
           <td><div class="w-28"><div class="progress-line"><i :style="{ width: `${task.progress}%` }" /></div><small class="font-mono">{{ task.progress }}%</small></div></td>

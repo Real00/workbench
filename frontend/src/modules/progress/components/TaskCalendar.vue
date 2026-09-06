@@ -10,6 +10,9 @@ import '@fullcalendar/vue3/themes/classic/theme.css'
 import '@fullcalendar/vue3/themes/classic/palette.css'
 import { useProgressStore } from '../store'
 
+import type { Task } from '../types'
+
+const props = defineProps<{ tasks: Task[] }>()
 const store = useProgressStore()
 const options = computed(() => ({
   plugins: [classicThemePlugin, dayGridPlugin, interactionPlugin],
@@ -20,7 +23,7 @@ const options = computed(() => ({
   firstDay: 1,
   headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
   buttonText: { today: '今天' },
-  events: store.tasks.filter(task => task.start_date || task.due_date).map((task) => ({
+  events: props.tasks.filter(task => task.start_date || task.due_date).map((task) => ({
     id: task.id, title: `${task.title} · ${store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配'}`,
     start: (task.start_date ?? task.due_date)?.slice(0, 10),
     end: task.due_date?.slice(0, 10),

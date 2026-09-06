@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { BookOpen, FileText, List, Plus, Search, Tags } from '@lucide/vue'
 import { useKnowledgeStore } from '../store'
-import KnowledgeCanvas from '../components/KnowledgeCanvas.vue'
+const KnowledgeCanvas = defineAsyncComponent(() => import('../components/KnowledgeCanvas.vue'))
 
 type View = 'list' | 'canvas'
 type Kind = 'documents' | 'entries' | 'tags'
@@ -48,7 +48,7 @@ function tagNames(ids: string[]) {
       </div>
       <label class="search-box"><Search :size="15" /><span class="sr-only">搜索</span><input v-model="query" autocomplete="off" placeholder="搜索标题、正文或条目键..." /></label>
     </div>
-    <KnowledgeCanvas v-if="view === 'canvas'" />
+    <KnowledgeCanvas v-if="view === 'canvas'" :documents="filteredDocuments" :searching="Boolean(needle)" />
     <template v-else>
       <div class="mb-4 flex gap-2">
         <button :class="['view-tab', kind === 'documents' && 'view-tab--active']" @click="kind = 'documents'">文档</button>
@@ -61,46 +61,46 @@ function tagNames(ids: string[]) {
         </div>
       </div>
       <div v-else-if="kind === 'documents' && !filteredDocuments.length" class="empty-state">
-        <BookOpen :size="28" /><h2>尚无文档</h2><p>文档是画布上的节点，可挂标签和知识条目。</p>
-        <button class="btn-primary" @click="store.openDocument()">新建文档</button>
+        <BookOpen :size="28" /><h2>{{ needle ? '没有匹配的文档' : '尚无文档' }}</h2><p>{{ needle ? '尝试其他关键词或清除搜索。' : '创建文档，沉淀可检索的工作知识。' }}</p>
+        <button v-if="needle" class="btn-secondary" @click="query = ''">清除搜索</button><button v-else class="btn-primary" @click="store.openDocument()">新建文档</button>
       </div>
-      <table v-else-if="kind === 'documents'" class="data-table">
+      <div v-else-if="kind === 'documents'" class="knowledge-table"><table class="data-table">
         <thead><tr><th>标题</th><th>标签</th><th>条目</th></tr></thead>
         <tbody>
-          <tr v-for="document in filteredDocuments" :key="document.id" @click="store.openDocument(document)">
+          <tr v-for="document in filteredDocuments" :key="document.id" tabindex="0" @keydown.enter="store.openDocument(document)" @click="store.openDocument(document)">
             <td class="text-white">{{ document.title }}</td>
             <td>{{ tagNames(document.tag_ids) || '—' }}</td>
             <td>{{ document.entry_ids.length }}</td>
           </tr>
         </tbody>
-      </table>
+      </table></div>
       <div v-else-if="kind === 'entries' && !filteredEntries.length" class="empty-state">
-        <h2>尚无条目</h2><p>条目是键值对，可被多篇文档引用。</p>
-        <button class="btn-primary" @click="store.openEntry()">新建条目</button>
+        <h2>{{ needle ? '没有匹配的条目' : '尚无条目' }}</h2><p>条目是键值对，可被多篇文档引用。</p>
+        <button v-if="needle" class="btn-secondary" @click="query = ''">清除搜索</button><button v-else class="btn-primary" @click="store.openEntry()">新建条目</button>
       </div>
-      <table v-else-if="kind === 'entries'" class="data-table">
+      <div v-else-if="kind === 'entries'" class="knowledge-table"><table class="data-table">
         <thead><tr><th>键</th><th>值</th><th>标签</th></tr></thead>
         <tbody>
-          <tr v-for="entry in filteredEntries" :key="entry.id" @click="store.openEntry(entry)">
+          <tr v-for="entry in filteredEntries" :key="entry.id" tabindex="0" @keydown.enter="store.openEntry(entry)" @click="store.openEntry(entry)">
             <td class="text-white">{{ entry.key }}</td>
             <td class="max-w-xl truncate">{{ entry.value }}</td>
             <td>{{ tagNames(entry.tag_ids) || '—' }}</td>
           </tr>
         </tbody>
-      </table>
+      </table></div>
       <div v-else-if="kind === 'tags' && !filteredTags.length" class="empty-state">
-        <h2>尚无标签</h2><p>每个标签需要一句解释，方便检索时理解分类。</p>
-        <button class="btn-primary" @click="store.openTag()">新建标签</button>
+        <h2>{{ needle ? '没有匹配的标签' : '尚无标签' }}</h2><p>每个标签需要一句解释，方便检索时理解分类。</p>
+        <button v-if="needle" class="btn-secondary" @click="query = ''">清除搜索</button><button v-else class="btn-primary" @click="store.openTag()">新建标签</button>
       </div>
-      <table v-else-if="kind === 'tags'" class="data-table">
+      <div v-else-if="kind === 'tags'" class="knowledge-table"><table class="data-table">
         <thead><tr><th>名称</th><th>解释</th></tr></thead>
         <tbody>
-          <tr v-for="tag in filteredTags" :key="tag.id" @click="store.openTag(tag)">
+          <tr v-for="tag in filteredTags" :key="tag.id" tabindex="0" @keydown.enter="store.openTag(tag)" @click="store.openTag(tag)">
             <td class="text-white">{{ tag.name }}</td>
             <td>{{ tag.explanation }}</td>
           </tr>
         </tbody>
-      </table>
+      </table></div>
     </template>
   </div>
 </template>

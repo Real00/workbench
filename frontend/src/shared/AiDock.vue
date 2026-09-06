@@ -36,7 +36,9 @@ interface ChatTurn {
 
 const progress = useProgressStore()
 const knowledge = useKnowledgeStore()
+const emit = defineEmits<{ 'open-change': [open: boolean] }>()
 const open = ref(false)
+watch(open, value => emit('open-change', value))
 const instruction = ref('')
 const loading = ref(false)
 const confirming = ref(false)
@@ -635,7 +637,7 @@ function discard(turn: ChatTurn) {
             <Send :size="15" />发送
           </button>
         </div>
-        <p class="mt-2 font-mono text-[10px] text-muted">⌘/Ctrl+K 开关面板 · @ 引用任务/成员/项目/知识/工具 · ⌘/Ctrl+Enter 应用变更 · Shift+Enter 换行 · ↑ 召回</p>
+        <details class="ai-help"><summary>快捷键与引用帮助</summary><p>⌘/Ctrl+K 开关面板 · @ 引用任务、知识或工具<br />⌘/Ctrl+Enter 应用变更 · Shift+Enter 换行 · ↑ 召回</p></details>
       </form>
     </template>
   </section>

@@ -12,6 +12,10 @@ declare module 'frappe-gantt' {
     view_mode?: 'Hour' | 'Quarter Day' | 'Half Day' | 'Day' | 'Week' | 'Month' | 'Year'
     language?: string
     readonly?: boolean
+    scroll_to?: string
+    today_button?: boolean
+    popup?: false
+    bar_height?: number
     on_click?: (task: GanttTask) => void
   }
 

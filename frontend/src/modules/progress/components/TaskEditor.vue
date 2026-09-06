@@ -8,8 +8,11 @@ import MarkdownView from '../../../shared/MarkdownView.vue'
 import RichTextarea from '../../../shared/RichTextarea.vue'
 import TaskResources from './TaskResources.vue'
 import { confirmDialog } from '../../../shared/confirm'
+import { useDialogFocus } from '../../../shared/useDialogFocus'
 
 const store = useProgressStore()
+const panel = ref<HTMLElement | null>(null)
+useDialogFocus(panel, () => store.taskEditorOpen, () => { store.taskEditorOpen = false })
 const blank = (): TaskInput => ({ title: '', description: '', status: 'todo', priority: 'medium', assignee_id: null, project_id: null, start_date: null, due_date: null, progress: 0, estimated_hours: null, tags: [] })
 const form = reactive<TaskInput>(blank())
 const tagsText = ref('')
@@ -81,10 +84,11 @@ async function removeTask() {
 <template>
   <Teleport to="body">
     <div v-if="store.taskEditorOpen" class="fixed inset-0 z-50 bg-black/65" @click.self="store.taskEditorOpen = false">
-      <aside class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
+      <aside ref="panel" tabindex="-1" class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between border-b border-line px-5 py-4"><div><p class="eyebrow">{{ store.editingTask?.id ?? 'NEW TASK' }}</p><h2 class="mt-1 font-display text-xl text-white">{{ title }}</h2></div><button class="icon-btn" aria-label="关闭" @click="store.taskEditorOpen = false"><X :size="18" /></button></header>
-        <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
-          <label class="field-label">任务名称<input v-model="form.title" class="input" required maxlength="200" /></label>
+        <form class="task-editor-form" @submit.prevent="submit">
+          <div class="task-editor-fields space-y-5">
+          <label class="field-label">任务名称<input v-model="form.title" autofocus class="input" required maxlength="200" /></label>
           <div class="field-label">
             <span class="flex items-center justify-between gap-3">描述
               <span class="flex gap-1">
@@ -132,7 +136,8 @@ async function removeTask() {
           <TaskResources v-if="store.editingTask" />
           <p v-else class="empty-inline !py-2">保存任务后可以上传图片、文档或添加外链。</p>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingTask" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeTask"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.taskEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" type="submit" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存任务' }}</button></footer>
+          </div>
+          <footer class="editor-actions"><button v-if="store.editingTask" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeTask"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.taskEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" type="submit" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存任务' }}</button></footer>
         </form>
       </aside>
     </div>
