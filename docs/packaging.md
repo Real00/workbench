@@ -117,3 +117,7 @@ docker compose up --build
 - 后端测试依赖 Mongo，CI 用 `mongo:8` 服务容器供在 `localhost:27017`，与 compose 一致；本机无 Mongo 时约 3 个用例会失败
 - Docker 构建在 CI 中强制 `NPM_REGISTRY=https://registry.npmjs.org` 覆盖镜像内的 npmmirror 默认值（GitHub 网络访问 npmjs 更稳）
 - `ruff check .` 暂未纳入 CI 闸门：仓库存量约 79 处违规（多为 `mcp/`、`tests/` 的 E501 超长行），清理完成后建议加回
+
+### 迁移旧数据注意加密密钥
+
+AI 设置的 API Key 用 `WORKBENCH_ENCRYPTION_KEY` 加密存储（未配置时由 `WORKBENCH_JWT_SECRET` 派生）。把别的环境导出的 Mongo 数据导入本环境时，该密钥必须与数据来源一致，否则读取 AI 设置会报 `cryptography.fernet.InvalidToken`。密钥不一致时最简单的处理：清空 `ai_settings` 集合后在系统设置里重新保存 API Key（用本环境密钥重新加密）。
