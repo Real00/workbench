@@ -44,6 +44,8 @@ docker compose up --build
 
 访问 <http://localhost:8080>。
 
+桌面端（Tauri）打包与 Docker 打包的完整流程见 [docs/packaging.md](docs/packaging.md)。
+
 ## 本地开发
 
 日常调试用本机进程，不要重建镜像：
