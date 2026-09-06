@@ -153,6 +153,30 @@ export function hasToken() {
   return Boolean(getToken())
 }
 
+/** 逐帧读取 SSE 响应体，回调每帧 data 载荷（AI 对话与全局事件总线共用） */
+export async function consumeSse<T = unknown>(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: T) => void,
+) {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done })
+    const chunks = buffer.split('\n\n')
+    buffer = done ? '' : (chunks.pop() ?? '')
+    for (const chunk of chunks) emit(chunk)
+    if (done) break
+  }
+
+  function emit(chunk: string) {
+    const line = chunk.split('\n').find(item => item.startsWith('data: '))
+    if (!line) return
+    onEvent(JSON.parse(line.slice(6)))
+  }
+}
+
 export async function streamSse(
   path: string,
   payload: unknown,
@@ -185,23 +209,7 @@ export async function streamSse(
     throw new Error(message)
   }
   if (!response.body) throw new Error('当前浏览器不支持流式响应')
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    buffer += decoder.decode(value, { stream: !done })
-    const chunks = buffer.split('\n\n')
-    buffer = done ? '' : (chunks.pop() ?? '')
-    for (const chunk of chunks) emit(chunk)
-    if (done) break
-  }
-
-  function emit(chunk: string) {
-    const line = chunk.split('\n').find(item => item.startsWith('data: '))
-    if (!line) return
-    onEvent(JSON.parse(line.slice(6)))
-  }
+  await consumeSse(response.body, onEvent)
 }
 
 export function apiError(error: unknown) {

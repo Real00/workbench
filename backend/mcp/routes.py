@@ -13,8 +13,9 @@ from typing import Any
 from aiohttp import web
 
 from mcp.tools import TOOL_MAP, TOOLS
+from shared.events import ChangeEventBus
 from shared.security import SecurityService
-from shared.web_keys import IDENTITY, SECURITY
+from shared.web_keys import EVENT_BUS, IDENTITY, SECURITY
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26")
 LATEST_PROTOCOL_VERSION = "2025-11-25"
@@ -111,6 +112,11 @@ async def _handle_tools_call(request: web.Request, actor: dict[str, Any], params
             "isError": True,
         })
     structured = result if isinstance(result, dict | list) else {"result": result}
+    # /mcp 不走 /api/v1 的变更广播中间件，写工具成功后单独向 SSE 总线发布
+    if tool.scope:
+        bus: ChangeEventBus | None = request.app.get(EVENT_BUS)
+        if bus:
+            bus.publish(tool.scope, "created" if tool.name.startswith("create_") else "updated")
     return _rpc_response(message_id, {
         "content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False, indent=1, default=str)}],
         "structuredContent": structured,

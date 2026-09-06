@@ -7,9 +7,36 @@ import AiDock from '../shared/AiDock.vue'
 import ConfirmDialog from '../shared/ConfirmDialog.vue'
 import CaptureComposer from '../modules/capture/CaptureComposer.vue'
 import { useCaptureStore } from '../modules/capture/store'
+import { useKnowledgeStore } from '../modules/knowledge/store'
+import { useProgressStore } from '../modules/progress/store'
+import { subscribeEvents, type ChangeEvent } from '../shared/api/events'
 import { clearToken } from '../shared/api/client'
 
 const captures = useCaptureStore()
+const progress = useProgressStore()
+const knowledge = useKnowledgeStore()
+
+// 全局数据变更总线：任何来源（本端/其他设备/MCP/AI）的写操作都会推事件，
+// 300ms 合并后静默刷新已初始化的模块，桌面端无需刷新按钮
+let stopEvents: (() => void) | undefined
+let coalesceTimer: ReturnType<typeof setTimeout> | undefined
+const pendingScopes = new Set<ChangeEvent['scope']>()
+function handleChange(event: ChangeEvent) {
+  pendingScopes.add(event.scope)
+  if (coalesceTimer) return
+  coalesceTimer = setTimeout(() => {
+    coalesceTimer = undefined
+    const scopes = new Set(pendingScopes)
+    pendingScopes.clear()
+    if (scopes.has('all')) {
+      scopes.add('progress'); scopes.add('knowledge'); scopes.add('capture')
+    }
+    if (scopes.has('progress') && progress.initialized) void progress.refreshAll()
+    if (scopes.has('knowledge') && knowledge.initialized) void knowledge.refresh()
+    if (scopes.has('capture')) captures.revision++
+    window.dispatchEvent(new Event('workbench-changed'))
+  }, 300)
+}
 const captureDialog = ref<HTMLDialogElement | null>(null)
 function quickKey(event: KeyboardEvent) {
   if (event.isComposing) return
@@ -17,12 +44,24 @@ function quickKey(event: KeyboardEvent) {
     event.preventDefault(); captures.quickOpen = !captures.quickOpen
   }
 }
-onMounted(() => { captures.initialize(); window.addEventListener('keydown', quickKey) })
-onUnmounted(() => { window.removeEventListener('keydown', quickKey); captures.reset() })
+onMounted(() => {
+  captures.initialize()
+  window.addEventListener('keydown', quickKey)
+  stopEvents = subscribeEvents(handleChange)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', quickKey)
+  stopEvents?.()
+  if (coalesceTimer) clearTimeout(coalesceTimer)
+  captures.reset()
+})
 watch(() => captures.quickOpen, open => { if (open) captureDialog.value?.showModal(); else captureDialog.value?.close() })
 const router = useRouter()
 const collapsed = ref(false)
 const mobileOpen = ref(false)
+const assistantOpen = ref(false)
+const primaryNavigation = moduleNavigation.filter(group => group.id !== 'platform')
+const platformNavigation = moduleNavigation.filter(group => group.id === 'platform')
 
 function logout() {
   clearToken()
@@ -42,19 +81,22 @@ function logout() {
           <p class="font-mono text-[10px] uppercase tracking-[.2em] text-muted">Personal workspace</p>
         </div>
       </div>
-      <button class="nav-link m-2" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></button>
+      <button class="nav-link m-2" aria-label="快速记录" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></button>
       <nav class="flex-1 overflow-y-auto p-2" aria-label="主导航">
-        <RouterLink to="/" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">
+        <RouterLink to="/" aria-label="工作台首页" title="工作台首页" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">
           <House :size="18" /><span v-if="!collapsed">工作台首页</span>
         </RouterLink>
-        <section v-for="group in moduleNavigation" :key="group.id" class="mt-5">
-          <p v-if="!collapsed" class="px-3 pb-2 font-mono text-[10px] uppercase tracking-[.18em] text-muted">{{ group.label }}</p>
-          <RouterLink v-for="item in group.items" :key="item.to" :to="item.to" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">
+        <section v-for="group in primaryNavigation" :key="group.id" class="nav-group">
+          <p v-if="!collapsed" class="nav-group-label">{{ group.label }}</p>
+          <RouterLink v-for="item in group.items" :key="item.to" :to="item.to" :aria-label="item.label" :title="collapsed ? item.label : undefined" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">
             <component :is="item.icon" :size="18" /><span v-if="!collapsed">{{ item.label }}</span>
           </RouterLink>
         </section>
       </nav>
       <div class="border-t border-line p-2">
+        <template v-for="group in platformNavigation" :key="group.id">
+          <RouterLink v-for="item in group.items" :key="item.to" :to="item.to" :aria-label="item.label" :title="collapsed ? item.label : undefined" class="nav-link" @click="mobileOpen = false"><component :is="item.icon" :size="18" /><span v-if="!collapsed">{{ item.label }}</span></RouterLink>
+        </template>
         <button class="nav-link hidden w-full lg:flex" :aria-label="collapsed ? '展开侧栏' : '收起侧栏'" @click="collapsed = !collapsed">
           <ChevronLeft :class="collapsed && 'rotate-180'" :size="18" /><span v-if="!collapsed">收起侧栏</span>
         </button>
@@ -63,9 +105,9 @@ function logout() {
         </button>
       </div>
     </aside>
-    <main :class="['main-content', collapsed && 'main-content--wide']">
+    <main :class="['main-content', collapsed && 'main-content--wide', assistantOpen && 'main-content--assistant']">
       <RouterView />
-      <AiDock />
+      <AiDock @open-change="assistantOpen = $event" />
       <dialog ref="captureDialog" class="quick-capture-dialog" aria-label="快速记录" @close="captures.quickOpen = false">
         <div class="mb-4 flex justify-between"><h2>快速记录</h2><button class="icon-btn" aria-label="关闭快记" @click="captures.quickOpen = false">×</button></div>
         <CaptureComposer v-if="captures.quickOpen" autofocus />

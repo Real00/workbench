@@ -10,6 +10,7 @@ from progress.application import ProgressApplicationService
 from pulse.application import PulseApplicationService
 from shared.ai import ModuleAiContribution
 from shared.config import Settings
+from shared.events import ChangeEventBus
 from shared.security import SecurityService
 
 SETTINGS: AppKey[Settings] = AppKey("settings")
@@ -21,5 +22,6 @@ KNOWLEDGE: AppKey[KnowledgeApplicationService] = AppKey("knowledge")
 AI_SETTINGS: AppKey[AISettingsApplicationService] = AppKey("ai_settings")
 AI_TASKS: AppKey[PulseApplicationService] = AppKey("ai_tasks")
 AI_CONTRIBUTIONS: AppKey[list[ModuleAiContribution]] = AppKey("ai_contributions")
+EVENT_BUS: AppKey[ChangeEventBus] = AppKey("event_bus")
 ACTOR: RequestKey[dict[str, Any]] = RequestKey("actor")
 CORS_ORIGIN: RequestKey[str | None] = RequestKey("cors_origin")

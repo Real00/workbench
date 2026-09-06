@@ -12,6 +12,7 @@ export const useProgressStore = defineStore('progress', () => {
   const loading = ref(false)
   const saving = ref(false)
   const error = ref('')
+  const initialized = ref(false)
   const taskEditorOpen = ref(false)
   const editingTask = ref<Task | null>(null)
   const memberEditorOpen = ref(false)
@@ -55,10 +56,29 @@ export const useProgressStore = defineStore('progress', () => {
       members.value = memberData
       projects.value = projectData
       dashboard.value = dashboardData
+      initialized.value = true
     } catch (cause) {
       error.value = apiError(cause)
     } finally {
       loading.value = false
+    }
+  }
+
+  /** 静默全量刷新：不触发 loading，用于事件总线推送与子菜单切换的后台同步 */
+  async function refreshAll() {
+    try {
+      const [taskData, memberData, projectData, dashboardData] = await Promise.all([
+        progressApi.getTasks(),
+        progressApi.getMembers(),
+        progressApi.getProjects(),
+        progressApi.getDashboard(),
+      ])
+      tasks.value = taskData
+      members.value = memberData
+      projects.value = projectData
+      dashboard.value = dashboardData
+    } catch {
+      /* 后台刷新失败不打扰用户，下次事件或切换菜单会再试 */
     }
   }
 
@@ -196,8 +216,8 @@ export const useProgressStore = defineStore('progress', () => {
   }
 
   return {
-    tasks, members, projects, dashboard, memberMap, operatorMember, assignableMembers, loading, saving, error,
+    tasks, members, projects, dashboard, memberMap, operatorMember, assignableMembers, loading, saving, error, initialized,
     taskEditorOpen, editingTask, memberEditorOpen, editingMember, projectEditorOpen, editingProject,
-    initialize, refreshTasks, openTask, saveTask, addTaskEntry, uploadTaskResource, addTaskLink, deleteTaskResource, deleteTask, openMember, saveMember, deleteMember, addMemberEvaluation, removeMemberEvaluation, openProject, saveProject, deleteProject,
+    initialize, refreshAll, refreshTasks, openTask, saveTask, addTaskEntry, uploadTaskResource, addTaskLink, deleteTaskResource, deleteTask, openMember, saveMember, deleteMember, addMemberEvaluation, removeMemberEvaluation, openProject, saveProject, deleteProject,
   }
 })

@@ -11,6 +11,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   const loading = ref(false)
   const saving = ref(false)
   const error = ref('')
+  const initialized = ref(false)
   const documentEditorOpen = ref(false)
   const editingDocument = ref<KnowledgeDocument | null>(null)
   const entryEditorOpen = ref(false)
@@ -32,10 +33,27 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
       tags.value = tagData
       entries.value = entryData
       documents.value = documentData
+      initialized.value = true
     } catch (cause) {
       error.value = apiError(cause)
     } finally {
       loading.value = false
+    }
+  }
+
+  /** 静默刷新：不触发 loading，用于事件总线推送与子菜单切换的后台同步 */
+  async function refresh() {
+    try {
+      const [tagData, entryData, documentData] = await Promise.all([
+        knowledgeApi.getTags(),
+        knowledgeApi.getEntries(),
+        knowledgeApi.getDocuments(),
+      ])
+      tags.value = tagData
+      entries.value = entryData
+      documents.value = documentData
+    } catch {
+      /* 后台刷新失败不打扰用户，下次事件或切换菜单会再试 */
     }
   }
 
@@ -127,9 +145,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   }
 
   return {
-    tags, entries, documents, tagMap, entryMap, loading, saving, error,
+    tags, entries, documents, tagMap, entryMap, loading, saving, error, initialized,
     documentEditorOpen, editingDocument, entryEditorOpen, editingEntry, tagEditorOpen, editingTag,
-    initialize, openDocument, openEntry, openTag, saveDocument, saveEntry, saveTag,
+    initialize, refresh, openDocument, openEntry, openTag, saveDocument, saveEntry, saveTag,
     deleteDocument, deleteEntry, deleteTag, moveDocument,
   }
 })

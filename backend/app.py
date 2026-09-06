@@ -6,6 +6,7 @@ from pymongo import AsyncMongoClient
 
 from ai_settings.module import AISettingsModule
 from api.cors import cors_middleware
+from api.events import mutation_events_middleware, register_events_routes
 from api.http import auth_middleware, error_middleware
 from capture.module import CaptureModule
 from identity.module import IdentityModule
@@ -14,9 +15,10 @@ from mcp.routes import register_mcp_routes
 from progress.module import ProgressModule
 from pulse.module import PulseModule
 from shared.config import Settings, cors_origin_set, get_settings
+from shared.events import ChangeEventBus
 from shared.module import AppModule, ModuleContext
 from shared.security import SecurityService
-from shared.web_keys import AI_CONTRIBUTIONS, MONGO_CLIENT, SECURITY, SETTINGS
+from shared.web_keys import AI_CONTRIBUTIONS, EVENT_BUS, MONGO_CLIENT, SECURITY, SETTINGS
 
 
 def resolve_static_file(static_dir: Path, relative: str) -> Path | None:
@@ -51,6 +53,9 @@ def create_app(settings: Settings | None = None, **overrides: Any) -> web.Applic
         middlewares=[
             cors_middleware(cors_origin_set(settings.cors_origins)),
             error_middleware,
+            # 排在 error 之后：业务异常直接冒泡不广播，错误响应靠状态码排除；
+            # 排在 auth 之前：401/403 同样靠状态码排除
+            mutation_events_middleware,
             auth_middleware,
         ],
         client_max_size=21 * 1024 * 1024,
@@ -58,6 +63,7 @@ def create_app(settings: Settings | None = None, **overrides: Any) -> web.Applic
     app[SETTINGS] = settings
     app[MONGO_CLIENT] = client
     app[SECURITY] = security
+    app[EVENT_BUS] = ChangeEventBus()
     context = ModuleContext(
         settings=settings,
         mongo=client,
@@ -76,6 +82,7 @@ def create_app(settings: Settings | None = None, **overrides: Any) -> web.Applic
         module.register(app, context)
     app[AI_CONTRIBUTIONS] = context.ai_contributions
     register_mcp_routes(app)
+    register_events_routes(app)
 
     async def cleanup(_: web.Application) -> None:
         if "mongo_client" not in overrides:

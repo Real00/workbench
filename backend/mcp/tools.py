@@ -39,6 +39,8 @@ class McpTool:
     input_schema: dict[str, Any]
     annotations: dict[str, Any]
     handler: Callable[[web.Request, str, dict[str, Any]], Awaitable[Any]]
+    # 写工具标注变更影响的数据域，成功执行后据此向 SSE 总线广播（None = 只读不广播）
+    scope: str | None = None
 
 
 async def _resolve_task(domain: ProgressDomainService, args: dict[str, Any]):
@@ -364,7 +366,7 @@ TOOLS: list[McpTool] = [
                 "assignee_id": {"type": "string"}, "project_id": {"type": "string"},
                 "start_date": DATE_SCHEMA, "due_date": DATE_SCHEMA,
                 "estimated_hours": {"type": "number"}, "tags": {"type": "array", "items": {"type": "string"}},
-            }, ["title"]), WRITE_ANNOTATIONS, h_create_task),
+            }, ["title"]), WRITE_ANNOTATIONS, h_create_task, scope="progress"),
     McpTool("update_task", "更新任务", "Update task fields by task_id (or unique title_query); add_entry appends a progress note.",
             _schema({
                 "task_id": {"type": "string"}, "title_query": {"type": "string"},
@@ -377,30 +379,30 @@ TOOLS: list[McpTool] = [
                 "estimated_hours": {"type": "number"},
                 "tags": {"type": "array", "items": {"type": "string"}},
                 "add_entry": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["update", "blocker", "extra_work"]}, "content": {"type": "string"}}, "required": ["kind", "content"]},
-            }), WRITE_ANNOTATIONS, h_update_task),
+            }), WRITE_ANNOTATIONS, h_update_task, scope="progress"),
     McpTool("add_progress_entry", "追加进度记录", "Append a progress note (update/blocker/extra_work) to a task.",
             _schema({
                 "task_id": {"type": "string"}, "title_query": {"type": "string"},
                 "kind": {"type": "string", "enum": ["update", "blocker", "extra_work"]},
                 "content": {"type": "string"},
-            }, ["kind", "content"]), WRITE_ANNOTATIONS, h_add_progress_entry),
+            }, ["kind", "content"]), WRITE_ANNOTATIONS, h_add_progress_entry, scope="progress"),
     McpTool("list_members", "列出成员", "List team members with skills, background, and activity.",
             _schema({}), READ_ANNOTATIONS, h_list_members),
     McpTool("create_member", "创建成员", "Create a team member with name, title, skills, background.",
             _schema({"name": {"type": "string"}, "title": {"type": "string"}, "skills": {"type": "array", "items": {"type": "string"}}, "background": {"type": "string"}}, ["name"]),
-            WRITE_ANNOTATIONS, h_create_member),
+            WRITE_ANNOTATIONS, h_create_member, scope="progress"),
     McpTool("update_member", "更新成员", "Update a member's title/skills/background/active by member_id or name.",
             _schema({
                 "member_id": {"type": "string"}, "name": {"type": "string"},
                 "title": {"type": "string"}, "skills": {"type": "array", "items": {"type": "string"}},
                 "background": {"type": "string"}, "active": {"type": "boolean"}, "color": {"type": "string"},
-            }), WRITE_ANNOTATIONS, h_update_member),
+            }), WRITE_ANNOTATIONS, h_update_member, scope="progress"),
     McpTool("record_member_evaluation", "记录成员评价", "Append an evaluation (highlight/risk/note) about a team member.",
             _schema({
                 "member_id": {"type": "string"}, "name": {"type": "string"},
                 "kind": {"type": "string", "enum": ["highlight", "risk", "note"]},
                 "content": {"type": "string"},
-            }, ["kind", "content"]), WRITE_ANNOTATIONS, h_record_member_evaluation),
+            }, ["kind", "content"]), WRITE_ANNOTATIONS, h_record_member_evaluation, scope="progress"),
     McpTool("list_projects", "列出项目", "List projects with status and members.",
             _schema({}), READ_ANNOTATIONS, h_list_projects),
     McpTool("create_project", "创建项目", "Create a project with name, description, background, started_at, status, member_ids.",
@@ -409,7 +411,7 @@ TOOLS: list[McpTool] = [
                 "started_at": DATE_SCHEMA,
                 "status": {"type": "string", "enum": ["planning", "active", "completed", "archived"]},
                 "member_ids": {"type": "array", "items": {"type": "string"}},
-            }, ["name"]), WRITE_ANNOTATIONS, h_create_project),
+            }, ["name"]), WRITE_ANNOTATIONS, h_create_project, scope="progress"),
     McpTool("update_project", "更新项目", "Update project info/status; add or remove members by name via add_member_names/remove_member_names.",
             _schema({
                 "project_id": {"type": "string"}, "name": {"type": "string"},
@@ -419,7 +421,7 @@ TOOLS: list[McpTool] = [
                 "cover_color": {"type": "string"},
                 "add_member_names": {"type": "array", "items": {"type": "string"}},
                 "remove_member_names": {"type": "array", "items": {"type": "string"}},
-            }), WRITE_ANNOTATIONS, h_update_project),
+            }), WRITE_ANNOTATIONS, h_update_project, scope="progress"),
     McpTool("list_tags", "列出知识标签", "List knowledge tags with explanations.",
             _schema({}), READ_ANNOTATIONS, h_list_tags),
     McpTool("list_entries", "列出知识条目", "List knowledge entries as key/value concepts with tags and linked documents.",
@@ -435,20 +437,20 @@ TOOLS: list[McpTool] = [
             _schema({"path": {"type": "string"}}, ["path"]), READ_ANNOTATIONS, h_read_knowledge),
     McpTool("create_tag", "创建知识标签", "Create a knowledge tag with an explanation.",
             _schema({"name": {"type": "string"}, "explanation": {"type": "string"}}, ["name", "explanation"]),
-            WRITE_ANNOTATIONS, h_create_tag),
+            WRITE_ANNOTATIONS, h_create_tag, scope="knowledge"),
     McpTool("create_entry", "创建知识条目", "Create a key/value knowledge entry; optionally link tags by name and documents by id.",
             _schema({
                 "key": {"type": "string"}, "value": {"type": "string"},
                 "aliases": {"type": "array", "items": {"type": "string"}},
                 "tag_names": {"type": "array", "items": {"type": "string"}},
                 "document_ids": {"type": "array", "items": {"type": "string"}},
-            }, ["key", "value"]), WRITE_ANNOTATIONS, h_create_entry),
+            }, ["key", "value"]), WRITE_ANNOTATIONS, h_create_entry, scope="knowledge"),
     McpTool("update_entry", "更新知识条目", "Update an existing entry's value/aliases/tags by entry_id or key.",
             _schema({
                 "entry_id": {"type": "string"}, "key": {"type": "string"},
                 "value": {"type": "string"}, "aliases": {"type": "array", "items": {"type": "string"}},
                 "tag_names": {"type": "array", "items": {"type": "string"}},
-            }), WRITE_ANNOTATIONS, h_update_entry),
+            }), WRITE_ANNOTATIONS, h_update_entry, scope="knowledge"),
 ]
 
 TOOL_MAP = {tool.name: tool for tool in TOOLS}

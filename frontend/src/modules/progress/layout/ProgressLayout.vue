@@ -14,6 +14,13 @@ function openLinkedTask() {
 }
 onMounted(async () => { await store.initialize(); openLinkedTask() })
 watch(() => route.query.task, openLinkedTask)
+// 兜底：SSE 断线期间子菜单切换也可能有旧数据，超过 10s 未同步就静默重拉
+let lastSync = 0
+watch(() => route.name, () => {
+  if (!store.initialized || Date.now() - lastSync < 10_000) return
+  lastSync = Date.now()
+  void store.refreshAll()
+})
 </script>
 
 <template>

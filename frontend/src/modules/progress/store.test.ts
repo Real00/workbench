@@ -73,10 +73,25 @@ describe('progress store', () => {
   it('并行加载任务、成员和总览', async () => {
     mockReads()
     const store = useProgressStore()
+    expect(store.initialized).toBe(false)
     await store.initialize()
+    expect(store.initialized).toBe(true)
     expect(store.tasks).toEqual([task])
     expect(store.memberMap.get(member.id)?.name).toBe('林晓')
     expect(store.dashboard?.total).toBe(1)
+  })
+
+  it('静默刷新不触发 loading 且更新全部数据', async () => {
+    mockReads()
+    const store = useProgressStore()
+    await store.initialize()
+    const refreshedTask = { ...task, title: '新标题' }
+    vi.spyOn(progressApi, 'getTasks').mockResolvedValue([refreshedTask])
+    const loadingSpy = vi.fn()
+    store.$subscribe(() => { loadingSpy(store.loading) })
+    await store.refreshAll()
+    expect(store.tasks).toEqual([refreshedTask])
+    expect(store.loading).toBe(false)
   })
 
   it('创建任务后刷新任务和总览', async () => {

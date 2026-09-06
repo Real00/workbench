@@ -16,6 +16,13 @@ function openLinkedKnowledge() {
 }
 onMounted(async () => { await store.initialize(); openLinkedKnowledge() })
 watch(() => [route.query.document, route.query.entry], openLinkedKnowledge)
+// 兜底：SSE 断线期间子菜单切换也可能有旧数据，超过 10s 未同步就静默重拉
+let lastSync = 0
+watch(() => route.name, () => {
+  if (!store.initialized || Date.now() - lastSync < 10_000) return
+  lastSync = Date.now()
+  void store.refresh()
+})
 </script>
 
 <template>
