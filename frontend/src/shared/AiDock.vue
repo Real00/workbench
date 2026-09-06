@@ -236,7 +236,8 @@ function onDockKeydown(event: KeyboardEvent) {
 }
 
 function onGlobalKeydown(event: KeyboardEvent) {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+  // Ctrl/⌘+K 已让位给命令面板，AI 助手呼出改为 Ctrl/⌘+I
+  if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'i') {
     event.preventDefault()
     if (loading.value) return
     open.value = !open.value
@@ -523,7 +524,7 @@ function discard(turn: ChatTurn) {
 
 <template>
   <section :class="['ai-dock', open && 'ai-dock--open']" aria-label="Pulse AI 助手" @keydown.capture="onDockKeydown">
-    <button v-if="!open" class="ai-trigger" aria-label="打开 Pulse AI 对话（快捷键 Ctrl/Cmd+K）" title="提问、分析或发起操作 · Ctrl/Cmd+K 快速呼出" @click="open = true">
+    <button v-if="!open" class="ai-trigger" aria-label="打开 Pulse AI 对话（快捷键 Ctrl/Cmd+I）" title="提问、分析或发起操作 · Ctrl/Cmd+I 快速呼出" @click="open = true">
       <span class="relative"><Sparkles :size="17" /><i /></span>
       <b>Pulse AI</b>
     </button>

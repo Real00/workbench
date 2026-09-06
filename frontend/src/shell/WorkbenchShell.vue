@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { Boxes, ChevronLeft, House, LogOut, Menu } from '@lucide/vue'
 import { moduleNavigation } from '../app/modules'
 import AiDock from '../shared/AiDock.vue'
+import CommandPalette from '../shared/CommandPalette.vue'
 import ConfirmDialog from '../shared/ConfirmDialog.vue'
 import CaptureComposer from '../modules/capture/CaptureComposer.vue'
 import { useCaptureStore } from '../modules/capture/store'
@@ -38,10 +39,15 @@ function handleChange(event: ChangeEvent) {
   }, 300)
 }
 const captureDialog = ref<HTMLDialogElement | null>(null)
+const paletteOpen = ref(false)
 function quickKey(event: KeyboardEvent) {
   if (event.isComposing) return
-  if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'j') {
+  const cmd = event.metaKey || event.ctrlKey
+  if (cmd && event.shiftKey && event.key.toLowerCase() === 'j') {
     event.preventDefault(); captures.quickOpen = !captures.quickOpen
+  } else if (cmd && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'k') {
+    // 命令面板；AI 助手已让位改用 Ctrl/⌘+I
+    event.preventDefault(); paletteOpen.value = !paletteOpen.value
   }
 }
 onMounted(() => {
@@ -114,5 +120,6 @@ function logout() {
       </dialog>
     </main>
     <ConfirmDialog />
+    <CommandPalette :open="paletteOpen" @close="paletteOpen = false" />
   </div>
 </template>
