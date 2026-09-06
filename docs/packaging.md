@@ -99,7 +99,7 @@ docker compose up --build
 
 | 任务 | 运行环境 | 内容 |
 | --- | --- | --- |
-| `check` | ubuntu + mongo:8 服务容器 | 后端 ruff/mypy/pytest、前端 typecheck/test/build |
+| `check` | ubuntu + mongo:8 服务容器 | 后端 mypy/pytest、前端 typecheck/test/build |
 | `docker` | ubuntu | 构建镜像并推送到 GHCR |
 | `desktop` | macOS | `pnpm tauri build`，上传 dmg 构件 |
 
@@ -116,3 +116,4 @@ docker compose up --build
 - CI 构建的桌面包未做公证/签名，首次打开会被 Gatekeeper 拦截：右键 → 打开，或 `xattr -cr Workbench.app`
 - 后端测试依赖 Mongo，CI 用 `mongo:8` 服务容器供在 `localhost:27017`，与 compose 一致；本机无 Mongo 时约 3 个用例会失败
 - Docker 构建在 CI 中强制 `NPM_REGISTRY=https://registry.npmjs.org` 覆盖镜像内的 npmmirror 默认值（GitHub 网络访问 npmjs 更稳）
+- `ruff check .` 暂未纳入 CI 闸门：仓库存量约 79 处违规（多为 `mcp/`、`tests/` 的 E501 超长行），清理完成后建议加回
