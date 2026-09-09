@@ -22,13 +22,10 @@ const filteredTags = computed(() => store.tags.filter(item =>
   !needle.value || item.name.toLowerCase().includes(needle.value) || item.explanation.toLowerCase().includes(needle.value)
 ))
 
-function tagNames(ids: string[]) {
-  return ids.map(id => store.tagMap.get(id)?.name).filter(Boolean).join(' / ')
-}
 </script>
 
 <template>
-  <div class="page-wrap">
+  <div class="page-wrap knowledge-page">
     <header class="page-header">
       <div>
         <p class="eyebrow">Knowledge</p>
@@ -42,18 +39,18 @@ function tagNames(ids: string[]) {
       </div>
     </header>
     <div class="mb-4 flex flex-col gap-3 rounded-xl border border-line bg-panel p-2 md:flex-row md:items-center md:justify-between">
-      <div class="flex overflow-x-auto" role="tablist" aria-label="知识视图">
-        <button :class="['view-tab', view === 'list' && 'view-tab--active']" @click="view = 'list'"><List :size="15" />列表</button>
-        <button :class="['view-tab', view === 'canvas' && 'view-tab--active']" @click="view = 'canvas'"><FileText :size="15" />画布</button>
+      <div class="segmented-tabs" role="group" aria-label="知识视图">
+        <button :class="['view-tab', view === 'list' && 'view-tab--active']" :aria-pressed="view === 'list'" @click="view = 'list'"><List :size="15" />列表</button>
+        <button :class="['view-tab', view === 'canvas' && 'view-tab--active']" :aria-pressed="view === 'canvas'" @click="view = 'canvas'"><FileText :size="15" />画布</button>
       </div>
       <label class="search-box"><Search :size="15" /><span class="sr-only">搜索</span><input v-model="query" autocomplete="off" placeholder="搜索标题、正文或条目键..." /></label>
     </div>
     <KnowledgeCanvas v-if="view === 'canvas'" :documents="filteredDocuments" :searching="Boolean(needle)" />
     <template v-else>
-      <div class="mb-4 flex gap-2">
-        <button :class="['view-tab', kind === 'documents' && 'view-tab--active']" @click="kind = 'documents'">文档</button>
-        <button :class="['view-tab', kind === 'entries' && 'view-tab--active']" @click="kind = 'entries'">条目</button>
-        <button :class="['view-tab', kind === 'tags' && 'view-tab--active']" @click="kind = 'tags'">标签</button>
+      <div class="content-tabs mb-4" role="group" aria-label="内容类型">
+        <button :class="['view-tab', kind === 'documents' && 'view-tab--active']" :aria-pressed="kind === 'documents'" @click="kind = 'documents'">文档</button>
+        <button :class="['view-tab', kind === 'entries' && 'view-tab--active']" :aria-pressed="kind === 'entries'" @click="kind = 'entries'">条目</button>
+        <button :class="['view-tab', kind === 'tags' && 'view-tab--active']" :aria-pressed="kind === 'tags'" @click="kind = 'tags'">标签</button>
       </div>
       <div v-if="kind === 'documents' && store.loading" class="card p-2">
         <div v-for="i in 5" :key="i" class="flex items-center gap-4 px-3 py-3">
@@ -68,9 +65,9 @@ function tagNames(ids: string[]) {
         <thead><tr><th>标题</th><th>标签</th><th>条目</th></tr></thead>
         <tbody>
           <tr v-for="document in filteredDocuments" :key="document.id" tabindex="0" @keydown.enter="store.openDocument(document)" @click="store.openDocument(document)">
-            <td class="text-white">{{ document.title }}</td>
-            <td>{{ tagNames(document.tag_ids) || '—' }}</td>
-            <td>{{ document.entry_ids.length }}</td>
+            <td><span class="knowledge-title"><span class="document-symbol"><FileText :size="17" /></span><b>{{ document.title }}</b></span></td>
+            <td><div class="flex flex-wrap gap-1.5"><span v-for="tagId in document.tag_ids" :key="tagId" class="skill-chip">{{ store.tagMap.get(tagId)?.name ?? '未知标签' }}</span><span v-if="!document.tag_ids.length" class="text-muted">—</span></div></td>
+            <td><span class="count-badge inline-flex">{{ document.entry_ids.length }}</span></td>
           </tr>
         </tbody>
       </table></div>
@@ -82,9 +79,9 @@ function tagNames(ids: string[]) {
         <thead><tr><th>键</th><th>值</th><th>标签</th></tr></thead>
         <tbody>
           <tr v-for="entry in filteredEntries" :key="entry.id" tabindex="0" @keydown.enter="store.openEntry(entry)" @click="store.openEntry(entry)">
-            <td class="text-white">{{ entry.key }}</td>
+            <td><span class="knowledge-key">{{ entry.key }}</span></td>
             <td class="max-w-xl truncate">{{ entry.value }}</td>
-            <td>{{ tagNames(entry.tag_ids) || '—' }}</td>
+            <td><div class="flex flex-wrap gap-1.5"><span v-for="tagId in entry.tag_ids" :key="tagId" class="skill-chip">{{ store.tagMap.get(tagId)?.name ?? '未知标签' }}</span><span v-if="!entry.tag_ids.length" class="text-muted">—</span></div></td>
           </tr>
         </tbody>
       </table></div>
@@ -96,7 +93,7 @@ function tagNames(ids: string[]) {
         <thead><tr><th>名称</th><th>解释</th></tr></thead>
         <tbody>
           <tr v-for="tag in filteredTags" :key="tag.id" tabindex="0" @keydown.enter="store.openTag(tag)" @click="store.openTag(tag)">
-            <td class="text-white">{{ tag.name }}</td>
+            <td><span class="skill-chip">{{ tag.name }}</span></td>
             <td>{{ tag.explanation }}</td>
           </tr>
         </tbody>

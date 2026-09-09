@@ -115,14 +115,14 @@ async function removeMember() {
 
 <template>
   <Teleport to="body">
-    <div v-if="store.memberEditorOpen" class="fixed inset-0 z-50 bg-black/65" @click.self="store.memberEditorOpen = false">
+    <div v-if="store.memberEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.memberEditorOpen = false">
       <aside class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div class="flex min-w-0 items-center gap-3">
             <img v-if="avatar" :src="avatar" alt="" width="36" height="36" class="member-avatar" />
             <div class="min-w-0">
               <p class="eyebrow">Team member</p>
-              <h2 class="mt-1 truncate font-display text-xl text-white">{{ title }}</h2>
+              <h2 class="mt-1 truncate font-display text-xl text-text">{{ title }}</h2>
             </div>
           </div>
           <div class="flex shrink-0 items-center gap-2">
@@ -141,7 +141,7 @@ async function removeMember() {
               <label class="field-label">职位 / 角色<input v-model="form.title" class="input" maxlength="100" /></label>
             </div>
             <label class="field-label">识别色<span class="mt-2 flex items-center gap-3"><input v-model="form.color" type="color" class="h-10 w-14 rounded border border-line bg-transparent p-1" /><input v-model="form.color" class="input !mt-0 font-mono" /></span></label>
-            <label class="flex items-center gap-3 text-xs text-slate-300"><input v-model="form.active" type="checkbox" class="accent-cyan" :disabled="isOperator" />成员当前可参与任务分配</label>
+            <label class="flex items-center gap-3 text-xs text-text-secondary"><input v-model="form.active" type="checkbox" class="accent-cyan" :disabled="isOperator" />成员当前可参与任务分配</label>
             <p v-if="isOperator" class="text-[12px] leading-5 text-muted">管理员对应的成员不能停用或删除，否则无法把任务分给自己。</p>
           </section>
           <section class="space-y-4 border-t border-line pt-5">

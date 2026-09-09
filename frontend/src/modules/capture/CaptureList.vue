@@ -44,7 +44,7 @@ watch([archived, () => store.revision], () => load())
     <article v-for="item in (props.compact ? items.slice(0, 5) : items)" :key="item.id" class="capture-item">
       <div class="mb-2 flex justify-between text-xs text-muted"><time>{{ new Date(item.created_at).toLocaleString('zh-CN') }}</time><span v-if="item.pinned" class="text-cyan">已置顶</span></div>
       <p :class="['whitespace-pre-wrap break-words text-sm leading-7', compact && 'line-clamp-4']">{{ item.content }}</p>
-      <div class="mt-3 flex flex-wrap gap-4 text-xs text-muted"><button :disabled="!!busy" @click="update(item, { pinned: !item.pinned })">{{ item.pinned ? '取消置顶' : '置顶关注' }}</button><button @click="discuss(item)">交给 Pulse</button><button :disabled="!!busy" @click="update(item, { archived: !item.archived })">{{ item.archived ? '恢复记录' : '归档' }}</button></div>
+      <div class="mt-3 flex flex-wrap gap-1 text-xs text-muted"><button class="btn-ghost btn-ghost--sm" :disabled="!!busy" @click="update(item, { pinned: !item.pinned })">{{ item.pinned ? '取消置顶' : '置顶关注' }}</button><button class="btn-ghost btn-ghost--sm" @click="discuss(item)">交给 Pulse</button><button class="btn-ghost btn-ghost--sm" :disabled="!!busy" @click="update(item, { archived: !item.archived })">{{ item.archived ? '恢复记录' : '归档' }}</button></div>
     </article>
     <button v-if="!compact && more" class="btn-secondary mt-4" :disabled="loading" @click="load(true)">加载更多</button>
   </section>

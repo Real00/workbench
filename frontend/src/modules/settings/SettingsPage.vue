@@ -223,14 +223,14 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
             </details>
             <div class="mt-4 space-y-3">
               <div v-for="tool in module.tools" :key="tool.name" class="rounded-lg border border-line bg-panel-2 p-3">
-                <header class="flex items-center justify-between gap-2"><b class="font-mono text-xs text-cyan">{{ tool.name }}</b><span class="font-mono text-[10px] text-muted">{{ tool.parameters.length ? `${tool.parameters.length} 参数` : '无参数' }}</span></header>
-                <p class="mt-1.5 text-[12px] leading-5 text-slate-300">{{ tool.description || '—' }}</p>
+                <header class="flex items-center justify-between gap-2"><b class="font-mono text-xs text-cyan">{{ tool.name }}</b><span class="font-mono text-[12px] text-muted">{{ tool.parameters.length ? `${tool.parameters.length} 参数` : '无参数' }}</span></header>
+                <p class="mt-1.5 text-[12px] leading-5 text-text-secondary">{{ tool.description || '—' }}</p>
                 <ul v-if="tool.parameters.length" class="mt-2 space-y-1">
-                  <li v-for="param in tool.parameters" :key="param.name" class="flex flex-wrap items-center gap-2 font-mono text-[11px]">
-                    <span class="text-white">{{ param.name }}</span>
+                  <li v-for="param in tool.parameters" :key="param.name" class="flex flex-wrap items-center gap-2 font-mono text-[12px]">
+                    <span class="text-text">{{ param.name }}</span>
                     <span class="text-muted">{{ param.type }}</span>
-                    <span :class="param.required ? 'text-[#fca5a5]' : 'text-muted'">{{ param.required ? '必填' : '可选' }}</span>
-                    <span v-if="param.values.length" class="text-[#fcd34d]">{{ param.values.join(' / ') }}</span>
+                    <span :class="param.required ? 'text-danger' : 'text-muted'">{{ param.required ? '必填' : '可选' }}</span>
+                    <span v-if="param.values.length" class="text-warning">{{ param.values.join(' / ') }}</span>
                     <span v-if="param.default" class="text-muted">默认 {{ param.default }}</span>
                   </li>
                 </ul>
@@ -250,11 +250,11 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
         <div v-else class="space-y-3">
           <article v-for="device in devices" :key="device.id" class="card flex flex-wrap items-center justify-between gap-3 p-4">
             <div class="min-w-0">
-              <b class="flex items-center gap-2 text-sm text-white">
+              <b class="flex items-center gap-2 text-sm text-text">
                 {{ device.device_name }}
                 <span v-if="device.device_id === getDeviceId()" class="status-chip">当前设备</span>
               </b>
-              <p class="mt-1 font-mono text-[11px] text-muted">绑定 {{ formatStamp(device.created_at) }} · 最近活跃 {{ formatStamp(device.last_active_at) }}</p>
+              <p class="mt-1 font-mono text-[12px] text-muted">绑定 {{ formatStamp(device.created_at) }} · 最近活跃 {{ formatStamp(device.last_active_at) }}</p>
             </div>
             <button type="button" class="btn-secondary shrink-0" :disabled="unbindingId === device.id" @click="unbindDevice(device)"><LoaderCircle v-if="unbindingId === device.id" :size="14" class="animate-spin" /><Trash2 v-else :size="14" />解绑</button>
           </article>
@@ -266,32 +266,32 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
           <div class="mt-5 space-y-4">
             <div class="field-label">接入地址
               <div class="mt-1 flex items-center gap-2">
-                <code class="min-w-0 flex-1 rounded-lg border border-line bg-[#09141f] px-3 py-2 font-mono text-[12px] text-cyan">{{ mcpUrl }}</code>
+                <code class="min-w-0 flex-1 rounded-lg border border-line bg-ink px-3 py-2 font-mono text-[12px] text-cyan">{{ mcpUrl }}</code>
                 <button type="button" class="btn-secondary shrink-0" @click="copyConfig('url')"><Check v-if="copied === 'url'" :size="14" /><Copy v-else :size="14" />{{ copied === 'url' ? '已复制' : '复制' }}</button>
               </div>
             </div>
             <div class="field-label">
               <span class="flex items-center justify-between gap-3">认证方式一：设备凭证（推荐，长期有效，可在「绑定设备」随时吊销）
-                <button type="button" class="text-[11px] font-semibold text-cyan" @click="copyConfig('device')">{{ copied === 'device' ? '已复制配置' : '复制客户端配置' }}</button>
+                <button type="button" class="text-[12px] font-semibold text-cyan" @click="copyConfig('device')">{{ copied === 'device' ? '已复制配置' : '复制客户端配置' }}</button>
               </span>
               <template v-if="deviceCredentialsReady">
-                <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-[#09141f] p-3 font-mono text-[11px] leading-5 text-slate-300">{{ JSON.stringify({
+                <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-ink p-3 font-mono text-[12px] leading-5 text-text-secondary">{{ JSON.stringify({
                   mcpServers: { workbench: { type: 'http', url: mcpUrl, headers: { 'X-Device-Id': getDeviceId(), 'X-Device-Token': getDeviceToken() } } }
                 }, null, 2) }}</pre>
                 <small>以上为本机已绑定的设备凭证，可直接粘贴到 MCP 客户端配置中。</small>
               </template>
               <template v-else>
                 <small class="!mt-2">本设备还没有绑定凭证：在登录页勾选「保持登录」登录一次即可生成，然后回到本页复制配置。也可以用下方命令手动获取（返回体中的 device_token 字段）：</small>
-                <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-[#09141f] p-3 font-mono text-[11px] leading-5 text-slate-300">curl -X POST {{ curlLoginBase }}/api/v1/auth/login \
+                <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-ink p-3 font-mono text-[12px] leading-5 text-text-secondary">curl -X POST {{ curlLoginBase }}/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"你的账号","password":"你的密码","device_id":"my-mcp-client","device_name":"MCP 客户端"}'</pre>
               </template>
             </div>
             <div class="field-label">
               <span class="flex items-center justify-between gap-3">认证方式二：登录令牌（短期，1 天有效）
-                <button type="button" class="text-[11px] font-semibold text-cyan" @click="copyConfig('jwt')">{{ copied === 'jwt' ? '已复制配置' : '复制客户端配置' }}</button>
+                <button type="button" class="text-[12px] font-semibold text-cyan" @click="copyConfig('jwt')">{{ copied === 'jwt' ? '已复制配置' : '复制客户端配置' }}</button>
               </span>
-              <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-[#09141f] p-3 font-mono text-[11px] leading-5 text-slate-300">{{ JSON.stringify({
+              <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-ink p-3 font-mono text-[12px] leading-5 text-text-secondary">{{ JSON.stringify({
                 mcpServers: { workbench: { type: 'http', url: mcpUrl, headers: { Authorization: 'Bearer <access_token>' } } }
               }, null, 2) }}</pre>
             </div>

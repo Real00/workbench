@@ -83,9 +83,9 @@ async function removeTask() {
 
 <template>
   <Teleport to="body">
-    <div v-if="store.taskEditorOpen" class="fixed inset-0 z-50 bg-black/65" @click.self="store.taskEditorOpen = false">
+    <div v-if="store.taskEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.taskEditorOpen = false">
       <aside ref="panel" tabindex="-1" class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
-        <header class="flex items-center justify-between border-b border-line px-5 py-4"><div><p class="eyebrow">{{ store.editingTask?.id ?? 'NEW TASK' }}</p><h2 class="mt-1 font-display text-xl text-white">{{ title }}</h2></div><button class="icon-btn" aria-label="关闭" @click="store.taskEditorOpen = false"><X :size="18" /></button></header>
+        <header class="flex items-center justify-between border-b border-line px-5 py-4"><div><p class="eyebrow">{{ store.editingTask?.id ?? 'NEW TASK' }}</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div><button class="icon-btn" aria-label="关闭" @click="store.taskEditorOpen = false"><X :size="18" /></button></header>
         <form class="task-editor-form" @submit.prevent="submit">
           <div class="task-editor-fields space-y-5">
           <label class="field-label">任务名称<input v-model="form.title" autofocus class="input" required maxlength="200" /></label>
@@ -97,12 +97,12 @@ async function removeTask() {
               </span>
             </span>
             <RichTextarea v-if="!descriptionPreview" v-model="form.description" :min-height="112" :max-height="320" placeholder="支持 Markdown：## 标题、**加粗**、- 列表、换行" />
-            <div v-else class="mt-2 min-h-[112px] rounded-lg border border-line bg-[#09141f] p-4">
+            <div v-else class="mt-2 min-h-[112px] rounded-lg border border-line bg-ink p-4">
               <MarkdownView :source="form.description" />
             </div>
           </div>
           <label class="field-label">
-            <span class="flex items-center justify-between gap-3">负责人<button v-if="store.operatorMember && !assignedToMe" type="button" class="text-[11px] font-semibold text-cyan" @click="assignToMe">分配给我</button></span>
+            <span class="flex items-center justify-between gap-3">负责人<button v-if="store.operatorMember && !assignedToMe" type="button" class="text-[12px] font-semibold text-cyan" @click="assignToMe">分配给我</button></span>
             <AppSelect v-model="form.assignee_id" :options="assigneeOptions" placeholder="未分配" />
           </label>
           <label class="field-label">所属项目<AppSelect v-model="form.project_id" :options="projectOptions" placeholder="不关联项目" /></label>

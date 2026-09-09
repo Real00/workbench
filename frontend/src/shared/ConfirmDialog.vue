@@ -16,18 +16,18 @@ useDialogFocus(panel, () => state.open, () => resolveConfirm(false))
     <div
       v-if="state.open"
       ref="panel"
-      class="fixed inset-0 z-[70] grid place-items-center bg-black/65 p-4"
+      class="fixed inset-0 z-[70] grid place-items-center bg-slate-900/30 p-4"
       role="alertdialog"
       aria-modal="true"
       :aria-label="state.title"
       tabindex="-1"
       @click.self="resolveConfirm(false)"
     >
-      <div class="w-[min(92vw,400px)] rounded-xl border border-line bg-panel p-5 shadow-[0_24px_60px_rgb(0_0_0/.5)]">
+      <div class="w-[min(92vw,400px)] rounded-xl border border-line bg-panel p-5 shadow-[0_24px_60px_rgb(16_24_40/.12)]">
         <div class="flex items-start gap-3">
-          <span v-if="state.danger" class="grid size-9 shrink-0 place-items-center rounded-lg bg-[rgb(248_113_113/.12)] text-[#f87171]"><AlertTriangle :size="18" /></span>
+          <span v-if="state.danger" class="grid size-9 shrink-0 place-items-center rounded-lg bg-[rgb(248_113_113/.12)] text-danger"><AlertTriangle :size="18" /></span>
           <div class="min-w-0">
-            <h3 class="font-display text-base font-semibold text-white">{{ state.title }}</h3>
+            <h3 class="font-display text-base font-semibold text-text">{{ state.title }}</h3>
             <p v-if="state.message" class="mt-1.5 text-xs leading-5 text-muted">{{ state.message }}</p>
           </div>
         </div>

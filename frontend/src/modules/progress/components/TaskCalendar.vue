@@ -18,7 +18,7 @@ const options = computed(() => ({
   plugins: [classicThemePlugin, dayGridPlugin, interactionPlugin],
   initialView: 'dayGridMonth',
   locale: zhCn,
-  colorScheme: 'dark',
+  colorScheme: 'light',
   height: 'auto',
   firstDay: 1,
   headerToolbar: { left: 'prev,next today', center: 'title', right: '' },

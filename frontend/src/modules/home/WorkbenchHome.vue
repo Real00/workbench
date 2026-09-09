@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { ArrowUpRight, RefreshCw } from '@lucide/vue'
+import { ArrowUpRight, CircleAlert, Clock3, Layers, NotebookPen, RefreshCw } from '@lucide/vue'
 import { homeModules, modules } from '../../app/modules'
 import type { WorkbenchItem } from '../../app/module-types'
 import CaptureComposer from '../capture/CaptureComposer.vue'
@@ -37,21 +37,21 @@ onUnmounted(() => window.removeEventListener('workbench-changed', refresh))
     <div class="workbench-filter" role="group" aria-label="待处理与动态来源"><span>关注来源</span><label v-for="source in sources" :key="source.id"><input v-model="selected" type="checkbox" :value="source.id" />{{ source.title }}</label></div>
     <div class="workbench-columns">
       <div class="min-w-0 space-y-5">
-        <section class="card"><div class="card-head"><div><h2>待处理 <span class="text-muted">{{ attention.length }}</span></h2></div></div><p class="mt-2 text-xs text-muted">来自已选模块的待处理事项，点击回到来源继续操作。</p>
+        <section class="card home-attention"><div class="card-head"><div><h2><span class="section-icon section-icon--amber"><CircleAlert :size="17" /></span>待处理 <span class="text-muted">{{ attention.length }}</span></h2></div></div><p class="mt-2 text-xs text-muted">来自已选模块的待处理事项，点击回到来源继续操作。</p>
           <p v-for="error in errors" :key="error" class="error-box mt-3" role="alert">{{ error }}</p>
           <p v-if="loading" class="empty-inline">正在读取各模块…</p>
           <p v-else-if="!attention.length" class="empty-inline">{{ errors.length ? '部分模块暂不可用，请刷新重试。' : '已选模块中暂无待处理事项。' }}</p>
           <RouterLink v-for="item in attention" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark feed-mark--attention" /><div class="min-w-0 flex-1"><p class="break-words text-sm">{{ item.title }}</p><p class="mt-1 text-xs text-muted">{{ item.moduleTitle }} · {{ item.summary }}</p></div><ArrowUpRight :size="14" /></RouterLink>
         </section>
-        <section class="card"><div class="card-head"><div><h2>最近动态</h2></div></div>
+        <section class="card"><div class="card-head"><div><h2><span class="section-icon"><Clock3 :size="17" /></span>最近动态</h2></div></div>
 
           <p v-if="!loading && !activity.length" class="empty-inline">{{ selected.length ? '暂无可展示的动态。' : '选择一个模块查看动态与待处理事项。' }}</p>
           <RouterLink v-for="item in activity" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark" /><div class="min-w-0 flex-1"><p class="break-words text-sm">{{ item.title }}</p><p class="mt-1 text-xs text-muted">{{ item.moduleTitle }} · {{ item.summary }}</p></div><time class="shrink-0 text-xs text-muted">{{ item.occurredAt ? new Date(item.occurredAt).toLocaleDateString('zh-CN') : '' }}</time></RouterLink>
         </section>
       </div>
       <div class="min-w-0 space-y-5">
-        <section class="card"><div class="card-head"><div><h2>关注与最近记录</h2></div><RouterLink to="/captures" class="text-xs text-cyan">全部记录 →</RouterLink></div><CaptureList compact /></section>
-        <section class="card"><div class="card-head"><h2>工作模块</h2></div><RouterLink v-for="module in homeModules" :key="module.id" :to="module.homeCard ? module.homeCard.to : '/'" class="workbench-feed"><component :is="module.icon" :size="20" class="shrink-0 text-cyan" /><div><p class="text-sm">{{ module.title }}</p><p class="mt-1 text-xs leading-5 text-muted">{{ module.description }}</p></div><ArrowUpRight :size="14" class="ml-auto shrink-0" /></RouterLink></section>
+        <section class="card"><div class="card-head"><div><h2><span class="section-icon"><NotebookPen :size="17" /></span>关注与最近记录</h2></div><RouterLink to="/captures" class="text-xs text-cyan">全部记录 →</RouterLink></div><CaptureList compact /></section>
+        <section class="card"><div class="card-head"><h2><span class="section-icon"><Layers :size="17" /></span>工作模块</h2></div><RouterLink v-for="module in homeModules" :key="module.id" :to="module.homeCard ? module.homeCard.to : '/'" class="workbench-feed"><component :is="module.icon" :size="20" class="shrink-0 text-cyan" /><div><p class="text-sm">{{ module.title }}</p><p class="mt-1 text-xs leading-5 text-muted">{{ module.description }}</p></div><ArrowUpRight :size="14" class="ml-auto shrink-0" /></RouterLink></section>
       </div>
     </div>
   </div>

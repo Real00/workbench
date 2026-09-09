@@ -70,10 +70,10 @@ async function removeDocument() {
 
 <template>
   <Teleport to="body">
-    <div v-if="store.documentEditorOpen" class="fixed inset-0 z-50 bg-black/65" @click.self="store.documentEditorOpen = false">
+    <div v-if="store.documentEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.documentEditorOpen = false">
       <aside class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between border-b border-line px-5 py-4">
-          <div><p class="eyebrow">Knowledge document</p><h2 class="mt-1 font-display text-xl text-white">{{ title }}</h2></div>
+          <div><p class="eyebrow">Knowledge document</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
           <button class="icon-btn" aria-label="关闭" @click="store.documentEditorOpen = false"><X :size="18" /></button>
         </header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
@@ -87,7 +87,7 @@ async function removeDocument() {
             </span>
             <small>UTF-8 Markdown，供 Pulse grep 与阅读渲染</small>
             <RichTextarea v-if="!bodyPreview" v-model="form.body" :min-height="360" :max-height="640" :maxlength="200000" mono toolbar />
-            <div v-else class="mt-2 min-h-[360px] rounded-lg border border-line bg-[#09141f] p-4">
+            <div v-else class="mt-2 min-h-[360px] rounded-lg border border-line bg-ink p-4">
               <MarkdownView :source="form.body" />
             </div>
           </div>
@@ -96,13 +96,13 @@ async function removeDocument() {
           </label>
           <div v-if="extracted && store.editingDocument?.body && form.body !== extracted" class="rounded-xl border border-line bg-panel-2 p-4">
             <p class="text-[12px] text-muted">抽出的正文尚未覆盖当前内容。确认后才会写入编辑区；保存时原件进 raw/，不会再抽一次。</p>
-            <pre class="mt-3 max-h-32 overflow-auto text-[12px] text-slate-300">{{ extracted }}</pre>
+            <pre class="mt-3 max-h-32 overflow-auto text-[12px] text-text-secondary">{{ extracted }}</pre>
             <button type="button" class="btn-secondary mt-3" @click="applyExtract">用抽出的正文覆盖</button>
           </div>
           <p v-else-if="confirmOverwrite && pendingFile" class="text-[12px] text-muted">已使用 {{ pendingFile.name }} 的抽出正文，保存时只归档原件。</p>
           <fieldset class="field-label">标签
             <div class="mt-2 flex flex-wrap gap-2">
-              <label v-for="tag in store.tags" :key="tag.id" class="flex items-center gap-2 text-xs text-slate-300">
+              <label v-for="tag in store.tags" :key="tag.id" class="flex items-center gap-2 text-xs text-text-secondary">
                 <input v-model="form.tag_ids" type="checkbox" :value="tag.id" class="accent-cyan" />{{ tag.name }}
               </label>
               <span v-if="!store.tags.length" class="text-muted">还没有标签</span>
@@ -110,9 +110,9 @@ async function removeDocument() {
           </fieldset>
           <fieldset class="field-label">关联知识条目
             <div class="mt-2 grid gap-2">
-              <label v-for="entry in store.entries" :key="entry.id" class="flex items-start gap-2 text-xs text-slate-300">
+              <label v-for="entry in store.entries" :key="entry.id" class="flex items-start gap-2 text-xs text-text-secondary">
                 <input v-model="form.entry_ids" type="checkbox" :value="entry.id" class="mt-0.5 accent-cyan" />
-                <span><b class="text-white">{{ entry.key }}</b> · {{ entry.value }}</span>
+                <span><b class="text-text">{{ entry.key }}</b> · {{ entry.value }}</span>
               </label>
               <span v-if="!store.entries.length" class="text-muted">还没有条目</span>
             </div>

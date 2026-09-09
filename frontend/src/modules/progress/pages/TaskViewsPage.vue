@@ -30,8 +30,8 @@ const views = [
       <button class="btn-primary" @click="store.openTask()"><Plus :size="16" />新建任务</button>
     </header>
     <div class="task-toolbar mb-4 flex flex-col gap-3 rounded-xl border border-line bg-panel p-2 md:flex-row md:items-center md:justify-between">
-      <div class="flex overflow-x-auto" role="tablist" aria-label="任务视图">
-        <button v-for="item in views" :key="item.id" :class="['view-tab', view === item.id && 'view-tab--active']" role="tab" :aria-selected="view === item.id" @click="view = item.id">
+      <div class="segmented-tabs" role="group" aria-label="任务视图">
+        <button v-for="item in views" :key="item.id" :class="['view-tab', view === item.id && 'view-tab--active']" :aria-pressed="view === item.id" @click="view = item.id">
           <component :is="item.icon" :size="15" />{{ item.label }}
         </button>
       </div>

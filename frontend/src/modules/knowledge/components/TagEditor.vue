@@ -29,10 +29,10 @@ async function removeTag() {
 
 <template>
   <Teleport to="body">
-    <div v-if="store.tagEditorOpen" class="fixed inset-0 z-50 bg-black/65" @click.self="store.tagEditorOpen = false">
+    <div v-if="store.tagEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.tagEditorOpen = false">
       <aside class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between border-b border-line px-5 py-4">
-          <div><p class="eyebrow">Knowledge tag</p><h2 class="mt-1 font-display text-xl text-white">{{ title }}</h2></div>
+          <div><p class="eyebrow">Knowledge tag</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
           <button class="icon-btn" aria-label="关闭" @click="store.tagEditorOpen = false"><X :size="18" /></button>
         </header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">

@@ -41,10 +41,10 @@ async function removeEntry() {
 
 <template>
   <Teleport to="body">
-    <div v-if="store.entryEditorOpen" class="fixed inset-0 z-50 bg-black/65" @click.self="store.entryEditorOpen = false">
+    <div v-if="store.entryEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.entryEditorOpen = false">
       <aside class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between border-b border-line px-5 py-4">
-          <div><p class="eyebrow">Knowledge entry</p><h2 class="mt-1 font-display text-xl text-white">{{ title }}</h2></div>
+          <div><p class="eyebrow">Knowledge entry</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
           <button class="icon-btn" aria-label="关闭" @click="store.entryEditorOpen = false"><X :size="18" /></button>
         </header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
@@ -55,14 +55,14 @@ async function removeEntry() {
           </label>
           <fieldset class="field-label">标签
             <div class="mt-2 flex flex-wrap gap-2">
-              <label v-for="tag in store.tags" :key="tag.id" class="flex items-center gap-2 text-xs text-slate-300">
+              <label v-for="tag in store.tags" :key="tag.id" class="flex items-center gap-2 text-xs text-text-secondary">
                 <input v-model="form.tag_ids" type="checkbox" :value="tag.id" class="accent-cyan" />{{ tag.name }}
               </label>
             </div>
           </fieldset>
           <fieldset class="field-label">挂到文档
             <div class="mt-2 grid gap-2">
-              <label v-for="document in store.documents" :key="document.id" class="flex items-center gap-2 text-xs text-slate-300">
+              <label v-for="document in store.documents" :key="document.id" class="flex items-center gap-2 text-xs text-text-secondary">
                 <input v-model="form.document_ids" type="checkbox" :value="document.id" class="accent-cyan" />{{ document.title }}
               </label>
             </div>

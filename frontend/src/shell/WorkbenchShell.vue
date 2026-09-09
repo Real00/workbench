@@ -80,15 +80,15 @@ function logout() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-ink text-slate-200">
+  <div class="min-h-screen bg-ink text-text">
     <button class="mobile-menu" aria-label="打开导航" @click="mobileOpen = true"><Menu :size="19" /></button>
-    <div v-if="mobileOpen" class="fixed inset-0 z-30 bg-black/60 lg:hidden" @click="mobileOpen = false" />
+    <div v-if="mobileOpen" class="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" @click="mobileOpen = false" />
     <aside :class="['sidebar', collapsed && 'sidebar--collapsed', mobileOpen && 'sidebar--open']">
       <div class="flex h-16 items-center gap-3 border-b border-line px-4">
-        <span class="grid size-8 place-items-center rounded-lg bg-cyan text-ink"><Boxes :size="17" /></span>
+        <span class="grid size-8 place-items-center rounded-lg bg-cyan text-white"><Boxes :size="17" /></span>
         <div v-if="!collapsed" class="leading-tight">
-          <strong class="font-display tracking-wide text-white">个人工作台</strong>
-          <p class="font-mono text-[10px] uppercase tracking-[.2em] text-muted">Personal workspace</p>
+          <strong class="font-display tracking-wide text-text">个人工作台</strong>
+          <p class="font-mono text-[12px] uppercase tracking-[.2em] text-muted">Personal workspace</p>
         </div>
       </div>
       <button class="nav-link m-2" aria-label="快速记录" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></button>

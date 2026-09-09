@@ -71,12 +71,12 @@ async function removeProject() {
 
 <template>
   <Teleport to="body">
-    <div v-if="store.projectEditorOpen" class="fixed inset-0 z-50 bg-black/65" @click.self="store.projectEditorOpen = false">
+    <div v-if="store.projectEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.projectEditorOpen = false">
       <aside class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div class="min-w-0">
             <p class="eyebrow">Project</p>
-            <h2 class="mt-1 truncate font-display text-xl text-white">{{ title }}</h2>
+            <h2 class="mt-1 truncate font-display text-xl text-text">{{ title }}</h2>
           </div>
           <button class="icon-btn" aria-label="关闭" @click="store.projectEditorOpen = false"><X :size="18" /></button>
         </header>
@@ -110,7 +110,7 @@ async function removeProject() {
             <p class="text-[12px] text-muted">从团队成员中选择与该项目相关的人，便于说明分工与查找。</p>
             <div class="flex flex-wrap gap-1.5">
               <button v-for="member in store.members" :key="member.id" type="button" :class="['kind-option', 'flex items-center gap-1.5', { 'kind-option--active': form.member_ids.includes(member.id) }]" :aria-pressed="form.member_ids.includes(member.id)" @click="toggleMember(member.id)">
-                <img :src="memberPixelUri(member.id, member.color)" alt="" width="14" height="14" class="rounded" />{{ member.name }}<span v-if="member.operator" class="text-[10px] text-muted">（我）</span>
+                <img :src="memberPixelUri(member.id, member.color)" alt="" width="14" height="14" class="rounded" />{{ member.name }}<span v-if="member.operator" class="text-[12px] text-muted">（我）</span>
               </button>
             </div>
             <p v-if="!store.members.length" class="empty-inline !py-2">还没有团队成员，先到成员管理中添加。</p>
@@ -120,8 +120,8 @@ async function removeProject() {
             <p class="text-xs text-muted">{{ linkedTasks.length ? `${linkedTasks.length} 个任务挂在项目下，可在任务编辑中调整归属。` : '尚无任务关联此项目；任务可以不属于任何项目。' }}</p>
             <ul v-if="linkedTasks.length" class="space-y-1">
               <li v-for="task in linkedTasks.slice(0, 8)" :key="task.id" class="flex items-center justify-between gap-2 rounded-lg border border-line bg-panel-2 px-3 py-2 text-xs">
-                <span class="truncate text-white">{{ task.title }}</span>
-                <span class="shrink-0 font-mono text-[11px] text-muted">{{ task.progress }}%</span>
+                <span class="truncate text-text">{{ task.title }}</span>
+                <span class="shrink-0 font-mono text-[12px] text-muted">{{ task.progress }}%</span>
               </li>
             </ul>
           </section>

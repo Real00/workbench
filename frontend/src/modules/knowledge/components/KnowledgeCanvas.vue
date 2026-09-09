@@ -50,11 +50,11 @@ function onNodeClick(event: NodeMouseEvent) {
     <VueFlow id="knowledge-canvas" :nodes="nodes" :edges="[]" :min-zoom=".2" :max-zoom="1" fit-view-on-init :nodes-connectable="false" @node-drag-stop="onDragStop" @node-click="onNodeClick">
       <template #node-document="{ data }">
         <article v-if="data.document" class="knowledge-doc-node">
-          <p class="font-display text-sm text-white">{{ data.document.title }}</p>
+          <p class="font-display text-sm text-text">{{ data.document.title }}</p>
           <div class="mt-2 flex flex-wrap gap-1">
             <span v-for="tagId in data.document.tag_ids" :key="tagId" class="skill-chip">{{ tagName(tagId) }}</span>
           </div>
-          <ul class="mt-3 space-y-1 text-[12px] text-slate-300">
+          <ul class="mt-3 space-y-1 text-[12px] text-text-secondary">
             <li v-for="entryId in data.document.entry_ids.slice(0, 6)" :key="entryId">{{ entrySummary(entryId) }}</li>
             <li v-if="!data.document.entry_ids.length" class="text-muted">尚未关联条目</li>
           </ul>

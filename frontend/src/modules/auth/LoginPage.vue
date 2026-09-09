@@ -39,34 +39,34 @@ async function login() {
 </script>
 
 <template>
-  <main class="login-grid min-h-screen bg-ink text-slate-200">
+  <main class="login-grid min-h-screen bg-ink text-text">
     <section class="relative hidden overflow-hidden border-r border-line p-12 lg:flex lg:flex-col lg:justify-between">
       <div class="absolute inset-0 pulse-field opacity-60" aria-hidden="true" />
       <div class="relative flex items-center gap-3">
-        <span class="grid size-9 place-items-center rounded-lg bg-cyan text-ink"><Boxes :size="19" /></span>
-        <strong class="font-display text-lg tracking-wider text-white">个人工作台</strong>
+        <span class="grid size-9 place-items-center rounded-lg bg-cyan text-white"><Boxes :size="19" /></span>
+        <strong class="font-display text-lg tracking-wider text-text">个人工作台</strong>
       </div>
       <div class="relative max-w-xl">
         <p class="eyebrow">Personal workspace</p>
-        <h1 class="mt-5 font-display text-6xl font-semibold leading-[.98] text-white">汇聚日常工作<br><span class="text-cyan">专注每次行动。</span></h1>
+        <h1 class="mt-5 font-display text-6xl font-semibold leading-[.98] text-text">汇聚日常工作<br><span class="text-cyan">专注每次行动。</span></h1>
         <div class="mt-12 pulse-track"><i style="left: 18%" /><i style="left: 51%" /><i style="left: 82%" /></div>
         <p class="mt-6 max-w-md text-sm leading-7 text-muted">在一个安全入口访问个人工作模块，让信息有序、操作直接。</p>
       </div>
-      <p class="relative font-mono text-[11px] uppercase tracking-[.2em] text-muted">Authenticated personal workspace</p>
+      <p class="relative font-mono text-[12px] uppercase tracking-[.2em] text-muted">Authenticated personal workspace</p>
     </section>
     <section class="grid place-items-center px-6 py-12">
       <form class="w-full max-w-sm" @submit.prevent="login">
         <p class="eyebrow">Workspace access</p>
-        <h2 class="mt-3 font-display text-3xl font-semibold text-white">进入控制台</h2>
+        <h2 class="mt-3 font-display text-3xl font-semibold text-text">进入控制台</h2>
         <p class="mt-2 text-sm text-muted">使用组织账号继续</p>
         <label class="field-label mt-8">用户名
-          <span class="input-wrap"><UserRound :size="16" /><input v-model="username" autocomplete="username" required /></span>
+          <span class="input-wrap"><UserRound :size="16" /><input v-model="username" autocomplete="username" placeholder="输入用户名" required /></span>
         </label>
         <label v-if="isDesktopShell" class="field-label mt-8">服务器地址
           <span class="input-wrap"><Globe :size="16" /><input v-model="server" autocomplete="url" spellcheck="false" placeholder="https://你的云端域名或 http://127.0.0.1:8080" /></span>
         </label>
         <label class="field-label mt-4">密码
-          <span class="input-wrap"><LockKeyhole :size="16" /><input v-model="password" type="password" autocomplete="current-password" required /></span>
+          <span class="input-wrap"><LockKeyhole :size="16" /><input v-model="password" type="password" autocomplete="current-password" placeholder="输入密码" required /></span>
         </label>
         <div class="mt-4 flex items-center justify-between text-xs">
           <label class="flex items-center gap-2 text-muted"><input v-model="remember" type="checkbox" class="accent-cyan" /> 保持登录</label>

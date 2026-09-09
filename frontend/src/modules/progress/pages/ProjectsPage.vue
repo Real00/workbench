@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FolderKanban, Plus } from '@lucide/vue'
+import { ArrowUpRight, CalendarDays, FolderKanban, Plus, Users }  from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { projectStatusMap, type Project } from '../types'
 
@@ -15,12 +15,8 @@ function projectTasks(projectId: string) {
 }
 
 function coverStyle(project: Project) {
-  const color = project.cover_color
-  if (!color) return undefined
-  const hex = color.length === 4
-    ? `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`
-    : color
-  return { background: `linear-gradient(120deg, ${hex}33, ${hex}80)` }
+  const color = project.cover_color ?? '#2563eb'
+  return { '--project-accent': /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : '#2563eb' }
 }
 
 const projectCards = computed(() =>
@@ -29,6 +25,9 @@ const projectCards = computed(() =>
     return {
       project,
       taskCount: tasks.length,
+      completion: tasks.filter(task => task.status !== 'cancelled').length
+        ? Math.round(tasks.filter(task => task.status === 'done').length / tasks.filter(task => task.status !== 'cancelled').length * 100)
+        : 0,
       activeCount: tasks.filter(task => task.status === 'in_progress').length,
     }
   }),
@@ -43,20 +42,25 @@ const projectCards = computed(() =>
     </div>
     <div v-else-if="!store.projects.length" class="empty-state"><FolderKanban :size="28" /><h2>尚无项目</h2><p>立项后即可把相关任务挂到项目下，任务也可以不关联项目。</p><button class="btn-primary" @click="store.openProject()">新增项目</button></div>
     <section v-else class="entity-grid grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <button v-for="item in projectCards" :key="item.project.id" class="card entity-card group text-left" @click="store.openProject(item.project)">
-        <div class="project-cover" :style="coverStyle(item.project)">
+      <button v-for="item in projectCards" :key="item.project.id" class="card entity-card project-card text-left" :style="coverStyle(item.project)" @click="store.openProject(item.project)">
+        <div class="project-card-top">
+          <span class="project-emblem"><FolderKanban :size="22" /></span>
           <span :class="['project-status', `project-status--${item.project.status}`]">{{ projectStatusMap[item.project.status] }}</span>
-          <b class="truncate font-display text-base text-white">{{ item.project.name }}</b>
         </div>
-        <p class="mt-3 font-mono text-[11px] text-muted">立项 {{ formatDate(item.project.started_at) }}</p>
-        <p v-if="item.project.description" class="mt-2 line-clamp-2 text-xs leading-5 text-slate-300">{{ item.project.description }}</p>
-        <p v-if="item.project.background" class="mt-2 line-clamp-2 text-[12px] leading-5 text-slate-400">{{ item.project.background }}</p>
-        <div v-if="item.project.member_ids.length" class="mt-3 flex flex-wrap gap-1.5">
-          <span v-for="memberId in item.project.member_ids.slice(0, 5)" :key="memberId" class="skill-chip">{{ store.memberMap.get(memberId)?.name ?? '?' }}</span>
-          <span v-if="item.project.member_ids.length > 5" class="skill-chip">+{{ item.project.member_ids.length - 5 }}</span>
+        <h2 class="project-title">{{ item.project.name }}</h2>
+        <p class="project-description">{{ item.project.description || item.project.background || '添加项目说明，让目标与协作方向更清晰。' }}</p>
+        <p class="project-date"><CalendarDays :size="13" />立项 {{ formatDate(item.project.started_at) }}</p>
+        <div class="project-members">
+          <Users :size="14" />
+          <span v-for="memberId in item.project.member_ids.slice(0, 3)" :key="memberId" class="skill-chip">{{ store.memberMap.get(memberId)?.name ?? '未知成员' }}</span>
+          <span v-if="item.project.member_ids.length > 3" class="project-more-members">+{{ item.project.member_ids.length - 3 }}</span>
+          <span v-if="!item.project.member_ids.length">暂未分配成员</span>
         </div>
-        <div class="entity-footer"><div class="divider mb-4" />
-        <div class="flex justify-between font-mono text-[11px] text-muted"><span>{{ item.taskCount }} 任务 · {{ item.activeCount }} 进行中</span><span>{{ item.taskCount ? `${Math.round(item.taskCount / store.tasks.length * 100)}% 占比` : '暂无关联任务' }}</span></div></div>
+        <div class="entity-footer project-card-footer">
+          <div class="project-progress-label"><span>任务完成度</span><b>{{ item.taskCount ? `${item.completion}%` : '—' }}</b></div>
+          <div class="project-progress" role="progressbar" aria-label="任务完成度（不含已取消任务）" :aria-valuenow="item.completion" :aria-valuemin="0" :aria-valuemax="100"><i :style="{ width: `${item.completion}%` }" /></div>
+          <div class="project-card-meta"><span>{{ item.taskCount }} 任务 <span aria-hidden="true">·</span> {{ item.activeCount }} 进行中</span><span class="project-open">查看项目<ArrowUpRight :size="14" /></span></div>
+        </div>
       </button>
     </section>
   </div>
