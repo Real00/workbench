@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from progress.domain import ProgressDomainService
+from pulse.scope import ProjectScope
 
 
 class KnowledgeSearch(Protocol):
@@ -26,6 +27,8 @@ class AgentDeps:
     pending: list[dict[str, Any]] = field(default_factory=list)
     context_task_id: str | None = None
     context_document_id: str | None = None
+    instruction: str = ""
+    scopes: list[ProjectScope] = field(default_factory=list)
     produced_messages: list[Any] = field(default_factory=list)
 
     @property

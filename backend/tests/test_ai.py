@@ -559,6 +559,7 @@ async def test_progress_registers_ai_contribution() -> None:
     assert [item.id for item in contribs] == ["progress", "knowledge"]
     assert [fn.__name__ for fn in contribs[0].tools] == [
         "list_tasks",
+        "list_projects",
         "list_members",
         "get_task",
         "create_task",

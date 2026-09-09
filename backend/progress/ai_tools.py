@@ -15,6 +15,7 @@ from progress.domain import (
     normalize_skills,
 )
 from pulse.deps import AgentDeps
+from pulse.scope import project_terms
 from shared.ai import ModuleAiContribution
 
 INSTRUCTIONS = (
@@ -47,6 +48,7 @@ def _compact_task(task: Task, members: dict[str, str] | None = None) -> dict[str
     return {
         "id": task.id,
         "title": task.title,
+        "project_id": task.project_id,
         "status": task.status,
         "priority": task.priority,
         "assignee": (members or {}).get(task.assignee_id or "") if task.assignee_id else None,
@@ -81,13 +83,22 @@ async def _resolve_task(
     ident = task_id or ctx.deps.context_task_id
     if ident:
         try:
-            return await domain.get_task(ident)
+            task = await domain.get_task(ident)
+            scope_ids = {scope.project_id for scope in ctx.deps.scopes if scope.project_id}
+            if scope_ids and task.project_id not in scope_ids:
+                raise ModelRetry("task is outside the current project scope")
+            return task
         except LookupError as exc:
             raise ModelRetry(f"task not found: {ident}") from exc
     if not title_query:
         raise ModelRetry("provide task_id or title_query")
     needle = title_query.strip().casefold()
-    tasks = await domain.list_tasks({})
+    scope_ids = {scope.project_id for scope in ctx.deps.scopes if scope.project_id}
+    tasks = [
+        task
+        for task in await domain.list_tasks({})
+        if not scope_ids or task.project_id in scope_ids
+    ]
     exact = [task for task in tasks if task.title.casefold() == needle]
     if len(exact) == 1:
         return exact[0]
@@ -100,10 +111,18 @@ async def _resolve_task(
     raise ModelRetry(f"multiple matching tasks, be more specific: {names}")
 
 
-async def list_tasks(ctx: RunContext[AgentDeps]) -> list[dict[str, Any]]:
+async def list_tasks(
+    ctx: RunContext[AgentDeps], project_id: str | None = None
+) -> list[dict[str, Any]]:
     """List existing tasks with ids, titles, status, and latest progress."""
     members = {member.id: member.name for member in await ctx.deps.progress.list_members()}
-    return [_compact_task(task, members) for task in await ctx.deps.progress.list_tasks({})]
+    scope_ids = {scope.project_id for scope in ctx.deps.scopes if scope.project_id}
+    return [
+        _compact_task(task, members)
+        for task in await ctx.deps.progress.list_tasks({})
+        if (not project_id or task.project_id == project_id)
+        and (not scope_ids or task.project_id in scope_ids)
+    ]
 
 
 async def list_members(ctx: RunContext[AgentDeps]) -> list[dict[str, Any]]:
@@ -112,9 +131,7 @@ async def list_members(ctx: RunContext[AgentDeps]) -> list[dict[str, Any]]:
     for task in await ctx.deps.progress.list_tasks({}):
         if task.assignee_id and task.status in {"todo", "in_progress"}:
             open_tasks[task.assignee_id] = open_tasks.get(task.assignee_id, 0) + 1
-    members = [
-        member for member in await ctx.deps.progress.list_members() if member.active
-    ]
+    members = [member for member in await ctx.deps.progress.list_members() if member.active]
     members.sort(key=lambda member: (not bool(member.user_id), member.name.casefold()))
     return [
         {
@@ -146,6 +163,45 @@ async def get_task(
     return data
 
 
+async def _task_scope(ctx, project_id, tags, existing_tags=()):
+    scopes = ctx.deps.scopes
+    if len(scopes) == 1:
+        scope = scopes[0]
+        if project_id and scope.project_id and project_id != scope.project_id:
+            raise ModelRetry("task project conflicts with current user scope")
+        project_id = project_id or scope.project_id
+        allowed = {term.casefold() for term in scope.terms}
+        from pulse.scope import mentions
+
+        for tag in tags or []:
+            if (
+                tag.casefold() not in allowed
+                and tag not in existing_tags
+                and not mentions(ctx.deps.instruction, tag)
+            ):
+                raise ModelRetry(
+                    "task tags must be requested by the user or name the current scope; "
+                    "do not infer tags from retrieved documents"
+                )
+
+        for project in await ctx.deps.progress.list_projects():
+            if project.id != scope.project_id and any(
+                mentions(tag, term) and tag.casefold() not in allowed
+                for tag in tags or []
+                for term in project_terms(project.name)
+            ):
+                raise ModelRetry("task tag belongs to another project; do not copy source tags")
+    return project_id
+
+
+async def list_projects(ctx: RunContext[AgentDeps]) -> list[dict[str, Any]]:
+    """List project ids and names for resolving task ownership."""
+    return [
+        {"id": project.id, "name": project.name}
+        for project in await ctx.deps.progress.list_projects()
+    ]
+
+
 async def create_task(
     ctx: RunContext[AgentDeps],
     title: str,
@@ -158,12 +214,14 @@ async def create_task(
     progress: int | None = None,
     estimated_hours: float | None = None,
     tags: list[str] | None = None,
+    project_id: str | None = None,
 ) -> dict[str, Any]:
     """Queue creating a new task. Nothing is saved until the user confirms."""
     if status and status not in STATUSES:
         raise ModelRetry("status must be todo, in_progress, done, or cancelled")
     if priority and priority not in PRIORITIES:
         raise ModelRetry("priority must be low, medium, high, or urgent")
+    project_id = await _task_scope(ctx, project_id, tags)
     changes = _changes(
         title=title,
         description=description,
@@ -174,6 +232,7 @@ async def create_task(
         progress=progress,
         estimated_hours=estimated_hours,
         tags=tags,
+        project_id=project_id,
     )
     assignee_id = await _member_id(ctx.deps.progress, assignee_name)
     if assignee_id:
@@ -200,6 +259,7 @@ async def update_task(
     progress: int | None = None,
     estimated_hours: float | None = None,
     tags: list[str] | None = None,
+    project_id: str | None = None,
 ) -> dict[str, Any]:
     """Queue field updates on an existing task. Nothing is saved until the user confirms."""
     if status and status not in STATUSES:
@@ -207,6 +267,7 @@ async def update_task(
     if priority and priority not in PRIORITIES:
         raise ModelRetry("priority must be low, medium, high, or urgent")
     task = await _resolve_task(ctx, task_id, title_query)
+    project_id = await _task_scope(ctx, project_id or task.project_id, tags, task.tags)
     changes = _changes(
         title=title,
         description=description,
@@ -217,6 +278,7 @@ async def update_task(
         progress=progress,
         estimated_hours=estimated_hours,
         tags=tags,
+        project_id=project_id,
     )
     assignee_id = await _member_id(ctx.deps.progress, assignee_name)
     if assignee_id:
@@ -321,9 +383,7 @@ async def update_member(
         await ctx.deps.progress.validate_member_changes(member.id, changes)
     except ValueError as exc:
         raise ModelRetry(str(exc)) from exc
-    ctx.deps.pending.append(
-        {"op": "update_member", "member_id": member.id, "changes": changes}
-    )
+    ctx.deps.pending.append({"op": "update_member", "member_id": member.id, "changes": changes})
     return {
         "queued": True,
         "op": "update_member",
@@ -430,7 +490,7 @@ async def update_project(
     add_members: list[str] | None = None,
     remove_members: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Queue updates to a project's info, status, or members. Nothing is saved until the user confirms."""
+    """Queue project updates; save only after user confirmation."""
     project = await _resolve_project(ctx, project_id, name)
     changes = _changes(
         description=description,
@@ -458,9 +518,7 @@ async def update_project(
         await ctx.deps.progress.validate_project_changes(project.id, changes)
     except ValueError as exc:
         raise ModelRetry(str(exc)) from exc
-    ctx.deps.pending.append(
-        {"op": "update_project", "project_id": project.id, "changes": changes}
-    )
+    ctx.deps.pending.append({"op": "update_project", "project_id": project.id, "changes": changes})
     return {
         "queued": True,
         "op": "update_project",
@@ -475,6 +533,7 @@ def progress_ai_contribution() -> ModuleAiContribution:
         instructions=INSTRUCTIONS,
         tools=(
             list_tasks,
+            list_projects,
             list_members,
             get_task,
             create_task,

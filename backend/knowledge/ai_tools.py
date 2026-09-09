@@ -4,16 +4,19 @@ from typing import Any, Literal
 
 from pydantic_ai import ModelRetry, RunContext
 
+from knowledge.corpus import compile_files, search_markdown
 from knowledge.domain import KnowledgeDocument, KnowledgeEntry
 from pulse.deps import AgentDeps
+from pulse.scope import mentions
 from shared.ai import ModuleAiContribution
 
 INSTRUCTIONS = (
     "Knowledge module: search the compiled markdown corpus, not Mongo. "
-    "Read index.md first, then search_knowledge over wiki/ only (never raw/). "
+    "Search specific terms over wiki/ first (never raw/); read only relevant matching files. "
     "Use glob like wiki/entries/** or wiki/documents/** to narrow. "
     "Then read_knowledge for the matching file. "
-    "Entries are key/value concepts; use the exact key from list_entries. "
+    "Entries are key/value concepts; list_entries returns brief metadata, read files for facts. "
+    "Never copy source tags to tasks. Empty scoped results mean evidence is unavailable. "
     "Documents are markdown notes that can link many entries and tags. "
     "Tags have a required explanation. "
     "To extract facts from a document, read it then queue create_entry and link_entry. "
@@ -80,6 +83,46 @@ async def _resolve_document(
     raise ModelRetry(f"multiple matching documents, be more specific: {names}")
 
 
+async def _scoped_data(ctx: RunContext[AgentDeps]):
+    domain = _knowledge(ctx)
+    tags = await domain.list_tags()
+    entries = await domain.list_entries()
+    documents = await domain.list_documents()
+    if not ctx.deps.scopes:
+        return tags, entries, documents
+    terms = [term for scope in ctx.deps.scopes for term in scope.terms]
+    scoped_tag_ids = {
+        tag.id for tag in tags if any(tag.name.casefold() == term.casefold() for term in terms)
+    }
+
+    def relevant(item, labels):
+        return bool(scoped_tag_ids.intersection(item.tag_ids)) or any(
+            mentions(label, term) for label in labels for term in terms
+        )
+
+    entries = [entry for entry in entries if relevant(entry, [entry.key, *entry.aliases])]
+    documents = [doc for doc in documents if relevant(doc, [doc.title])]
+    # Linked foreign entries must not leak through the compiled document index.
+    from dataclasses import replace
+
+    entry_ids = {entry.id for entry in entries}
+    document_ids = {doc.id for doc in documents}
+    entries = [
+        replace(
+            entry, document_ids=[ident for ident in entry.document_ids if ident in document_ids]
+        )
+        for entry in entries
+    ]
+    documents = [
+        replace(doc, entry_ids=[ident for ident in doc.entry_ids if ident in entry_ids])
+        for doc in documents
+    ]
+    used_tags = scoped_tag_ids | {
+        ident for item in [*entries, *documents] for ident in item.tag_ids
+    }
+    return [tag for tag in tags if tag.id in used_tags], entries, documents
+
+
 async def search_knowledge(
     ctx: RunContext[AgentDeps],
     pattern: str,
@@ -90,7 +133,10 @@ async def search_knowledge(
     """Grep compiled knowledge markdown. Skip raw/. Prefer index.md then wiki/."""
     if glob and glob.replace("\\", "/").startswith("raw"):
         raise ModelRetry("raw/ is not searchable")
-    return _corpus(ctx).search(pattern, glob, output_mode, head_limit)
+    if ctx.deps.scopes:
+        files = compile_files(*await _scoped_data(ctx))
+        return search_markdown(files, pattern, glob or "wiki/**", output_mode, head_limit)
+    return _corpus(ctx).search(pattern, glob or "wiki/**", output_mode, head_limit)
 
 
 async def read_knowledge(ctx: RunContext[AgentDeps], path: str) -> str:
@@ -98,6 +144,11 @@ async def read_knowledge(ctx: RunContext[AgentDeps], path: str) -> str:
     relative = path.lstrip("/")
     if relative.startswith("raw/"):
         raise ModelRetry("raw/ is not searchable")
+    if ctx.deps.scopes:
+        files = compile_files(*await _scoped_data(ctx))
+        if relative not in files:
+            raise ModelRetry("file is outside the current scope or does not exist")
+        return files[relative]
     try:
         return _corpus(ctx).read(relative)
     except LookupError as exc:
@@ -108,24 +159,27 @@ async def list_tags(ctx: RunContext[AgentDeps]) -> list[dict[str, Any]]:
     """List tags with explanations."""
     return [
         {"id": tag.id, "name": tag.name, "explanation": tag.explanation}
-        for tag in await _knowledge(ctx).list_tags()
+        for tag in (await _scoped_data(ctx))[0]
     ]
 
 
-async def list_entries(ctx: RunContext[AgentDeps]) -> list[dict[str, Any]]:
-    """List knowledge entries as key/value concepts with tags and linked documents."""
-    tags = {tag.id: tag.name for tag in await _knowledge(ctx).list_tags()}
+async def list_entries(
+    ctx: RunContext[AgentDeps], query: str = "", limit: int = 30
+) -> list[dict[str, Any]]:
+    """List brief entry metadata. Filter by key/alias; read path for the actual value."""
+    tags = {tag.id: tag.name for tag in (await _scoped_data(ctx))[0]}
     return [
         {
             "id": entry.id,
             "key": entry.key,
-            "value": entry.value,
+            "path": f"wiki/entries/{entry.id}.md",
             "aliases": entry.aliases,
             "tags": [tags[tag_id] for tag_id in entry.tag_ids if tag_id in tags],
             "document_ids": entry.document_ids,
         }
-        for entry in await _knowledge(ctx).list_entries()
-    ]
+        for entry in (await _scoped_data(ctx))[1]
+        if not query or query.casefold() in " ".join([entry.key, *entry.aliases]).casefold()
+    ][: max(1, min(limit, 100))]
 
 
 async def create_tag(ctx: RunContext[AgentDeps], name: str, explanation: str) -> dict[str, Any]:
@@ -266,9 +320,7 @@ async def link_entry(
     """Queue linking an existing entry onto a document node."""
     entry = await _resolve_entry(ctx, entry_id, entry_key)
     document = await _resolve_document(ctx, document_id, document_title)
-    ctx.deps.pending.append(
-        {"op": "link_entry", "document_id": document.id, "entry_id": entry.id}
-    )
+    ctx.deps.pending.append({"op": "link_entry", "document_id": document.id, "entry_id": entry.id})
     return {
         "queued": True,
         "op": "link_entry",

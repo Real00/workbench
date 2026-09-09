@@ -291,11 +291,13 @@ const abortMessage = ref('已中断')
 const labels: Record<string, string> = {
   title: '标题', description: '描述', status: '状态', priority: '优先级', assignee_id: '负责人',
   start_date: '开始日期', due_date: '截止日期', progress: '进度', estimated_hours: '预估工时', tags: '标签',
+  project_id: '所属项目',
   name: '姓名', skills: '技能', background: '项目背景',
   key: '键', value: '值', aliases: '别名', explanation: '解释', body: '正文',
 }
 const toolLabels: Record<string, string> = {
   list_tasks: '查看任务',
+  list_projects: '查看项目',
   list_members: '查看成员',
   get_task: '读取任务',
   create_task: '排队创建任务',
@@ -320,6 +322,7 @@ const toolLabels: Record<string, string> = {
 
 function display(field: string, value: unknown) {
   if (value === null || value === undefined || value === '') return '—'
+  if (field === 'project_id') return progress.projects.find(project => project.id === String(value))?.name ?? String(value)
   if (field === 'assignee_id') return progress.memberMap.get(String(value))?.name ?? String(value)
   if (field === 'status') return statusMap[value as TaskStatus] ?? String(value)
   if (field === 'priority') return priorityMap[value as Priority] ?? String(value)
@@ -532,8 +535,8 @@ function discard(turn: ChatTurn) {
       <header class="flex items-center gap-3 border-b border-line px-4 py-3">
         <span class="grid size-8 place-items-center rounded-lg bg-cyan/10 text-cyan"><Bot :size="17" /></span>
         <div>
-          <b class="text-sm text-white">Pulse AI</b>
-          <p class="text-[11px] text-muted">{{ sessionId ? '多轮对话中，可指代上文' : '工具会排队变更，确认后才写入' }}</p>
+          <b class="text-sm text-text">Pulse AI</b>
+          <p class="text-[12px] text-muted">{{ sessionId ? '多轮对话中，可指代上文' : '工具会排队变更，确认后才写入' }}</p>
         </div>
         <button class="icon-btn ml-auto" :disabled="loading" :aria-label="sessionId ? '清空对话，开始新会话' : '新对话'" :title="sessionId ? '清空历史，开始新会话' : '新对话'" @click="newConversation"><MessageSquarePlus :size="16" /></button>
         <button class="icon-btn" aria-label="收起助手" @click="open = false"><X :size="16" /></button>
@@ -556,12 +559,12 @@ function discard(turn: ChatTurn) {
             <p v-else-if="loading && turn === turns.at(-1) && !turn.thinking" class="ai-bubble ai-bubble--assistant text-muted">正在调用模型…<span class="ai-cursor" /></p>
             <div v-if="turn.operations.length" class="ai-ops">
               <article v-for="(operation, index) in turn.operations" :key="`${operation.op}-${index}`" class="rounded-lg border border-line bg-panel-2 p-3">
-                <b class="text-xs text-white">{{ operationLabel(operation) }}</b>
-                <p v-if="operation.op === 'add_entry'" class="mt-2 text-xs text-white">
+                <b class="text-xs text-text">{{ operationLabel(operation) }}</b>
+                <p v-if="operation.op === 'add_entry'" class="mt-2 text-xs text-text">
                   <span :class="['entry-kind', `entry-kind--${operation.entry.kind}`]">{{ entryKindMap[operation.entry.kind as ProgressEntryKind] }}</span>
                   <span class="ml-2">{{ operation.entry.content }}</span>
                 </p>
-                <p v-if="operation.op === 'add_member_evaluation'" class="mt-2 text-xs text-white">
+                <p v-if="operation.op === 'add_member_evaluation'" class="mt-2 text-xs text-text">
                   <span :class="['entry-kind', `entry-kind--${operation.evaluation.kind}`]">{{ evaluationKindMap[operation.evaluation.kind] }}</span>
                   <span class="ml-2">{{ operation.evaluation.content }}</span>
                 </p>
@@ -569,12 +572,12 @@ function discard(turn: ChatTurn) {
                   <span v-for="row in projectChangeRows(operation)" :key="row.label" class="flex items-center gap-1.5 text-[12px] text-muted">
                     {{ row.label }}
                     <span v-if="row.color" class="size-2.5 rounded-full" :style="{ backgroundColor: row.color }" />
-                    <span class="text-white">{{ row.text }}</span>
+                    <span class="text-text">{{ row.text }}</span>
                   </span>
                 </p>
                 <p v-for="[field, after] in operationChanges(operation)" :key="field" class="mt-2 text-[12px] text-muted">
                   {{ labels[field] ?? field }}
-                  <span class="ml-1 text-white">{{ display(field, after) }}</span>
+                  <span class="ml-1 text-text">{{ display(field, after) }}</span>
                 </p>
               </article>
             </div>

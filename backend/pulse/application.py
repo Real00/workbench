@@ -13,6 +13,7 @@ from knowledge.application import KnowledgeApplicationService
 from progress.domain import ProgressDomainService
 from pulse.agent import PulseAgent, PydanticPulseAgent
 from pulse.deps import AgentDeps
+from pulse.scope import resolve_scope
 from shared.ai import ModuleAiContribution, clock_block
 from shared.model_errors import model_error_message
 from shared.security import SecurityService
@@ -87,6 +88,7 @@ class PulseApplicationService:
         self.preview_ttl_seconds = preview_ttl_seconds
         self.contributions = list(contributions or [])
         self.agent = agent or PydanticPulseAgent(self.contributions)
+        self._session_scopes: dict[str, list[Any]] = {}
         self._sessions: OrderedDict[str, list[Any]] = OrderedDict()
 
     def _resolve_session(self, session_id: str | None) -> tuple[str, list[Any]]:
@@ -96,7 +98,8 @@ class PulseApplicationService:
         new_id = uuid4().hex[:12]
         self._sessions[new_id] = []
         while len(self._sessions) > MAX_SESSIONS:
-            self._sessions.popitem(last=False)
+            expired, _ = self._sessions.popitem(last=False)
+            self._session_scopes.pop(expired, None)
         return new_id, self._sessions[new_id]
 
     def _store_session(self, session_id: str, messages: list[Any]) -> None:
@@ -109,7 +112,7 @@ class PulseApplicationService:
             and any(type(part).__name__ == "UserPromptPart" for part in message.parts)
         ]
         if len(starts) > MAX_SESSION_EXCHANGES:
-            messages = messages[starts[-MAX_SESSION_EXCHANGES]:]
+            messages = messages[starts[-MAX_SESSION_EXCHANGES] :]
         self._sessions[session_id] = messages
         self._sessions.move_to_end(session_id)
 
@@ -130,7 +133,20 @@ class PulseApplicationService:
             }
             return
         active_session_id, history = self._resolve_session(session_id)
+        scopes = await resolve_scope(
+            self.progress_domain,
+            None if self.knowledge is None else self.knowledge.domain,
+            instruction,
+            mentions,
+        )
+        previous_scopes = self._session_scopes.get(active_session_id, [])
+        if scopes and scopes != previous_scopes:
+            # Drop whole exchanges, preserving valid tool-call/result pairing.
+            history = []
+        scopes = scopes or previous_scopes
         deps = AgentDeps(
+            scopes=scopes,
+            instruction=instruction,
             progress=self.progress_domain,
             knowledge=None if self.knowledge is None else self.knowledge.domain,
             corpus=None if self.knowledge is None else self.knowledge.corpus,
@@ -138,6 +154,13 @@ class PulseApplicationService:
             context_document_id=context_document_id,
         )
         parts = [clock_block()]
+        if scopes:
+            parts.append(
+                "Current explicit scope: "
+                + ", ".join(f"{scope.name} (project_id={scope.project_id})" for scope in scopes)
+                + ". Use only evidence applicable to this scope. No matches means missing "
+                "evidence; do not substitute another project. Source tags are not task tags."
+            )
         if context_task_id:
             parts.append(f"The user is currently viewing task_id={context_task_id}.")
         if context_document_id:
@@ -175,6 +198,7 @@ class PulseApplicationService:
             yield dict(_CANCELLED)
             return
         self._store_session(active_session_id, deps.produced_messages)
+        self._session_scopes[active_session_id] = scopes
         token = None
         if deps.pending:
             token = self.security.issue_preview_token(
