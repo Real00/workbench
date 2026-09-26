@@ -4,12 +4,18 @@ import { Plus, ShieldCheck, Users } from '@lucide/vue'
 import MemberDeskSprite from '../components/MemberDeskSprite.vue'
 import { memberHasDeskWork } from '../pixel-avatar'
 import { useProgressStore } from '../store'
+import type { Member } from '../types'
 
 const store = useProgressStore()
 const workloads = computed(() => new Map(store.dashboard?.member_workloads.map(item => [item.member.id, item]) ?? []))
 
 function isBusy(memberId: string) {
   return memberHasDeskWork(workloads.value.get(memberId)?.current_tasks.length ?? 0)
+}
+
+async function toggleActive(member: Member) {
+  if (member.operator || store.saving) return
+  await store.patchMember(member.id, { active: !member.active })
 }
 </script>
 
@@ -21,15 +27,31 @@ function isBusy(memberId: string) {
     </div>
     <div v-else-if="!store.members.length" class="empty-state"><Users :size="28" /><h2>尚无团队成员</h2><p>新增成员后即可分配任务并查看工作量。</p><button class="btn-primary" @click="store.openMember()">新增成员</button></div>
     <section v-else class="entity-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <button v-for="member in store.members" :key="member.id" class="card entity-card member-card group text-left" @click="store.openMember(member)">
+      <article
+        v-for="member in store.members"
+        :key="member.id"
+        class="card entity-card member-card group text-left"
+        role="button"
+        tabindex="0"
+        @click="store.openMember(member)"
+        @keydown.enter="store.openMember(member)"
+      >
         <div class="relative member-portrait">
           <MemberDeskSprite :seed="member.id" :name="member.name" :color="member.color" :busy="isBusy(member.id)" />
-
         </div>
-          <span class="member-badges">
-            <span v-if="member.operator" class="skill-chip">本人</span>
-            <span :class="['status-chip', member.active ? 'status-chip--done' : 'status-chip--inactive']">{{ member.active ? '可分配' : '停用' }}</span>
-          </span>
+        <span class="member-badges">
+          <span v-if="member.operator" class="skill-chip">本人</span>
+          <button
+            type="button"
+            :class="['status-chip', 'status-chip--interactive', member.active ? 'status-chip--done' : 'status-chip--inactive']"
+            :disabled="member.operator || store.saving"
+            :aria-label="member.operator ? '本人始终可分配' : `切换为${member.active ? '停用' : '可分配'}`"
+            :title="member.operator ? '本人始终可分配' : '点击切换可分配状态'"
+            @click.stop="toggleActive(member)"
+          >
+            {{ member.active ? '可分配' : '停用' }}
+          </button>
+        </span>
         <h2 class="mt-3 font-display text-lg text-text">{{ member.name }}</h2>
         <p class="mt-1 text-xs text-muted">{{ member.title || '未设置职位' }}</p>
         <div v-if="member.skills.length" class="mt-3 flex flex-wrap gap-1.5">
@@ -41,7 +63,7 @@ function isBusy(memberId: string) {
         <div class="flex justify-between text-xs"><span class="text-muted">任务平均进度</span><b class="text-text">{{ workloads.get(member.id)?.average_progress ?? 0 }}%</b></div>
         <div class="progress-line mt-2"><i :style="{ width: `${workloads.get(member.id)?.average_progress ?? 0}%`, backgroundColor: member.color ?? '#36d9e9' }" /></div>
         <div class="member-workload"><span>{{ workloads.get(member.id)?.current_tasks.length ?? 0 }} 个未完成任务</span><span>{{ member.evaluations?.length ?? 0 }} 条评价</span><span>{{ workloads.get(member.id)?.estimated_remaining_days ?? 0 }}d 剩余</span></div></div>
-      </button>
+      </article>
     </section>
     <section v-if="store.members.length" class="mt-5">
       <article class="card member-summary"><div class="card-head"><div><p class="eyebrow">Completion</p><h2>成员任务完成度</h2></div><ShieldCheck :size="17" class="text-cyan" /></div>

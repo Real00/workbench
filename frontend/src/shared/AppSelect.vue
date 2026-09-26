@@ -10,7 +10,11 @@ export interface AppSelectOption<T extends string = string> {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Check, ChevronDown } from '@lucide/vue'
 
-const props = defineProps<{ options: AppSelectOption<T>[]; placeholder?: string }>()
+const props = defineProps<{
+  options: AppSelectOption<T>[]
+  placeholder?: string
+  disabled?: boolean
+}>()
 const model = defineModel<T | null>()
 
 const open = ref(false)
@@ -21,11 +25,13 @@ const selected = computed(() => props.options.find(option => option.value === mo
 const display = computed(() => selected.value?.label ?? props.placeholder ?? '请选择')
 
 function choose(option: AppSelectOption<T>) {
+  if (props.disabled) return
   model.value = option.value
   open.value = false
 }
 
 function toggle() {
+  if (props.disabled) return
   if (open.value) {
     open.value = false
     return
@@ -38,6 +44,8 @@ function toggle() {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (props.disabled) return
+  event.stopPropagation()
   if (!open.value) {
     if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
       event.preventDefault()
@@ -69,6 +77,10 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
+watch(() => props.disabled, disabled => {
+  if (disabled) open.value = false
+})
+
 function onDocumentPointerdown(event: PointerEvent) {
   if (open.value && root.value && !root.value.contains(event.target as Node)) open.value = false
 }
@@ -85,18 +97,29 @@ watch(open, isOpen => {
 </script>
 
 <template>
-  <div ref="root" class="select-wrap">
-    <button
-      type="button"
-      :class="['select-trigger', open && 'select-trigger--open']"
-      :aria-expanded="open"
-      aria-haspopup="listbox"
-      @click="toggle"
-      @keydown="onKeydown"
+  <div ref="root" :class="['select-wrap', $slots.trigger && 'select-wrap--custom']">
+    <slot
+      name="trigger"
+      :open="open"
+      :display="display"
+      :selected="selected"
+      :disabled="Boolean(disabled)"
+      :toggle="toggle"
+      :keydown="onKeydown"
     >
-      <span :class="!selected && 'placeholder'">{{ display }}</span>
-      <ChevronDown :size="14" />
-    </button>
+      <button
+        type="button"
+        :class="['select-trigger', open && 'select-trigger--open']"
+        :aria-expanded="open"
+        aria-haspopup="listbox"
+        :disabled="disabled"
+        @click="toggle"
+        @keydown="onKeydown"
+      >
+        <span :class="!selected && 'placeholder'">{{ display }}</span>
+        <ChevronDown :size="14" />
+      </button>
+    </slot>
     <ul v-if="open" class="select-menu" role="listbox" :aria-label="placeholder ?? '选项列表'">
       <li v-for="(option, index) in options" :key="option.value">
         <button

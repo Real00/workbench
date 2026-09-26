@@ -94,6 +94,63 @@ describe('progress store', () => {
     expect(store.loading).toBe(false)
   })
 
+  it('在列表直接改状态后刷新任务且不关闭编辑器', async () => {
+    mockReads()
+    const updated = { ...task, status: 'done' as const, progress: 100 }
+    const update = vi.spyOn(progressApi, 'updateTask').mockResolvedValue(updated)
+    vi.spyOn(progressApi, 'getTasks').mockResolvedValue([updated])
+    vi.spyOn(progressApi, 'getDashboard').mockResolvedValue({ ...dashboard, by_status: { done: 1 } })
+    const store = useProgressStore()
+    await store.initialize()
+    store.openTask(task)
+    expect(await store.updateTaskStatus(task.id, 'done')).toBe(true)
+    expect(update).toHaveBeenCalledWith(task.id, { status: 'done' })
+    expect(store.tasks[0]?.status).toBe('done')
+    expect(store.editingTask?.status).toBe('done')
+    expect(store.taskEditorOpen).toBe(true)
+  })
+
+  it('快捷改优先级与负责人走 patchTask', async () => {
+    mockReads()
+    const updated = { ...task, priority: 'urgent' as const, assignee_id: null }
+    const update = vi.spyOn(progressApi, 'updateTask').mockResolvedValue(updated)
+    vi.spyOn(progressApi, 'getTasks').mockResolvedValue([updated])
+    const store = useProgressStore()
+    await store.initialize()
+    expect(await store.patchTask(task.id, { priority: 'urgent', assignee_id: null })).toBe(true)
+    expect(update).toHaveBeenCalledWith(task.id, { priority: 'urgent', assignee_id: null })
+    expect(store.tasks[0]?.priority).toBe('urgent')
+    expect(store.tasks[0]?.assignee_id).toBeNull()
+  })
+
+  it('快捷改项目状态不关闭编辑器', async () => {
+    mockReads()
+    const updated = { ...project, status: 'completed' as const }
+    const update = vi.spyOn(progressApi, 'updateProject').mockResolvedValue(updated)
+    vi.spyOn(progressApi, 'getProjects').mockResolvedValue([updated])
+    const store = useProgressStore()
+    await store.initialize()
+    store.openProject(project)
+    expect(await store.patchProject(project.id, { status: 'completed' })).toBe(true)
+    expect(update).toHaveBeenCalledWith(project.id, { status: 'completed' })
+    expect(store.projects[0]?.status).toBe('completed')
+    expect(store.editingProject?.status).toBe('completed')
+    expect(store.projectEditorOpen).toBe(true)
+  })
+
+  it('快捷切换成员可分配状态', async () => {
+    mockReads()
+    const updated = { ...member, active: false }
+    const update = vi.spyOn(progressApi, 'updateMember').mockResolvedValue(updated)
+    vi.spyOn(progressApi, 'getMembers').mockResolvedValue([updated])
+    vi.spyOn(progressApi, 'getDashboard').mockResolvedValue(dashboard)
+    const store = useProgressStore()
+    await store.initialize()
+    expect(await store.patchMember(member.id, { active: false })).toBe(true)
+    expect(update).toHaveBeenCalledWith(member.id, { active: false })
+    expect(store.members[0]?.active).toBe(false)
+  })
+
   it('创建任务后刷新任务和总览', async () => {
     mockReads()
     const create = vi.spyOn(progressApi, 'createTask').mockResolvedValue(task)

@@ -301,6 +301,8 @@ html { color-scheme: light; }
 .btn-primary, .btn-secondary, .btn-danger, .icon-btn, .kind-option, .skill-chip-remove, .view-tab, .nav-link { transition: background-color .15s, border-color .15s, color .15s, opacity .15s; }
 
 .select-wrap { position: relative; margin-top: 7px; }
+.select-wrap--custom { display: inline-block; margin-top: 0; }
+.select-wrap--custom .select-menu { left: 0; right: auto; min-width: 148px; }
 .select-trigger { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 8px; border: 1px solid #cbd2dc; border-radius: 8px; background: var(--color-ink); padding: 0 11px; font-size: 14px; color: var(--color-text); text-align: left; }
 .select-trigger:focus, .select-trigger:focus-visible { border-color: var(--color-cyan); outline: none; }
 .select-trigger:hover { border-color: #98a2b3; }
@@ -364,6 +366,34 @@ html { color-scheme: light; }
 .status-chip--todo, .status-chip--cancelled, .status-chip--inactive { color: var(--color-muted); border-color: var(--color-line); background: rgb(148 168 186 / .07); }
 .status-chip--done { color: var(--color-success); border-color: rgb(92 224 174 / .25); background: rgb(92 224 174 / .07); }
 .status-chip--blocked { color: var(--color-danger); border-color: rgb(248 113 113 / .25); background: rgb(248 113 113 / .07); }
+.status-chip--interactive,
+.priority--interactive,
+.project-status--interactive,
+.assignee-chip { cursor: pointer; transition: border-color .15s, background-color .15s, color .15s; }
+.status-chip--interactive:hover:not(:disabled),
+.priority--interactive:hover:not(:disabled),
+.project-status--interactive:hover:not(:disabled),
+.assignee-chip:hover:not(:disabled) { border-color: currentColor; }
+.status-chip--interactive:disabled,
+.priority--interactive:disabled,
+.project-status--interactive:disabled,
+.assignee-chip:disabled { cursor: default; opacity: .72; }
+.status-chip--interactive > span,
+.assignee-chip__name { min-width: 0; }
+.status-chip--interactive > svg,
+.priority--interactive > svg,
+.project-status--interactive > svg,
+.assignee-chip > svg { flex-shrink: 0; opacity: .7; transition: transform .15s; }
+.chip-select--open > svg { transform: rotate(180deg); opacity: 1; }
+.priority--interactive { display: inline-flex; min-width: 34px; height: 22px; align-items: center; justify-content: center; gap: 2px; padding: 0 5px; border: 1px solid transparent; }
+.assignee-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 160px; border: 1px solid transparent; border-radius: 999px; background: transparent; padding: 2px 6px 2px 2px; font-size: 14px; color: var(--color-text); }
+.assignee-chip__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-status--interactive { gap: 6px; }
+.task-table .select-wrap--custom,
+.board-card .select-wrap--custom,
+.project-card .select-wrap--custom { position: relative; z-index: 2; }
+.board-card,
+.entity-card { cursor: pointer; }
 .task-board { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 8px; }
 .editor-panel > header { flex-shrink: 0; }
 .task-editor-form { display: flex; flex: 1; min-height: 0; flex-direction: column; }

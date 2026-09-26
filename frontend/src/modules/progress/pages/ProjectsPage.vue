@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ArrowUpRight, CalendarDays, FolderKanban, Plus, Users }  from '@lucide/vue'
+import { ArrowUpRight, CalendarDays, FolderKanban, Plus, Users } from '@lucide/vue'
+import ChipSelect from '../../../shared/ChipSelect.vue'
+import type { AppSelectOption } from '../../../shared/AppSelect.vue'
 import { useProgressStore } from '../store'
-import { projectStatusMap, type Project } from '../types'
+import { projectStatusMap, type Project, type ProjectStatus } from '../types'
 
 const store = useProgressStore()
+
+const statusOptions: AppSelectOption<ProjectStatus>[] = Object.entries(projectStatusMap).map(([value, label]) => ({
+  value: value as ProjectStatus,
+  label,
+}))
 
 function formatDate(value: string | null) {
   return value ? value.slice(0, 10) : '未设置'
@@ -17,6 +24,11 @@ function projectTasks(projectId: string) {
 function coverStyle(project: Project) {
   const color = project.cover_color ?? '#2563eb'
   return { '--project-accent': /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : '#2563eb' }
+}
+
+async function onStatusChange(project: Project, status: ProjectStatus | null) {
+  if (!status || status === project.status) return
+  await store.patchProject(project.id, { status })
 }
 
 const projectCards = computed(() =>
@@ -42,10 +54,28 @@ const projectCards = computed(() =>
     </div>
     <div v-else-if="!store.projects.length" class="empty-state"><FolderKanban :size="28" /><h2>尚无项目</h2><p>立项后即可把相关任务挂到项目下，任务也可以不关联项目。</p><button class="btn-primary" @click="store.openProject()">新增项目</button></div>
     <section v-else class="entity-grid grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <button v-for="item in projectCards" :key="item.project.id" class="card entity-card project-card text-left" :style="coverStyle(item.project)" @click="store.openProject(item.project)">
+      <article
+        v-for="item in projectCards"
+        :key="item.project.id"
+        class="card entity-card project-card text-left"
+        :style="coverStyle(item.project)"
+        role="button"
+        tabindex="0"
+        @click="store.openProject(item.project)"
+        @keydown.enter="store.openProject(item.project)"
+      >
         <div class="project-card-top">
           <span class="project-emblem"><FolderKanban :size="22" /></span>
-          <span :class="['project-status', `project-status--${item.project.status}`]">{{ projectStatusMap[item.project.status] }}</span>
+          <div @click.stop>
+            <ChipSelect
+              :model-value="item.project.status"
+              :options="statusOptions"
+              :disabled="store.saving"
+              :trigger-class="['project-status', 'project-status--interactive', `project-status--${item.project.status}`]"
+              :aria-label="`修改项目状态：${projectStatusMap[item.project.status]}`"
+              @update:model-value="status => onStatusChange(item.project, status)"
+            />
+          </div>
         </div>
         <h2 class="project-title">{{ item.project.name }}</h2>
         <p class="project-description">{{ item.project.description || item.project.background || '添加项目说明，让目标与协作方向更清晰。' }}</p>
@@ -61,7 +91,7 @@ const projectCards = computed(() =>
           <div class="project-progress" role="progressbar" aria-label="任务完成度（不含已取消任务）" :aria-valuenow="item.completion" :aria-valuemin="0" :aria-valuemax="100"><i :style="{ width: `${item.completion}%` }" /></div>
           <div class="project-card-meta"><span>{{ item.taskCount }} 任务 <span aria-hidden="true">·</span> {{ item.activeCount }} 进行中</span><span class="project-open">查看项目<ArrowUpRight :size="14" /></span></div>
         </div>
-      </button>
+      </article>
     </section>
   </div>
 </template>

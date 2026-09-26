@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { apiError } from '../../shared/api/client'
 import { progressApi } from './api'
-import type { DashboardData, Member, MemberEvaluationInput, MemberInput, ProgressEntryInput, Project, ProjectInput, Task, TaskInput } from './types'
+import type { DashboardData, Member, MemberEvaluationInput, MemberInput, ProgressEntryInput, Project, ProjectInput, Task, TaskInput, TaskUpdate } from './types'
 
 export const useProgressStore = defineStore('progress', () => {
   const tasks = ref<Task[]>([])
@@ -120,6 +120,36 @@ export const useProgressStore = defineStore('progress', () => {
     })
   }
 
+  async function patchTask(id: string, patch: TaskUpdate) {
+    return runSave(async () => {
+      await progressApi.updateTask(id, patch)
+      await reloadEditing(id)
+    })
+  }
+
+  async function updateTaskStatus(id: string, status: NonNullable<TaskUpdate['status']>) {
+    return patchTask(id, { status })
+  }
+
+  async function patchMember(id: string, patch: Partial<MemberInput>) {
+    return runSave(async () => {
+      await progressApi.updateMember(id, patch)
+      await refreshMembers()
+      syncEditingMember(id)
+      dashboard.value = await progressApi.getDashboard()
+    })
+  }
+
+  async function patchProject(id: string, patch: Partial<ProjectInput>) {
+    return runSave(async () => {
+      await progressApi.updateProject(id, patch)
+      projects.value = await progressApi.getProjects()
+      if (editingProject.value?.id === id) {
+        editingProject.value = projects.value.find(project => project.id === id) ?? editingProject.value
+      }
+    })
+  }
+
   async function addTaskEntry(id: string, entry: ProgressEntryInput) {
     return runSave(async () => {
       await progressApi.updateTask(id, { add_entry: entry })
@@ -218,6 +248,6 @@ export const useProgressStore = defineStore('progress', () => {
   return {
     tasks, members, projects, dashboard, memberMap, operatorMember, assignableMembers, loading, saving, error, initialized,
     taskEditorOpen, editingTask, memberEditorOpen, editingMember, projectEditorOpen, editingProject,
-    initialize, refreshAll, refreshTasks, openTask, saveTask, addTaskEntry, uploadTaskResource, addTaskLink, deleteTaskResource, deleteTask, openMember, saveMember, deleteMember, addMemberEvaluation, removeMemberEvaluation, openProject, saveProject, deleteProject,
+    initialize, refreshAll, refreshTasks, openTask, saveTask, patchTask, updateTaskStatus, patchMember, patchProject, addTaskEntry, uploadTaskResource, addTaskLink, deleteTaskResource, deleteTask, openMember, saveMember, deleteMember, addMemberEvaluation, removeMemberEvaluation, openProject, saveProject, deleteProject,
   }
 })
