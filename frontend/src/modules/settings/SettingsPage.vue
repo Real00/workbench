@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { CheckCircle2, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable } from '@lucide/vue'
 import JevSettingsFields, { type JevSettings } from './JevSettingsFields.vue'
 import { api, apiError, getApiBase, getDeviceId, getDeviceToken, setDeviceCredentials } from '../../shared/api/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface Settings { base_url: string; model: string; api_key_masked: string; jev?: JevSettings }
 interface Secret { api_key: string }
@@ -177,46 +179,46 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
     <header class="page-header"><div><p class="eyebrow">System preferences</p><h1>系统设置</h1><p>由后端加密保存模型连接信息</p></div></header>
     <div class="grid gap-5 lg:grid-cols-[220px_1fr]">
       <nav class="card h-fit p-2" aria-label="设置分类">
-        <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'connection' }]" @click="tab = 'connection'"><PlugZap :size="17" />模型连接</button>
-        <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'tools' }]" @click="showTools"><Wrench :size="17" />AI 工具注册</button>
-        <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'devices' }]" @click="showDevices"><MonitorSmartphone :size="17" />绑定设备</button>
-        <button type="button" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'mcp' }]" @click="tab = 'mcp'"><Cable :size="17" />MCP 接入</button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'connection' }]" @click="tab = 'connection'"><PlugZap :size="17" />模型连接</Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'tools' }]" @click="showTools"><Wrench :size="17" />AI 工具注册</Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'devices' }]" @click="showDevices"><MonitorSmartphone :size="17" />绑定设备</Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'mcp' }]" @click="tab = 'mcp'"><Cable :size="17" />MCP 接入</Button>
       </nav>
       <section v-if="tab === 'connection'" class="card">
-        <div class="card-head"><div><p class="eyebrow">OpenAI compatible</p><h2>模型连接</h2><p class="mt-2 text-xs text-muted">浏览器仅调用工作台后端，不直接连接模型服务</p></div><span class="status-live"><span class="size-1.5 rounded-full bg-cyan" /> ENCRYPTED</span></div>
+        <div class="card-head"><div><p class="eyebrow">OpenAI compatible</p><h2>模型连接</h2><p class="mt-2 text-xs text-muted-foreground">浏览器仅调用工作台后端，不直接连接模型服务</p></div><span class="status-live"><span class="size-1.5 rounded-full bg-cyan" /> ENCRYPTED</span></div>
         <p v-if="loading" class="empty-inline">正在读取设置…</p>
         <form v-else class="mt-7 space-y-5" @submit.prevent="save">
           <div class="field-label">厂商预设
             <small>点击自动填充连接信息；OpenAI 走 Responses 协议，其余厂商走 Chat Completions 兼容协议，Pulse 的工具调用能力保持不变</small>
             <span class="mt-2 flex flex-wrap gap-1.5">
-              <button v-for="preset in providerPresets" :key="preset.label" type="button" :class="['kind-option', { 'kind-option--active': baseUrl === preset.base_url }]" @click="baseUrl = preset.base_url; model = preset.model">{{ preset.label }}</button>
+              <Button v-for="preset in providerPresets" :key="preset.label" type="button" variant="ghost" :class="['kind-option', { 'kind-option--active': baseUrl === preset.base_url }]" @click="baseUrl = preset.base_url; model = preset.model">{{ preset.label }}</Button>
             </span>
           </div>
-          <label class="field-label">Base URL<input v-model="baseUrl" class="input font-mono" type="url" required autocomplete="url" placeholder="https://api.example.com/v1" /><small>填写服务商的 API 基础地址，包含要求的路径（如 /v1 或 /api/paas/v4）；网站首页地址可能无法调用模型。</small></label>
-          <label class="field-label">模型名称<input v-model="model" class="input font-mono" required autocomplete="off" /></label>
+          <label class="field-label">Base URL<Input v-model="baseUrl" type="url" required autocomplete="url" placeholder="https://api.example.com/v1" class="font-mono" /><small>填写服务商的 API 基础地址，包含要求的路径（如 /v1 或 /api/paas/v4）；网站首页地址可能无法调用模型。</small></label>
+          <label class="field-label">模型名称<Input v-model="model" required autocomplete="off" class="font-mono" /></label>
           <div v-if="maskedKey" class="field-label">
             已保存 API Key
             <div class="flex gap-2">
-              <input class="input min-w-0 flex-1 font-mono" type="text" readonly :value="revealedKey || maskedKey" />
-              <button v-if="revealedKey" type="button" class="btn-secondary" @click="revealedKey = ''"><EyeOff :size="15" />隐藏</button>
-              <button v-else type="button" class="btn-secondary" :disabled="revealing" @click="revealSecret"><LoaderCircle v-if="revealing" :size="15" class="animate-spin" /><Eye v-else :size="15" />{{ revealing ? '查看中…' : '查看' }}</button>
+              <Input type="text" readonly :model-value="revealedKey || maskedKey" class="min-w-0 flex-1 font-mono" />
+              <Button v-if="revealedKey" type="button" @click="revealedKey = ''" variant="outline"><EyeOff :size="15" />隐藏</Button>
+              <Button v-else type="button" :disabled="revealing" @click="revealSecret" variant="outline"><LoaderCircle v-if="revealing" :size="15" class="animate-spin" /><Eye v-else :size="15" />{{ revealing ? '查看中…' : '查看' }}</Button>
             </div>
           </div>
-          <label class="field-label">API Key<input v-model="apiKey" class="input font-mono" type="password" autocomplete="new-password" placeholder="sk-..." :required="!maskedKey" /><small>{{ maskedKey ? '输入新密钥可替换，留空则保留现有密钥。' : '密钥提交至后端加密保存，不写入浏览器存储。' }}</small></label>
+          <label class="field-label">API Key<Input v-model="apiKey" type="password" autocomplete="new-password" placeholder="sk-..." :required="!maskedKey" class="font-mono" /><small>{{ maskedKey ? '输入新密钥可替换，留空则保留现有密钥。' : '密钥提交至后端加密保存，不写入浏览器存储。' }}</small></label>
           <JevSettingsFields v-model="jev" v-model:api-key="jevApiKey" :disabled="saving || testing" />
           <p v-if="error" class="error-box" role="alert">{{ error }}</p>
           <p v-if="saveResult" class="success-box"><CheckCircle2 :size="14" />{{ saveResult }}</p>
           <p v-if="testResult" :class="testResult === '模型流式输出正常' ? 'success-box' : 'error-box'">{{ testResult }}</p>
           <footer class="flex flex-wrap justify-end gap-2 border-t border-line pt-5">
-            <button type="button" class="btn-secondary" :disabled="testing || saving" @click="test"><LoaderCircle v-if="testing" :size="15" class="animate-spin" /><PlugZap v-else :size="15" />{{ testing ? '验证模型输出中…' : '测试模型连接' }}</button>
-            <button class="btn-primary" :disabled="saving || testing"><LoaderCircle v-if="saving" :size="15" class="animate-spin" /><Save v-else :size="15" />{{ saving ? '保存中…' : '保存设置' }}</button>
+            <Button type="button" :disabled="testing || saving" @click="test" variant="outline"><LoaderCircle v-if="testing" :size="15" class="animate-spin" /><PlugZap v-else :size="15" />{{ testing ? '验证模型输出中…' : '测试模型连接' }}</Button>
+            <Button :disabled="saving || testing"><LoaderCircle v-if="saving" :size="15" class="animate-spin" /><Save v-else :size="15" />{{ saving ? '保存中…' : '保存设置' }}</Button>
           </footer>
         </form>
       </section>
       <section v-else-if="tab === 'tools'">
         <div class="mb-4 flex items-center justify-between gap-3">
-          <p class="text-xs text-muted">各模块向 Pulse 注册的 AI 工具与参数能力，只读。</p>
-          <button type="button" class="btn-secondary shrink-0" :disabled="toolsLoading" @click="loadTools"><LoaderCircle v-if="toolsLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新</button>
+          <p class="text-xs text-muted-foreground">各模块向 Pulse 注册的 AI 工具与参数能力，只读。</p>
+          <Button type="button" :disabled="toolsLoading" @click="loadTools" class="shrink-0" variant="outline"><LoaderCircle v-if="toolsLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新</Button>
         </div>
         <p v-if="toolsError" class="error-box" role="alert">{{ toolsError }}</p>
         <p v-else-if="toolsLoading && !toolModules.length" class="empty-inline">正在读取工具注册表…</p>
@@ -225,20 +227,20 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
           <article v-for="module in toolModules" :key="module.id" class="card">
             <div class="card-head"><div><p class="eyebrow">{{ module.id }}</p><h2>{{ moduleLabel(module.id) }} · {{ module.tools.length }} 个工具</h2></div><Wrench :size="17" class="text-cyan" /></div>
             <details class="mt-3">
-              <summary class="cursor-pointer select-none text-[12px] text-muted">模块指令（注入给模型的提示）</summary>
-              <p class="mt-2 whitespace-pre-wrap text-[12px] leading-5 text-muted">{{ module.instructions }}</p>
+              <summary class="cursor-pointer select-none text-[12px] text-muted-foreground">模块指令（注入给模型的提示）</summary>
+              <p class="mt-2 whitespace-pre-wrap text-[12px] leading-5 text-muted-foreground">{{ module.instructions }}</p>
             </details>
             <div class="mt-4 space-y-3">
               <div v-for="tool in module.tools" :key="tool.name" class="rounded-lg border border-line bg-panel-2 p-3">
-                <header class="flex items-center justify-between gap-2"><b class="font-mono text-xs text-cyan">{{ tool.name }}</b><span class="font-mono text-[12px] text-muted">{{ tool.parameters.length ? `${tool.parameters.length} 参数` : '无参数' }}</span></header>
+                <header class="flex items-center justify-between gap-2"><b class="font-mono text-xs text-cyan">{{ tool.name }}</b><span class="font-mono text-[12px] text-muted-foreground">{{ tool.parameters.length ? `${tool.parameters.length} 参数` : '无参数' }}</span></header>
                 <p class="mt-1.5 text-[12px] leading-5 text-text-secondary">{{ tool.description || '—' }}</p>
                 <ul v-if="tool.parameters.length" class="mt-2 space-y-1">
                   <li v-for="param in tool.parameters" :key="param.name" class="flex flex-wrap items-center gap-2 font-mono text-[12px]">
                     <span class="text-text">{{ param.name }}</span>
-                    <span class="text-muted">{{ param.type }}</span>
-                    <span :class="param.required ? 'text-danger' : 'text-muted'">{{ param.required ? '必填' : '可选' }}</span>
+                    <span class="text-muted-foreground">{{ param.type }}</span>
+                    <span :class="param.required ? 'text-danger' : 'text-muted-foreground'">{{ param.required ? '必填' : '可选' }}</span>
                     <span v-if="param.values.length" class="text-warning">{{ param.values.join(' / ') }}</span>
-                    <span v-if="param.default" class="text-muted">默认 {{ param.default }}</span>
+                    <span v-if="param.default" class="text-muted-foreground">默认 {{ param.default }}</span>
                   </li>
                 </ul>
               </div>
@@ -248,8 +250,8 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
       </section>
       <section v-else-if="tab === 'devices'">
         <div class="mb-4 flex items-center justify-between gap-3">
-          <p class="text-xs text-muted">勾选「保持登录」的设备可静默续登；在这里解绑后该设备需重新输入密码。</p>
-          <button type="button" class="btn-secondary shrink-0" :disabled="devicesLoading" @click="loadDevices"><LoaderCircle v-if="devicesLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新</button>
+          <p class="text-xs text-muted-foreground">勾选「保持登录」的设备可静默续登；在这里解绑后该设备需重新输入密码。</p>
+          <Button type="button" :disabled="devicesLoading" @click="loadDevices" class="shrink-0" variant="outline"><LoaderCircle v-if="devicesLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新</Button>
         </div>
         <p v-if="devicesError" class="error-box" role="alert">{{ devicesError }}</p>
         <p v-else-if="devicesLoading && !devices.length" class="empty-inline">正在读取绑定设备…</p>
@@ -261,25 +263,25 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
                 {{ device.device_name }}
                 <span v-if="device.device_id === getDeviceId()" class="status-chip">当前设备</span>
               </b>
-              <p class="mt-1 font-mono text-[12px] text-muted">绑定 {{ formatStamp(device.created_at) }} · 最近活跃 {{ formatStamp(device.last_active_at) }}</p>
+              <p class="mt-1 font-mono text-[12px] text-muted-foreground">绑定 {{ formatStamp(device.created_at) }} · 最近活跃 {{ formatStamp(device.last_active_at) }}</p>
             </div>
-            <button type="button" class="btn-secondary shrink-0" :disabled="unbindingId === device.id" @click="unbindDevice(device)"><LoaderCircle v-if="unbindingId === device.id" :size="14" class="animate-spin" /><Trash2 v-else :size="14" />解绑</button>
+            <Button type="button" :disabled="unbindingId === device.id" @click="unbindDevice(device)" class="shrink-0" variant="outline"><LoaderCircle v-if="unbindingId === device.id" :size="14" class="animate-spin" /><Trash2 v-else :size="14" />解绑</Button>
           </article>
         </div>
       </section>
       <section v-else-if="tab === 'mcp'">
         <div class="card p-5">
-          <div class="card-head"><div><p class="eyebrow">Model Context Protocol</p><h2>MCP 接入</h2><p class="mt-2 text-xs text-muted">把工作台的 19 个工具（任务/成员/项目/评价/知识库）开放给任意支持 MCP 的客户端（Claude、Codex、Cursor 等）。协议版本 2025-11-25，Streamable HTTP 传输。注意：MCP 调用立即生效，没有站内 AI 的排队确认环节。</p></div><Cable :size="17" class="text-cyan" /></div>
+          <div class="card-head"><div><p class="eyebrow">Model Context Protocol</p><h2>MCP 接入</h2><p class="mt-2 text-xs text-muted-foreground">把工作台的 19 个工具（任务/成员/项目/评价/知识库）开放给任意支持 MCP 的客户端（Claude、Codex、Cursor 等）。协议版本 2025-11-25，Streamable HTTP 传输。注意：MCP 调用立即生效，没有站内 AI 的排队确认环节。</p></div><Cable :size="17" class="text-cyan" /></div>
           <div class="mt-5 space-y-4">
             <div class="field-label">接入地址
               <div class="mt-1 flex items-center gap-2">
                 <code class="min-w-0 flex-1 rounded-lg border border-line bg-ink px-3 py-2 font-mono text-[12px] text-cyan">{{ mcpUrl }}</code>
-                <button type="button" class="btn-secondary shrink-0" @click="copyConfig('url')"><Check v-if="copied === 'url'" :size="14" /><Copy v-else :size="14" />{{ copied === 'url' ? '已复制' : '复制' }}</button>
+                <Button type="button" @click="copyConfig('url')" class="shrink-0" variant="outline"><Check v-if="copied === 'url'" :size="14" /><Copy v-else :size="14" />{{ copied === 'url' ? '已复制' : '复制' }}</Button>
               </div>
             </div>
             <div class="field-label">
               <span class="flex items-center justify-between gap-3">认证方式一：设备凭证（推荐，长期有效，可在「绑定设备」随时吊销）
-                <button type="button" class="text-[12px] font-semibold text-cyan" @click="copyConfig('device')">{{ copied === 'device' ? '已复制配置' : '复制客户端配置' }}</button>
+                <Button type="button" variant="link" class="h-auto px-0 text-[12px] font-semibold" @click="copyConfig('device')">{{ copied === 'device' ? '已复制配置' : '复制客户端配置' }}</Button>
               </span>
               <template v-if="deviceCredentialsReady">
                 <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-ink p-3 font-mono text-[12px] leading-5 text-text-secondary">{{ JSON.stringify({
@@ -296,13 +298,13 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
             </div>
             <div class="field-label">
               <span class="flex items-center justify-between gap-3">认证方式二：登录令牌（短期，1 天有效）
-                <button type="button" class="text-[12px] font-semibold text-cyan" @click="copyConfig('jwt')">{{ copied === 'jwt' ? '已复制配置' : '复制客户端配置' }}</button>
+                <Button type="button" variant="link" class="h-auto px-0 text-[12px] font-semibold" @click="copyConfig('jwt')">{{ copied === 'jwt' ? '已复制配置' : '复制客户端配置' }}</Button>
               </span>
               <pre class="mt-2 overflow-x-auto rounded-lg border border-line bg-ink p-3 font-mono text-[12px] leading-5 text-text-secondary">{{ JSON.stringify({
                 mcpServers: { workbench: { type: 'http', url: mcpUrl, headers: { Authorization: 'Bearer <access_token>' } } }
               }, null, 2) }}</pre>
             </div>
-            <p class="text-[12px] leading-5 text-muted">安全说明：设备凭证与服务端绑定记录一一对应，可在「绑定设备」页解绑使其立即失效；令牌与凭证请勿写入公开仓库。</p>
+            <p class="text-[12px] leading-5 text-muted-foreground">安全说明：设备凭证与服务端绑定记录一一对应，可在「绑定设备」页解绑使其立即失效；令牌与凭证请勿写入公开仓库。</p>
           </div>
         </div>
       </section>

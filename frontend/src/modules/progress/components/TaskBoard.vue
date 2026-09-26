@@ -21,12 +21,12 @@ function statusLabel(task: Task, display: string, open = false) {
   return !open && isBlocked(task) ? '阻塞' : display
 }
 
-async function onStatusChange(task: Task, status: TaskStatus | null) {
+async function onStatusChange(task: Task, status: TaskStatus | null | undefined) {
   if (!status || status === task.status) return
   await store.patchTask(task.id, { status })
 }
 
-async function onPriorityChange(task: Task, priority: Priority | null) {
+async function onPriorityChange(task: Task, priority: Priority | null | undefined) {
   if (!priority || priority === task.priority) return
   await store.patchTask(task.id, { priority })
 }
@@ -77,7 +77,7 @@ async function onPriorityChange(task: Task, priority: Priority | null) {
           </div>
           <h3>{{ task.title }}</h3>
           <p>{{ isBlocked(task) ? `阻塞 · ${latestEntry(task)?.content}` : (latestEntry(task)?.content || task.tags.join(' / ') || '无标签') }}</p>
-          <div class="mt-4 flex items-center gap-2"><span class="avatar avatar--sm">{{ store.memberMap.get(task.assignee_id ?? '')?.name.slice(0, 2) ?? '--' }}</span><div class="progress-line flex-1"><i :style="{ width: `${task.progress}%` }" /></div><span class="font-mono text-[12px] text-muted">{{ task.progress }}%</span><span v-if="task.resources.length" class="font-mono text-[12px] text-muted">{{ task.resources.length }}</span></div>
+          <div class="mt-4 flex items-center gap-2"><span class="avatar avatar--sm">{{ store.memberMap.get(task.assignee_id ?? '')?.name.slice(0, 2) ?? '--' }}</span><div class="progress-line flex-1"><i :style="{ width: `${task.progress}%` }" /></div><span class="font-mono text-[12px] text-muted-foreground">{{ task.progress }}%</span><span v-if="task.resources.length" class="font-mono text-[12px] text-muted-foreground">{{ task.resources.length }}</span></div>
         </article>
       </div>
     </section>

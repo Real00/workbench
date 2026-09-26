@@ -38,7 +38,7 @@ watch(datedTasks, async () => {
 
 <template>
   <div class="gantt-shell overflow-x-auto rounded-xl border border-line bg-panel p-4">
-    <p v-if="datedTasks.length" class="mb-4 text-xs text-muted">{{ datedTasks.length }} 个已排期任务<span v-if="tasks.length > datedTasks.length"> · {{ tasks.length - datedTasks.length }} 个任务尚未设置完整日期</span></p>
+    <p v-if="datedTasks.length" class="mb-4 text-xs text-muted-foreground">{{ datedTasks.length }} 个已排期任务<span v-if="tasks.length > datedTasks.length"> · {{ tasks.length - datedTasks.length }} 个任务尚未设置完整日期</span></p>
     <div ref="chart" class="min-w-0" aria-label="任务甘特图" />
     <p v-if="!datedTasks.length" class="empty-inline">暂无同时设置开始与截止日期的任务</p>
   </div>

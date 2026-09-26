@@ -4,6 +4,8 @@
 
 当前提供跨模块首页、独立随手记、进度管理和知识库。首页聚合模块贡献的待处理事项与最近动态，Pulse 作为统一 AI 操作入口；未来资讯、自动化、构建发布等模块沿用同一接入方式。
 
+给 Agent 的仓库约定见 [AGENTS.md](AGENTS.md)。前端界面与组件用法见 [docs/frontend-design.md](docs/frontend-design.md)。
+
 ## 技术栈
 
 - 后端：Python 3.12、aiohttp、PyMongo Async API、DDD

@@ -1,46 +1,46 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useDialogFocus } from './useDialogFocus'
 import { AlertTriangle } from '@lucide/vue'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { confirmState, resolveConfirm } from './confirm'
 
 const state = confirmState()
 
-const panel = ref<HTMLElement | null>(null)
-useDialogFocus(panel, () => state.open, () => resolveConfirm(false))
-
+function onOpenChange(open: boolean) {
+  if (!open) resolveConfirm(false)
+}
 </script>
 
 <template>
-  <Teleport to="body">
-    <div
-      v-if="state.open"
-      ref="panel"
-      class="fixed inset-0 z-[70] grid place-items-center bg-slate-900/30 p-4"
-      role="alertdialog"
-      aria-modal="true"
-      :aria-label="state.title"
-      tabindex="-1"
-      @click.self="resolveConfirm(false)"
-    >
-      <div class="w-[min(92vw,400px)] rounded-xl border border-line bg-panel p-5 shadow-[0_24px_60px_rgb(16_24_40/.12)]">
-        <div class="flex items-start gap-3">
-          <span v-if="state.danger" class="grid size-9 shrink-0 place-items-center rounded-lg bg-[rgb(248_113_113/.12)] text-danger"><AlertTriangle :size="18" /></span>
-          <div class="min-w-0">
-            <h3 class="font-display text-base font-semibold text-text">{{ state.title }}</h3>
-            <p v-if="state.message" class="mt-1.5 text-xs leading-5 text-muted">{{ state.message }}</p>
-          </div>
-        </div>
-        <footer class="mt-5 flex justify-end gap-2">
-          <!-- 危险操作默认聚焦「取消」，避免回车误触 -->
-          <button type="button" class="btn-secondary" autofocus @click="resolveConfirm(false)">取消</button>
-          <button
-            type="button"
-            :class="state.danger ? 'btn-danger' : 'btn-primary'"
-            @click="resolveConfirm(true)"
-          >{{ state.confirmText }}</button>
-        </footer>
-      </div>
-    </div>
-  </Teleport>
+  <AlertDialog :open="state.open" @update:open="onOpenChange">
+    <AlertDialogContent class="sm:max-w-sm">
+      <AlertDialogHeader>
+        <AlertDialogMedia v-if="state.danger" class="bg-destructive/10 text-destructive">
+          <AlertTriangle />
+        </AlertDialogMedia>
+        <AlertDialogTitle>{{ state.title }}</AlertDialogTitle>
+        <AlertDialogDescription>
+          {{ state.message || '此操作需要确认后才会执行。' }}
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel @click="resolveConfirm(false)">取消</AlertDialogCancel>
+        <AlertDialogAction
+          :variant="state.danger ? 'destructive' : 'default'"
+          @click="resolveConfirm(true)"
+        >
+          {{ state.confirmText }}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>

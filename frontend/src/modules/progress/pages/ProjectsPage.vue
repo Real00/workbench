@@ -5,6 +5,7 @@ import ChipSelect from '../../../shared/ChipSelect.vue'
 import type { AppSelectOption } from '../../../shared/AppSelect.vue'
 import { useProgressStore } from '../store'
 import { projectStatusMap, type Project, type ProjectStatus } from '../types'
+import { Button } from '@/components/ui/button'
 
 const store = useProgressStore()
 
@@ -26,7 +27,7 @@ function coverStyle(project: Project) {
   return { '--project-accent': /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : '#2563eb' }
 }
 
-async function onStatusChange(project: Project, status: ProjectStatus | null) {
+async function onStatusChange(project: Project, status: ProjectStatus | null | undefined) {
   if (!status || status === project.status) return
   await store.patchProject(project.id, { status })
 }
@@ -48,11 +49,11 @@ const projectCards = computed(() =>
 
 <template>
   <div class="page-wrap">
-    <header class="page-header"><div><p class="eyebrow">Projects</p><h1>项目管理</h1><p>{{ store.projects.length }} 个项目 · 任务可自由选择归属</p></div><button class="btn-primary" @click="store.openProject()"><Plus :size="16" />新增项目</button></header>
+    <header class="page-header"><div><p class="eyebrow">Projects</p><h1>项目管理</h1><p>{{ store.projects.length }} 个项目 · 任务可自由选择归属</p></div><Button @click="store.openProject()"><Plus :size="16" />新增项目</Button></header>
     <div v-if="store.loading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <div v-for="i in 3" :key="i" class="card p-4"><div class="skeleton h-12" /><div class="skeleton mt-3 h-3 w-1/3" /><div class="skeleton mt-3 h-3 w-full" /><div class="skeleton mt-2 h-3 w-4/5" /><div class="skeleton mt-3 h-5 w-2/3 rounded-full" /></div>
     </div>
-    <div v-else-if="!store.projects.length" class="empty-state"><FolderKanban :size="28" /><h2>尚无项目</h2><p>立项后即可把相关任务挂到项目下，任务也可以不关联项目。</p><button class="btn-primary" @click="store.openProject()">新增项目</button></div>
+    <div v-else-if="!store.projects.length" class="empty-state"><FolderKanban :size="28" /><h2>尚无项目</h2><p>立项后即可把相关任务挂到项目下，任务也可以不关联项目。</p><Button @click="store.openProject()">新增项目</Button></div>
     <section v-else class="entity-grid grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <article
         v-for="item in projectCards"

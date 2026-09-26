@@ -7,6 +7,8 @@ import { projectStatusMap, type ProjectInput, type ProjectStatus } from '../type
 import AppSelect, { type AppSelectOption } from '../../../shared/AppSelect.vue'
 import RichTextarea from '../../../shared/RichTextarea.vue'
 import { confirmDialog } from '../../../shared/confirm'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 const coverPresets = ['#36d9e9', '#5ce0ae', '#fcd34d', '#f87171', '#a78bfa', '#f472b6', '#38bdf8', '#94a3b8']
 
@@ -78,22 +80,22 @@ async function removeProject() {
             <p class="eyebrow">Project</p>
             <h2 class="mt-1 truncate font-display text-xl text-text">{{ title }}</h2>
           </div>
-          <button class="icon-btn" aria-label="关闭" @click="store.projectEditorOpen = false"><X :size="18" /></button>
+          <Button aria-label="关闭" @click="store.projectEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
         </header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
           <section class="space-y-4">
             <p class="eyebrow">基本信息</p>
             <div class="grid grid-cols-2 gap-3">
-              <label class="field-label">项目名称<input v-model="form.name" class="input" required maxlength="200" placeholder="例如：MYAI 工单平台" /></label>
+              <label class="field-label">项目名称<Input v-model="form.name" required maxlength="200" placeholder="例如：MYAI 工单平台" /></label>
               <label class="field-label">项目状态<AppSelect v-model="form.status" :options="statusOptions" /></label>
             </div>
-            <label class="field-label">立项时间<input v-model="form.started_at" type="date" class="input" /></label>
+            <label class="field-label">立项时间<Input v-model="form.started_at" type="date" /></label>
             <div class="field-label">封面色
               <small>用于项目卡片顶部的封面横幅，也可以在下方自定义</small>
               <span class="mt-2 flex flex-wrap items-center gap-2">
                 <button v-for="color in coverPresets" :key="color" type="button" :class="['cover-swatch', { 'cover-swatch--active': form.cover_color === color }]" :style="{ backgroundColor: color }" :aria-label="`封面色 ${color}`" @click="form.cover_color = color" />
                 <input v-model="form.cover_color" type="color" class="h-8 w-10 cursor-pointer rounded border border-line bg-transparent p-1" aria-label="自定义封面色" />
-                <input v-model="form.cover_color" class="input !mt-0 w-28 font-mono" maxlength="7" placeholder="#36d9e9" />
+                <Input v-model="form.cover_color" maxlength="7" placeholder="#36d9e9" class="!mt-0 w-28 font-mono" />
               </span>
             </div>
             <label class="field-label">项目描述
@@ -107,26 +109,26 @@ async function removeProject() {
           </section>
           <section class="space-y-3 border-t border-line pt-5">
             <p class="eyebrow">关联人</p>
-            <p class="text-[12px] text-muted">从团队成员中选择与该项目相关的人，便于说明分工与查找。</p>
+            <p class="text-[12px] text-muted-foreground">从团队成员中选择与该项目相关的人，便于说明分工与查找。</p>
             <div class="flex flex-wrap gap-1.5">
-              <button v-for="member in store.members" :key="member.id" type="button" :class="['kind-option', 'flex items-center gap-1.5', { 'kind-option--active': form.member_ids.includes(member.id) }]" :aria-pressed="form.member_ids.includes(member.id)" @click="toggleMember(member.id)">
-                <img :src="memberPixelUri(member.id, member.color)" alt="" width="14" height="14" class="rounded" />{{ member.name }}<span v-if="member.operator" class="text-[12px] text-muted">（我）</span>
-              </button>
+              <Button v-for="member in store.members" :key="member.id" type="button" variant="ghost" :class="['kind-option', 'flex items-center gap-1.5', { 'kind-option--active': form.member_ids.includes(member.id) }]" :aria-pressed="form.member_ids.includes(member.id)" @click="toggleMember(member.id)">
+                <img :src="memberPixelUri(member.id, member.color)" alt="" width="14" height="14" class="rounded" />{{ member.name }}<span v-if="member.operator" class="text-[12px] text-muted-foreground">（我）</span>
+              </Button>
             </div>
             <p v-if="!store.members.length" class="empty-inline !py-2">还没有团队成员，先到成员管理中添加。</p>
           </section>
           <section v-if="store.editingProject" class="space-y-2 border-t border-line pt-5">
             <p class="eyebrow">关联任务</p>
-            <p class="text-xs text-muted">{{ linkedTasks.length ? `${linkedTasks.length} 个任务挂在项目下，可在任务编辑中调整归属。` : '尚无任务关联此项目；任务可以不属于任何项目。' }}</p>
+            <p class="text-xs text-muted-foreground">{{ linkedTasks.length ? `${linkedTasks.length} 个任务挂在项目下，可在任务编辑中调整归属。` : '尚无任务关联此项目；任务可以不属于任何项目。' }}</p>
             <ul v-if="linkedTasks.length" class="space-y-1">
               <li v-for="task in linkedTasks.slice(0, 8)" :key="task.id" class="flex items-center justify-between gap-2 rounded-lg border border-line bg-panel-2 px-3 py-2 text-xs">
                 <span class="truncate text-text">{{ task.title }}</span>
-                <span class="shrink-0 font-mono text-[12px] text-muted">{{ task.progress }}%</span>
+                <span class="shrink-0 font-mono text-[12px] text-muted-foreground">{{ task.progress }}%</span>
               </li>
             </ul>
           </section>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><button v-if="store.editingProject" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeProject"><Trash2 :size="14" />删除</button><button type="button" class="btn-secondary" @click="store.projectEditorOpen = false"><X :size="14" />取消</button><button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存项目' }}</button></footer>
+          <footer class="flex justify-end gap-2 border-t border-line pt-5"><Button v-if="store.editingProject" type="button" :disabled="store.saving" @click="removeProject" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button><Button type="button" @click="store.projectEditorOpen = false" variant="outline"><X :size="14" />取消</Button><Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存项目' }}</Button></footer>
         </form>
       </aside>
     </div>

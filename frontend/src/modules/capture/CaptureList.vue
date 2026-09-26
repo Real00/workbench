@@ -2,6 +2,8 @@
 import { onMounted, ref, watch } from 'vue'
 import { apiError } from '../../shared/api/client'
 import { captureApi, useCaptureStore, type Capture } from './store'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 const props = defineProps<{ compact?: boolean }>()
 const store = useCaptureStore()
 const items = ref<Capture[]>([])
@@ -37,15 +39,15 @@ watch([archived, () => store.revision], () => load())
 </script>
 <template>
   <section>
-    <form v-if="!compact" class="mb-4 flex flex-wrap gap-2" @submit.prevent="load()"><input v-model="query" class="input flex-1" maxlength="200" aria-label="搜索记录" placeholder="搜索原文…" /><button class="btn-secondary">搜索</button><label class="flex items-center gap-2 text-sm"><input v-model="archived" type="checkbox" />已归档</label></form>
-    <p v-if="error" class="error-box" role="alert">{{ error }} <button class="underline" @click="load()">重试</button></p>
+    <form v-if="!compact" class="mb-4 flex flex-wrap gap-2" @submit.prevent="load()"><Input v-model="query" maxlength="200" aria-label="搜索记录" placeholder="搜索原文…" class="flex-1" /><Button variant="outline">搜索</Button><label class="flex items-center gap-2 text-sm"><input v-model="archived" type="checkbox" />已归档</label></form>
+    <p v-if="error" class="error-box" role="alert">{{ error }} <Button variant="link" class="h-auto px-0" @click="load()">重试</Button></p>
     <p v-if="loading" class="empty-inline" role="status">加载记录中…</p>
     <p v-else-if="!items.length && !error" class="empty-inline">{{ archived ? '没有已归档记录' : query ? '没有找到匹配的记录' : '还没有记录，写下一句话就可以开始。' }}</p>
     <article v-for="item in (props.compact ? items.slice(0, 5) : items)" :key="item.id" class="capture-item">
-      <div class="mb-2 flex justify-between text-xs text-muted"><time>{{ new Date(item.created_at).toLocaleString('zh-CN') }}</time><span v-if="item.pinned" class="text-cyan">已置顶</span></div>
+      <div class="mb-2 flex justify-between text-xs text-muted-foreground"><time>{{ new Date(item.created_at).toLocaleString('zh-CN') }}</time><span v-if="item.pinned" class="text-cyan">已置顶</span></div>
       <p :class="['whitespace-pre-wrap break-words text-sm leading-7', compact && 'line-clamp-4']">{{ item.content }}</p>
-      <div class="mt-3 flex flex-wrap gap-1 text-xs text-muted"><button class="btn-ghost btn-ghost--sm" :disabled="!!busy" @click="update(item, { pinned: !item.pinned })">{{ item.pinned ? '取消置顶' : '置顶关注' }}</button><button class="btn-ghost btn-ghost--sm" @click="discuss(item)">交给 Pulse</button><button class="btn-ghost btn-ghost--sm" :disabled="!!busy" @click="update(item, { archived: !item.archived })">{{ item.archived ? '恢复记录' : '归档' }}</button></div>
+      <div class="mt-3 flex flex-wrap gap-1 text-xs text-muted-foreground"><Button :disabled="!!busy" @click="update(item, { pinned: !item.pinned })" variant="ghost" size="sm">{{ item.pinned ? '取消置顶' : '置顶关注' }}</Button><Button @click="discuss(item)" variant="ghost" size="sm">交给 Pulse</Button><Button :disabled="!!busy" @click="update(item, { archived: !item.archived })" variant="ghost" size="sm">{{ item.archived ? '恢复记录' : '归档' }}</Button></div>
     </article>
-    <button v-if="!compact && more" class="btn-secondary mt-4" :disabled="loading" @click="load(true)">加载更多</button>
+    <Button v-if="!compact && more" :disabled="loading" @click="load(true)" class="mt-4" variant="outline">加载更多</Button>
   </section>
 </template>

@@ -4,6 +4,8 @@ import { FileText, Link2, Paperclip, Trash2, Upload } from '@lucide/vue'
 import { progressApi } from '../api'
 import { useProgressStore } from '../store'
 import { formatBytes, resourceAccept, resourceKindMap, type TaskResource } from '../types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 const store = useProgressStore()
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -76,16 +78,16 @@ async function openResource(resource: TaskResource) {
 <template>
   <section class="rounded-xl border border-line bg-panel-2 p-4">
     <p class="eyebrow">相关资源</p>
-    <p class="mt-1 text-[12px] text-muted">图片、文档或外链。单文件不超过 20MB。</p>
+    <p class="mt-1 text-[12px] text-muted-foreground">图片、文档或外链。单文件不超过 20MB。</p>
     <div class="mt-3 flex flex-wrap gap-2">
       <input ref="fileInput" class="sr-only" type="file" :accept="resourceAccept" @change="onFile" />
-      <button type="button" class="btn-secondary" :disabled="store.saving" @click="fileInput?.click()"><Upload :size="14" />上传文件</button>
+      <Button type="button" :disabled="store.saving" @click="fileInput?.click()" variant="outline"><Upload :size="14" />上传文件</Button>
     </div>
     <div class="mt-3 grid gap-2">
-      <label class="field-label">外链名称<input v-model="linkName" class="input" maxlength="200" placeholder="可选" /></label>
-      <label class="field-label">链接地址<input v-model="linkUrl" class="input" maxlength="2000" placeholder="https://" /></label>
+      <label class="field-label">外链名称<Input v-model="linkName" maxlength="200" placeholder="可选" /></label>
+      <label class="field-label">链接地址<Input v-model="linkUrl" maxlength="2000" placeholder="https://" /></label>
     </div>
-    <button type="button" class="btn-secondary mt-3" :disabled="store.saving || !linkUrl.trim()" @click="addLink"><Link2 :size="14" />添加链接</button>
+    <Button type="button" :disabled="store.saving || !linkUrl.trim()" @click="addLink" class="mt-3" variant="outline"><Link2 :size="14" />添加链接</Button>
     <ul v-if="resources.length" class="mt-4 grid gap-2">
       <li v-for="resource in resources" :key="resource.id" class="resource-item">
         <button type="button" class="resource-main" @click="openResource(resource)">
@@ -100,7 +102,7 @@ async function openResource(resource: TaskResource) {
             <small>{{ resourceKindMap[resource.kind] }}<template v-if="resource.size_bytes"> · {{ formatBytes(resource.size_bytes) }}</template></small>
           </span>
         </button>
-        <button type="button" class="icon-btn" aria-label="删除资源" :disabled="store.saving" @click="store.deleteTaskResource(store.editingTask!.id, resource.id)"><Trash2 :size="14" /></button>
+        <Button type="button" aria-label="删除资源" :disabled="store.saving" @click="store.deleteTaskResource(store.editingTask!.id, resource.id)" variant="ghost" size="icon"><Trash2 :size="14" /></Button>
       </li>
     </ul>
     <p v-else class="empty-inline !py-4">还没有相关资源</p>

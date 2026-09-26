@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { Boxes, ChevronLeft, House, LogOut, Menu } from '@lucide/vue'
 import { moduleNavigation } from '../app/modules'
@@ -13,6 +13,8 @@ import { useProgressStore } from '../modules/progress/store'
 import { subscribeEvents, type ChangeEvent } from '../shared/api/events'
 import { clearToken } from '../shared/api/client'
 import { setupDesktopBridge } from '../shared/tauri'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const captures = useCaptureStore()
 const progress = useProgressStore()
@@ -39,7 +41,6 @@ function handleChange(event: ChangeEvent) {
     window.dispatchEvent(new Event('workbench-changed'))
   }, 300)
 }
-const captureDialog = ref<HTMLDialogElement | null>(null)
 const paletteOpen = ref(false)
 function quickKey(event: KeyboardEvent) {
   if (event.isComposing) return
@@ -65,7 +66,6 @@ onUnmounted(() => {
   if (coalesceTimer) clearTimeout(coalesceTimer)
   captures.reset()
 })
-watch(() => captures.quickOpen, open => { if (open) captureDialog.value?.showModal(); else captureDialog.value?.close() })
 const router = useRouter()
 const collapsed = ref(false)
 const mobileOpen = ref(false)
@@ -81,17 +81,17 @@ function logout() {
 
 <template>
   <div class="min-h-screen bg-ink text-text">
-    <button class="mobile-menu" aria-label="打开导航" @click="mobileOpen = true"><Menu :size="19" /></button>
+    <Button class="mobile-menu" variant="outline" size="icon" aria-label="打开导航" @click="mobileOpen = true"><Menu :size="19" /></Button>
     <div v-if="mobileOpen" class="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" @click="mobileOpen = false" />
     <aside :class="['sidebar', collapsed && 'sidebar--collapsed', mobileOpen && 'sidebar--open']">
       <div class="flex h-16 items-center gap-3 border-b border-line px-4">
         <span class="grid size-8 place-items-center rounded-lg bg-cyan text-white"><Boxes :size="17" /></span>
         <div v-if="!collapsed" class="leading-tight">
           <strong class="font-display tracking-wide text-text">个人工作台</strong>
-          <p class="font-mono text-[12px] uppercase tracking-[.2em] text-muted">Personal workspace</p>
+          <p class="font-mono text-[12px] uppercase tracking-[.2em] text-muted-foreground">Personal workspace</p>
         </div>
       </div>
-      <button class="nav-link m-2" aria-label="快速记录" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></button>
+      <Button class="nav-link m-2" variant="ghost" aria-label="快速记录" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></Button>
       <nav class="flex-1 overflow-y-auto p-2" aria-label="主导航">
         <RouterLink to="/" aria-label="工作台首页" title="工作台首页" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">
           <House :size="18" /><span v-if="!collapsed">工作台首页</span>
@@ -107,21 +107,25 @@ function logout() {
         <template v-for="group in platformNavigation" :key="group.id">
           <RouterLink v-for="item in group.items" :key="item.to" :to="item.to" :aria-label="item.label" :title="collapsed ? item.label : undefined" class="nav-link" @click="mobileOpen = false"><component :is="item.icon" :size="18" /><span v-if="!collapsed">{{ item.label }}</span></RouterLink>
         </template>
-        <button class="nav-link hidden w-full lg:flex" :aria-label="collapsed ? '展开侧栏' : '收起侧栏'" @click="collapsed = !collapsed">
+        <Button class="nav-link hidden w-full lg:flex" variant="ghost" :aria-label="collapsed ? '展开侧栏' : '收起侧栏'" @click="collapsed = !collapsed">
           <ChevronLeft :class="collapsed && 'rotate-180'" :size="18" /><span v-if="!collapsed">收起侧栏</span>
-        </button>
-        <button class="nav-link mt-1 w-full" aria-label="退出登录" @click="logout">
+        </Button>
+        <Button class="nav-link mt-1 w-full" variant="ghost" aria-label="退出登录" @click="logout">
           <LogOut :size="18" /><span v-if="!collapsed">退出登录</span>
-        </button>
+        </Button>
       </div>
     </aside>
     <main :class="['main-content', collapsed && 'main-content--wide', assistantOpen && 'main-content--assistant']">
       <RouterView />
       <AiDock @open-change="assistantOpen = $event" />
-      <dialog ref="captureDialog" class="quick-capture-dialog" aria-label="快速记录" @close="captures.quickOpen = false">
-        <div class="mb-4 flex justify-between"><h2>快速记录</h2><button class="icon-btn" aria-label="关闭快记" @click="captures.quickOpen = false">×</button></div>
-        <CaptureComposer v-if="captures.quickOpen" autofocus />
-      </dialog>
+      <Dialog :open="captures.quickOpen" @update:open="captures.quickOpen = $event">
+        <DialogContent class="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>快速记录</DialogTitle>
+          </DialogHeader>
+          <CaptureComposer v-if="captures.quickOpen" autofocus />
+        </DialogContent>
+      </Dialog>
     </main>
     <ConfirmDialog />
     <CommandPalette :open="paletteOpen" @close="paletteOpen = false" />

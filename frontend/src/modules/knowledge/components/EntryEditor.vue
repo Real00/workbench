@@ -5,6 +5,8 @@ import RichTextarea from '../../../shared/RichTextarea.vue'
 import { confirmDialog } from '../../../shared/confirm'
 import { useKnowledgeStore } from '../store'
 import type { EntryInput } from '../types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 const store = useKnowledgeStore()
 const blank = (): EntryInput => ({ key: '', value: '', tag_ids: [], document_ids: [], aliases: [] })
@@ -45,13 +47,13 @@ async function removeEntry() {
       <aside class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between border-b border-line px-5 py-4">
           <div><p class="eyebrow">Knowledge entry</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
-          <button class="icon-btn" aria-label="关闭" @click="store.entryEditorOpen = false"><X :size="18" /></button>
+          <Button aria-label="关闭" @click="store.entryEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
         </header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
-          <label class="field-label">键 / 概念<input v-model="form.key" class="input" required maxlength="200" /></label>
+          <label class="field-label">键 / 概念<Input v-model="form.key" required maxlength="200" /></label>
           <label class="field-label">值<RichTextarea v-model="form.value" :min-height="128" :maxlength="20000" counter required /></label>
           <label class="field-label">别名<small>逗号分隔，写入正文供 grep 命中同义词</small>
-            <input v-model="aliasesText" class="input" maxlength="400" />
+            <Input v-model="aliasesText" maxlength="400" />
           </label>
           <fieldset class="field-label">标签
             <div class="mt-2 flex flex-wrap gap-2">
@@ -69,9 +71,9 @@ async function removeEntry() {
           </fieldset>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
           <footer class="flex justify-end gap-2 border-t border-line pt-5">
-            <button v-if="store.editingEntry" type="button" class="btn-danger mr-auto" :disabled="store.saving" @click="removeEntry"><Trash2 :size="14" />删除</button>
-            <button type="button" class="btn-secondary" @click="store.entryEditorOpen = false"><X :size="14" />取消</button>
-            <button class="btn-primary" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存条目' }}</button>
+            <Button v-if="store.editingEntry" type="button" :disabled="store.saving" @click="removeEntry" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button>
+            <Button type="button" @click="store.entryEditorOpen = false" variant="outline"><X :size="14" />取消</Button>
+            <Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存条目' }}</Button>
           </footer>
         </form>
       </aside>

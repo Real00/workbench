@@ -6,6 +6,7 @@ import type { WorkbenchItem } from '../../app/module-types'
 import CaptureComposer from '../capture/CaptureComposer.vue'
 import CaptureList from '../capture/CaptureList.vue'
 import { apiError } from '../../shared/api/client'
+import { Button } from '@/components/ui/button'
 
 const sources = modules.filter(module => module.workbench)
 const selected = ref(sources.map(module => module.id))
@@ -32,26 +33,26 @@ onUnmounted(() => window.removeEventListener('workbench-changed', refresh))
 
 <template>
   <div class="page-wrap workbench-home">
-    <header class="page-header"><div><p class="eyebrow">Your workspace</p><h1>我的工作台</h1><p>记下想法，关注变化，从这里继续推进。</p></div><button class="btn-secondary" :disabled="loading" @click="refresh"><RefreshCw :size="15" />{{ loading ? '刷新中…' : '刷新动态' }}</button></header>
+    <header class="page-header"><div><p class="eyebrow">Your workspace</p><h1>我的工作台</h1><p>记下想法，关注变化，从这里继续推进。</p></div><Button :disabled="loading" @click="refresh" variant="outline"><RefreshCw :size="15" />{{ loading ? '刷新中…' : '刷新动态' }}</Button></header>
     <section class="card capture-hero"><CaptureComposer /></section>
     <div class="workbench-filter" role="group" aria-label="待处理与动态来源"><span>关注来源</span><label v-for="source in sources" :key="source.id"><input v-model="selected" type="checkbox" :value="source.id" />{{ source.title }}</label></div>
     <div class="workbench-columns">
       <div class="min-w-0 space-y-5">
-        <section class="card home-attention"><div class="card-head"><div><h2><span class="section-icon section-icon--amber"><CircleAlert :size="17" /></span>待处理 <span class="text-muted">{{ attention.length }}</span></h2></div></div><p class="mt-2 text-xs text-muted">来自已选模块的待处理事项，点击回到来源继续操作。</p>
+        <section class="card home-attention"><div class="card-head"><div><h2><span class="section-icon section-icon--amber"><CircleAlert :size="17" /></span>待处理 <span class="text-muted-foreground">{{ attention.length }}</span></h2></div></div><p class="mt-2 text-xs text-muted-foreground">来自已选模块的待处理事项，点击回到来源继续操作。</p>
           <p v-for="error in errors" :key="error" class="error-box mt-3" role="alert">{{ error }}</p>
           <p v-if="loading" class="empty-inline">正在读取各模块…</p>
           <p v-else-if="!attention.length" class="empty-inline">{{ errors.length ? '部分模块暂不可用，请刷新重试。' : '已选模块中暂无待处理事项。' }}</p>
-          <RouterLink v-for="item in attention" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark feed-mark--attention" /><div class="min-w-0 flex-1"><p class="break-words text-sm">{{ item.title }}</p><p class="mt-1 text-xs text-muted">{{ item.moduleTitle }} · {{ item.summary }}</p></div><ArrowUpRight :size="14" /></RouterLink>
+          <RouterLink v-for="item in attention" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark feed-mark--attention" /><div class="min-w-0 flex-1"><p class="break-words text-sm">{{ item.title }}</p><p class="mt-1 text-xs text-muted-foreground">{{ item.moduleTitle }} · {{ item.summary }}</p></div><ArrowUpRight :size="14" /></RouterLink>
         </section>
         <section class="card"><div class="card-head"><div><h2><span class="section-icon"><Clock3 :size="17" /></span>最近动态</h2></div></div>
 
           <p v-if="!loading && !activity.length" class="empty-inline">{{ selected.length ? '暂无可展示的动态。' : '选择一个模块查看动态与待处理事项。' }}</p>
-          <RouterLink v-for="item in activity" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark" /><div class="min-w-0 flex-1"><p class="break-words text-sm">{{ item.title }}</p><p class="mt-1 text-xs text-muted">{{ item.moduleTitle }} · {{ item.summary }}</p></div><time class="shrink-0 text-xs text-muted">{{ item.occurredAt ? new Date(item.occurredAt).toLocaleDateString('zh-CN') : '' }}</time></RouterLink>
+          <RouterLink v-for="item in activity" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark" /><div class="min-w-0 flex-1"><p class="break-words text-sm">{{ item.title }}</p><p class="mt-1 text-xs text-muted-foreground">{{ item.moduleTitle }} · {{ item.summary }}</p></div><time class="shrink-0 text-xs text-muted-foreground">{{ item.occurredAt ? new Date(item.occurredAt).toLocaleDateString('zh-CN') : '' }}</time></RouterLink>
         </section>
       </div>
       <div class="min-w-0 space-y-5">
         <section class="card"><div class="card-head"><div><h2><span class="section-icon"><NotebookPen :size="17" /></span>关注与最近记录</h2></div><RouterLink to="/captures" class="text-xs text-cyan">全部记录 →</RouterLink></div><CaptureList compact /></section>
-        <section class="card"><div class="card-head"><h2><span class="section-icon"><Layers :size="17" /></span>工作模块</h2></div><RouterLink v-for="module in homeModules" :key="module.id" :to="module.homeCard ? module.homeCard.to : '/'" class="workbench-feed"><component :is="module.icon" :size="20" class="shrink-0 text-cyan" /><div><p class="text-sm">{{ module.title }}</p><p class="mt-1 text-xs leading-5 text-muted">{{ module.description }}</p></div><ArrowUpRight :size="14" class="ml-auto shrink-0" /></RouterLink></section>
+        <section class="card"><div class="card-head"><h2><span class="section-icon"><Layers :size="17" /></span>工作模块</h2></div><RouterLink v-for="module in homeModules" :key="module.id" :to="module.homeCard ? module.homeCard.to : '/'" class="workbench-feed"><component :is="module.icon" :size="20" class="shrink-0 text-cyan" /><div><p class="text-sm">{{ module.title }}</p><p class="mt-1 text-xs leading-5 text-muted-foreground">{{ module.description }}</p></div><ArrowUpRight :size="14" class="ml-auto shrink-0" /></RouterLink></section>
       </div>
     </div>
   </div>

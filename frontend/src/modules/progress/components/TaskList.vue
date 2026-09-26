@@ -58,17 +58,17 @@ function assigneeOptionsFor(task: Task): AppSelectOption[] {
   ]
 }
 
-async function onStatusChange(task: Task, status: TaskStatus | null) {
+async function onStatusChange(task: Task, status: TaskStatus | null | undefined) {
   if (!status || status === task.status) return
   await store.patchTask(task.id, { status })
 }
 
-async function onPriorityChange(task: Task, priority: Priority | null) {
+async function onPriorityChange(task: Task, priority: Priority | null | undefined) {
   if (!priority || priority === task.priority) return
   await store.patchTask(task.id, { priority })
 }
 
-async function onAssigneeChange(task: Task, assigneeId: string | null) {
+async function onAssigneeChange(task: Task, assigneeId: string | null | undefined) {
   const next = assigneeId || null
   if (next === task.assignee_id) return
   await store.patchTask(task.id, { assignee_id: next })
@@ -130,12 +130,12 @@ async function onAssigneeChange(task: Task, assigneeId: string | null) {
               </template>
             </ChipSelect>
           </td>
-          <td class="font-mono text-[12px] text-muted">{{ task.start_date?.slice(0, 10) ?? '—' }} → {{ task.due_date?.slice(0, 10) ?? '—' }}</td>
+          <td class="font-mono text-[12px] text-muted-foreground">{{ task.start_date?.slice(0, 10) ?? '—' }} → {{ task.due_date?.slice(0, 10) ?? '—' }}</td>
           <td><div class="w-28"><div class="progress-line"><i :style="{ width: `${task.progress}%` }" /></div><small class="font-mono">{{ task.progress }}%</small></div></td>
-          <td><ChevronRight :size="15" class="text-muted" /></td>
+          <td><ChevronRight :size="15" class="text-muted-foreground" /></td>
         </tr>
       </tbody>
     </table>
-    <p v-if="!tasks.length" class="p-10 text-center text-sm text-muted">没有匹配任务，尝试其他关键词。</p>
+    <p v-if="!tasks.length" class="p-10 text-center text-sm text-muted-foreground">没有匹配任务，尝试其他关键词。</p>
   </div>
 </template>

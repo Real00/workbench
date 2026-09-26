@@ -6,6 +6,7 @@ import { api, apiError } from './api/client'
 import { pulseApi } from './pulse-api'
 import { useKnowledgeStore } from '../modules/knowledge/store'
 import { useProgressStore } from '../modules/progress/store'
+import { Button } from '@/components/ui/button'
 import {
   entryKindMap,
   evaluationKindMap,
@@ -536,10 +537,10 @@ function discard(turn: ChatTurn) {
         <span class="grid size-8 place-items-center rounded-lg bg-cyan/10 text-cyan"><Bot :size="17" /></span>
         <div>
           <b class="text-sm text-text">Pulse AI</b>
-          <p class="text-[12px] text-muted">{{ sessionId ? '多轮对话中，可指代上文' : '工具会排队变更，确认后才写入' }}</p>
+          <p class="text-[12px] text-muted-foreground">{{ sessionId ? '多轮对话中，可指代上文' : '工具会排队变更，确认后才写入' }}</p>
         </div>
-        <button class="icon-btn ml-auto" :disabled="loading" :aria-label="sessionId ? '清空对话，开始新会话' : '新对话'" :title="sessionId ? '清空历史，开始新会话' : '新对话'" @click="newConversation"><MessageSquarePlus :size="16" /></button>
-        <button class="icon-btn" aria-label="收起助手" @click="open = false"><X :size="16" /></button>
+        <Button :disabled="loading" :aria-label="sessionId ? '清空对话，开始新会话' : '新对话'" :title="sessionId ? '清空历史，开始新会话' : '新对话'" @click="newConversation" class="ml-auto" variant="ghost" size="icon"><MessageSquarePlus :size="16" /></Button>
+        <Button aria-label="收起助手" @click="open = false" variant="ghost" size="icon"><X :size="16" /></Button>
       </header>
       <div ref="scroller" class="ai-transcript">
         <p v-if="!turns.length" class="empty-inline !py-8">可以分析想法、检索知识或操作已接入的模块。只想保存原文时，使用「随手记」。</p>
@@ -556,7 +557,7 @@ function discard(turn: ChatTurn) {
               <p>{{ turn.thinking }}<span v-if="loading && turn === turns.at(-1) && !turn.text" class="ai-cursor" /></p>
             </div>
             <p v-if="turn.text" class="ai-bubble ai-bubble--assistant">{{ turn.text }}<span v-if="loading && turn === turns.at(-1)" class="ai-cursor" /></p>
-            <p v-else-if="loading && turn === turns.at(-1) && !turn.thinking" class="ai-bubble ai-bubble--assistant text-muted">正在调用模型…<span class="ai-cursor" /></p>
+            <p v-else-if="loading && turn === turns.at(-1) && !turn.thinking" class="ai-bubble ai-bubble--assistant text-muted-foreground">正在调用模型…<span class="ai-cursor" /></p>
             <div v-if="turn.operations.length" class="ai-ops">
               <article v-for="(operation, index) in turn.operations" :key="`${operation.op}-${index}`" class="rounded-lg border border-line bg-panel-2 p-3">
                 <b class="text-xs text-text">{{ operationLabel(operation) }}</b>
@@ -569,27 +570,27 @@ function discard(turn: ChatTurn) {
                   <span class="ml-2">{{ operation.evaluation.content }}</span>
                 </p>
                 <p v-if="operation.op === 'create_project' || operation.op === 'update_project'" class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                  <span v-for="row in projectChangeRows(operation)" :key="row.label" class="flex items-center gap-1.5 text-[12px] text-muted">
+                  <span v-for="row in projectChangeRows(operation)" :key="row.label" class="flex items-center gap-1.5 text-[12px] text-muted-foreground">
                     {{ row.label }}
                     <span v-if="row.color" class="size-2.5 rounded-full" :style="{ backgroundColor: row.color }" />
                     <span class="text-text">{{ row.text }}</span>
                   </span>
                 </p>
-                <p v-for="[field, after] in operationChanges(operation)" :key="field" class="mt-2 text-[12px] text-muted">
+                <p v-for="[field, after] in operationChanges(operation)" :key="field" class="mt-2 text-[12px] text-muted-foreground">
                   {{ labels[field] ?? field }}
                   <span class="ml-1 text-text">{{ display(field, after) }}</span>
                 </p>
               </article>
             </div>
             <div v-if="turn.token && turn.operations.length && !turn.applied" class="mt-3 flex justify-end gap-2">
-              <button class="btn-secondary" @click="discard(turn)"><Undo2 :size="13" />放弃</button>
-              <button class="btn-primary" :disabled="confirming" @click="confirm(turn)">
+              <Button @click="discard(turn)" variant="outline"><Undo2 :size="13" />放弃</Button>
+              <Button :disabled="confirming" @click="confirm(turn)">
                 <Check :size="14" />{{ confirming ? '应用中…' : '确认应用 ⌘↩' }}
-              </button>
+              </Button>
             </div>
             <div v-if="turn.applied" class="success-box mt-3"><Check :size="15" />变更已应用并刷新数据</div>
             <div v-if="turn.error && !loading" class="mt-3 flex justify-end">
-              <button class="btn-secondary" @click="retry(turn)"><RotateCcw :size="13" />重试</button>
+              <Button @click="retry(turn)" variant="outline"><RotateCcw :size="13" />重试</Button>
             </div>
             <p v-if="turn.error" class="error-box mt-3" role="alert">{{ turn.error }}</p>
           </template>
@@ -601,7 +602,7 @@ function discard(turn: ChatTurn) {
           <span v-for="chip in contextChips" :key="chip" class="status-chip">{{ chip }}</span>
         </div>
         <div v-if="!loading" class="mb-2 flex flex-wrap gap-1.5">
-          <button v-for="template in quickTemplates" :key="template" type="button" class="kind-option" @click="applyTemplate(template)">{{ template }}</button>
+          <Button v-for="template in quickTemplates" :key="template" type="button" variant="ghost" class="kind-option" @click="applyTemplate(template)">{{ template }}</Button>
         </div>
         <div v-if="mentionQuery !== null && !mentionCandidates.length" class="ai-mention-empty">没有匹配的「{{ mentionQuery }}」，可直接继续输入或按 Esc 关闭</div>
         <div v-else-if="mentionQuery !== null" class="ai-mention-list" role="listbox" aria-label="引用候选">
@@ -634,12 +635,12 @@ function discard(turn: ChatTurn) {
             @keydown="onPromptKeydown"
             @click="updateMentionQuery"
           />
-          <button v-if="loading" type="button" class="btn-secondary shrink-0" @click="stop">
+          <Button v-if="loading" type="button" @click="stop" class="shrink-0" variant="outline">
             <Square :size="12" fill="currentColor" />中断
-          </button>
-          <button v-else class="btn-primary shrink-0" :disabled="!instruction.trim()">
+          </Button>
+          <Button v-else :disabled="!instruction.trim()" class="shrink-0">
             <Send :size="15" />发送
-          </button>
+          </Button>
         </div>
         <details class="ai-help"><summary>快捷键与引用帮助</summary><p>⌘/Ctrl+K 开关面板 · @ 引用任务、知识或工具<br />⌘/Ctrl+Enter 应用变更 · Shift+Enter 换行 · ↑ 召回</p></details>
       </form>

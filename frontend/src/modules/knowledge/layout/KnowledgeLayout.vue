@@ -5,6 +5,7 @@ import DocumentEditor from '../components/DocumentEditor.vue'
 import EntryEditor from '../components/EntryEditor.vue'
 import TagEditor from '../components/TagEditor.vue'
 import { useKnowledgeStore } from '../store'
+import { Button } from '@/components/ui/button'
 
 const store = useKnowledgeStore()
 const route = useRoute()
@@ -27,7 +28,7 @@ watch(() => route.name, () => {
 
 <template>
   <p v-if="store.error" class="error-banner" role="alert">
-    {{ store.error }} <button @click="store.initialize()">重试</button>
+    {{ store.error }} <Button variant="link" class="h-auto px-0 text-inherit" @click="store.initialize()">重试</Button>
   </p>
   <div v-if="store.loading" class="loading-bar" aria-label="正在加载" />
   <RouterView />

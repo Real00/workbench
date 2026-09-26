@@ -5,9 +5,11 @@ import type { Node, NodeDragEvent, NodeMouseEvent } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import { useKnowledgeStore } from '../store'
+import { Button } from '@/components/ui/button'
 
 import { Maximize, Minus, Plus } from '@lucide/vue'
 import type { KnowledgeDocument } from '../types'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 const props = defineProps<{ documents: KnowledgeDocument[]; searching: boolean }>()
 const { fitView, zoomIn, zoomOut, viewport } = useVueFlow('knowledge-canvas')
@@ -56,17 +58,32 @@ function onNodeClick(event: NodeMouseEvent) {
           </div>
           <ul class="mt-3 space-y-1 text-[12px] text-text-secondary">
             <li v-for="entryId in data.document.entry_ids.slice(0, 6)" :key="entryId">{{ entrySummary(entryId) }}</li>
-            <li v-if="!data.document.entry_ids.length" class="text-muted">尚未关联条目</li>
+            <li v-if="!data.document.entry_ids.length" class="text-muted-foreground">尚未关联条目</li>
           </ul>
         </article>
       </template>
     </VueFlow>
-    <p v-if="!documents.length" class="absolute inset-0 grid place-items-center text-sm text-muted pointer-events-none">{{ searching ? '没有匹配的文档，请调整搜索关键词。' : '创建第一篇文档后，在这里整理知识。' }}</p>
+    <p v-if="!documents.length" class="absolute inset-0 grid place-items-center text-sm text-muted-foreground pointer-events-none">{{ searching ? '没有匹配的文档，请调整搜索关键词。' : '创建第一篇文档后，在这里整理知识。' }}</p>
     <div class="canvas-controls" role="group" aria-label="画布缩放">
-      <button class="icon-btn" aria-label="缩小画布" @click="zoomOut()"><Minus :size="16" /></button>
-      <span class="w-12 text-center text-xs text-muted">{{ Math.round(viewport.zoom * 100) }}%</span>
-      <button class="icon-btn" aria-label="放大画布" @click="zoomIn()"><Plus :size="16" /></button>
-      <button class="icon-btn" aria-label="显示全部节点" @click="resetView"><Maximize :size="16" /></button>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button aria-label="缩小画布" variant="ghost" size="icon" @click="zoomOut()"><Minus :size="16" /></Button>
+        </TooltipTrigger>
+        <TooltipContent>缩小</TooltipContent>
+      </Tooltip>
+      <span class="w-12 text-center text-xs text-muted-foreground">{{ Math.round(viewport.zoom * 100) }}%</span>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button aria-label="放大画布" variant="ghost" size="icon" @click="zoomIn()"><Plus :size="16" /></Button>
+        </TooltipTrigger>
+        <TooltipContent>放大</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button aria-label="显示全部节点" variant="ghost" size="icon" @click="resetView"><Maximize :size="16" /></Button>
+        </TooltipTrigger>
+        <TooltipContent>显示全部</TooltipContent>
+      </Tooltip>
     </div>
   </div>
 </template>
