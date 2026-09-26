@@ -4,6 +4,8 @@ import WorkbenchShell from '../shell/WorkbenchShell.vue'
 import WorkbenchHome from '../modules/home/WorkbenchHome.vue'
 import { publicRoutes, shellRoutes } from './modules'
 
+const localDevAuthBypass = import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === '1'
+
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -20,6 +22,7 @@ export const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
+  if (localDevAuthBypass) return to.path === '/login' ? '/' : undefined
   if (to.meta.public) return
   if (!hasToken() && !(await ensureSession())) {
     return { path: '/login', query: { redirect: to.fullPath } }

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 
 @dataclass
@@ -9,6 +9,7 @@ class AISettings:
     model: str
     encrypted_api_key: str
     updated_at: datetime
+    jev: dict[str, Any] | None = None
 
     @classmethod
     def create(cls, base_url: str, model: str, encrypted_api_key: str) -> "AISettings":
@@ -29,8 +30,12 @@ class AISettingsDomainService:
     def __init__(self, repository: AISettingsRepository):
         self.repository = repository
 
-    async def configure(self, base_url: str, model: str, encrypted_api_key: str) -> AISettings:
+    async def configure(
+        self, base_url: str, model: str, encrypted_api_key: str,
+        jev: dict[str, Any] | None = None,
+    ) -> AISettings:
         settings = AISettings.create(base_url, model, encrypted_api_key)
+        settings.jev = jev
         await self.repository.save(settings)
         return settings
 

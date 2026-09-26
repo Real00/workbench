@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     encryption_key: str | None = None
     admin_username: str = "admin"
     admin_password: str = "admin123!"
+    dev_auth_bypass: bool = False
+    dev_api_port: int = 8080
     static_dir: Path = Field(
         default=Path(__file__).parents[1] / "static",
         validation_alias=AliasChoices("WORKBENCH_STATIC_DIR", "STATIC_DIR"),

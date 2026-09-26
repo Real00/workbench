@@ -1,7 +1,9 @@
 import asyncio
+import logging
 from collections import OrderedDict
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import asdict
+from time import monotonic
 from typing import Any
 from uuid import uuid4
 
@@ -32,6 +34,7 @@ KNOWLEDGE_OPS = {
 }
 MAX_SESSIONS = 50
 MAX_SESSION_EXCHANGES = 8
+logger = logging.getLogger(__name__)
 
 _MENTION_KINDS = {
     "task": "task_id",
@@ -170,6 +173,7 @@ class PulseApplicationService:
             parts.append(mention_lines)
         parts.append(instruction)
         prompt = "\n\n".join(parts)
+        started = monotonic()
         try:
             async with asyncio.timeout(AI_STREAM_TIMEOUT_SECONDS):
                 async for event in self.agent.stream(
@@ -192,6 +196,11 @@ class PulseApplicationService:
             yield dict(_CANCELLED)
             return
         except Exception as exc:
+            logger.warning(
+                "Pulse request failed after %.1fs: error=%s cause=%s jev_enabled=%s",
+                monotonic() - started, type(exc).__name__, type(exc.__cause__).__name__,
+                settings.jev is not None,
+            )
             yield {"type": "error", "message": model_error_message(exc)}
             return
         if cancellation_token and cancellation_token.cancelled:

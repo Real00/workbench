@@ -1,13 +1,16 @@
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8080'
+  return {
   plugins: [vue(), tailwindcss()],
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: apiTarget,
         changeOrigin: true,
         timeout: 600_000,
         proxyTimeout: 600_000,
@@ -27,9 +30,10 @@ export default defineConfig({
         },
       },
       '/mcp': {
-        target: 'http://localhost:8080',
+        target: apiTarget,
         changeOrigin: true,
       },
     },
   },
+  }
 })

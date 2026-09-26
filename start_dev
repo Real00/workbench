@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-BACKEND_PORT=8080
+BACKEND_PORT="${WORKBENCH_DEV_API_PORT:-8080}"
 FRONTEND_PORT="${VITE_PORT:-5173}"
 MONGO_URI="${WORKBENCH_MONGO_URI:-mongodb://localhost:27017}"
 SKIP_INSTALL=0
@@ -22,6 +22,8 @@ usage() {
 选项:
   --skip-install   跳过 uv sync / pnpm install
   --skip-mongo     不启动 Mongo 容器（使用已有 MongoDB）
+  WORKBENCH_DEV_API_PORT=8081 ./start_dev
+                   指定本地 API 端口（例如 8080 被 Docker 占用时）
   -h, --help       显示帮助
 
 访问:
@@ -70,7 +72,9 @@ elif [[ -f "$ROOT/.env.example" ]]; then
 fi
 
 FRONTEND_PORT="${VITE_PORT:-5173}"
+BACKEND_PORT="${WORKBENCH_DEV_API_PORT:-8080}"
 MONGO_URI="${WORKBENCH_MONGO_URI:-mongodb://localhost:27017}"
+API_PROXY_TARGET="${VITE_API_PROXY_TARGET:-http://127.0.0.1:${BACKEND_PORT}}"
 
 mongo_ready() {
   if command -v mongosh >/dev/null 2>&1; then
@@ -163,8 +167,9 @@ fi
 
 echo "[backend] 启动 aiohttp（监听 Python 变更并自动重启）..."
 (
-  cd "$ROOT/backend"
+      cd "$ROOT/backend"
   export WORKBENCH_MONGO_URI="${WORKBENCH_MONGO_URI:-mongodb://localhost:27017}"
+  export WORKBENCH_DEV_AUTH_BYPASS=1
   exec uv run watchfiles \
     --filter python \
     --ignore-paths .venv \
@@ -181,7 +186,9 @@ wait_for_backend
 echo "[frontend] 启动 Vite..."
 (
   cd "$ROOT/frontend"
-  exec pnpm dev --host 127.0.0.1 --port "$FRONTEND_PORT"
+  export VITE_DEV_AUTH_BYPASS=1
+  export VITE_API_PROXY_TARGET="$API_PROXY_TARGET"
+  exec pnpm dev --host 127.0.0.1 --port "$FRONTEND_PORT" --strictPort
 ) &
 PIDS+=("$!")
 
@@ -189,7 +196,7 @@ cat <<EOF
 
 开发环境已启动
   前端  http://127.0.0.1:${FRONTEND_PORT}  （Vite 热更新）
-  API   http://127.0.0.1:${BACKEND_PORT}/api/v1  （改 backend/*.py 自动重启）
+  API   http://127.0.0.1:${BACKEND_PORT}/api/v1  （本机免登录；改 backend/*.py 自动重启）
 按 Ctrl+C 停止前后端（Mongo 容器保持运行）
 
 EOF

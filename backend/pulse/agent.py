@@ -5,6 +5,7 @@ from typing import Any, Protocol
 
 from pydantic_ai import Agent, CancellationToken, Tool
 from pydantic_ai.capabilities import ToolSearch
+from pydantic_ai.exceptions import RunCancelled
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
@@ -22,6 +23,7 @@ from pydantic_ai.run import AgentRunResultEvent
 
 from ai_settings.ports import AIConnectionSettings
 from pulse.deps import AgentDeps
+from pulse.tool_router import JevCircuitBreaker, preload_tools
 from shared.ai import ModuleAiContribution, compose_instructions
 from shared.structured_llm import ai_model
 
@@ -39,12 +41,14 @@ ALWAYS_AVAILABLE_TOOLS = {
 }
 
 
-def prepare_tools(contributions: Sequence[ModuleAiContribution]) -> list[Any]:
+def prepare_tools(
+    contributions: Sequence[ModuleAiContribution], preloaded: set[str] | None = None,
+) -> list[Any]:
     """Wrap non-core tools with defer_loading so the model discovers them on demand."""
     tools: list[Any] = []
     for item in contributions:
         for fn in item.tools:
-            if getattr(fn, "__name__", "") in ALWAYS_AVAILABLE_TOOLS:
+            if getattr(fn, "__name__", "") in ALWAYS_AVAILABLE_TOOLS | (preloaded or set()):
                 tools.append(fn)
             else:
                 tools.append(Tool(fn, defer_loading=True))
@@ -105,6 +109,7 @@ def map_agent_event(event: object) -> dict[str, Any] | None:
 class PydanticPulseAgent:
     def __init__(self, contributions: Sequence[ModuleAiContribution] | None = None):
         self.contributions = list(contributions or [])
+        self.jev_breaker = JevCircuitBreaker()
 
     async def stream(
         self,
@@ -114,7 +119,15 @@ class PydanticPulseAgent:
         cancellation_token: CancellationToken | None = None,
         message_history: Sequence[Any] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        tools = prepare_tools(self.contributions)
+        if cancellation_token and cancellation_token.cancelled:
+            raise RunCancelled("已中断")
+        preloaded = await preload_tools(
+            settings.jev, self.contributions, ALWAYS_AVAILABLE_TOOLS, prompt, message_history,
+            breaker=self.jev_breaker,
+        )
+        if cancellation_token and cancellation_token.cancelled:
+            raise RunCancelled("已中断")
+        tools = prepare_tools(self.contributions, preloaded)
         instructions = compose_instructions(*(item.instructions for item in self.contributions))
         model = ai_model(settings)
         model_settings: OpenAIResponsesModelSettings | None = None

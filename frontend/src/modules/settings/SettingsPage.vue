@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { CheckCircle2, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable } from '@lucide/vue'
+import JevSettingsFields, { type JevSettings } from './JevSettingsFields.vue'
 import { api, apiError, getApiBase, getDeviceId, getDeviceToken, setDeviceCredentials } from '../../shared/api/client'
 
-interface Settings { base_url: string; model: string; api_key_masked: string }
+interface Settings { base_url: string; model: string; api_key_masked: string; jev?: JevSettings }
 interface Secret { api_key: string }
 interface AiToolParam { name: string; type: string; required: boolean; default: string | null; values: string[] }
 interface AiTool { name: string; description: string; parameters: AiToolParam[] }
@@ -16,6 +17,8 @@ const model = ref('')
 const apiKey = ref('')
 const maskedKey = ref('')
 const revealedKey = ref('')
+const jevApiKey = ref('')
+const jev = ref<JevSettings>({ enabled: false, base_url: 'https://api.typesafe.ai/v1', model: 'jev-latest', threshold: 0.8, timeout_seconds: 3, api_key_masked: '' })
 const loading = ref(true)
 const revealing = ref(false)
 const saving = ref(false)
@@ -56,16 +59,19 @@ async function load() {
   error.value = ''
   try {
     const { data } = await api.get<Settings | null>('/ai-settings')
-    if (data) { baseUrl.value = data.base_url; model.value = data.model; maskedKey.value = data.api_key_masked }
+    if (data) { baseUrl.value = data.base_url; model.value = data.model; maskedKey.value = data.api_key_masked; if (data.jev) jev.value = data.jev }
   } catch (cause) { error.value = apiError(cause) }
   finally { loading.value = false }
 }
 async function save() {
   saving.value = true; error.value = ''; saveResult.value = ''
   try {
-    const payload: { base_url: string; model: string; api_key?: string } = { base_url: baseUrl.value, model: model.value }
+    const { api_key_masked: _masked, ...jevOptions } = jev.value
+    const payload = { base_url: baseUrl.value, model: model.value, api_key: apiKey.value || undefined, jev: { ...jevOptions, api_key: jevApiKey.value || undefined } }
     if (apiKey.value) payload.api_key = apiKey.value
     const { data } = await api.put<Settings>('/ai-settings', payload)
+    if (data.jev) jev.value = data.jev
+    jevApiKey.value = ''
     maskedKey.value = data.api_key_masked; apiKey.value = ''; revealedKey.value = ''; saveResult.value = '设置已安全保存'
   } catch (cause) { error.value = apiError(cause) }
   finally { saving.value = false }
@@ -197,6 +203,7 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
             </div>
           </div>
           <label class="field-label">API Key<input v-model="apiKey" class="input font-mono" type="password" autocomplete="new-password" placeholder="sk-..." :required="!maskedKey" /><small>{{ maskedKey ? '输入新密钥可替换，留空则保留现有密钥。' : '密钥提交至后端加密保存，不写入浏览器存储。' }}</small></label>
+          <JevSettingsFields v-model="jev" v-model:api-key="jevApiKey" :disabled="saving || testing" />
           <p v-if="error" class="error-box" role="alert">{{ error }}</p>
           <p v-if="saveResult" class="success-box"><CheckCircle2 :size="14" />{{ saveResult }}</p>
           <p v-if="testResult" :class="testResult === '模型流式输出正常' ? 'success-box' : 'error-box'">{{ testResult }}</p>
