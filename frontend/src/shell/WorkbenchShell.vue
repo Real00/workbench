@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { Boxes, ChevronLeft, House, LogOut, Menu } from '@lucide/vue'
+import { ChevronLeft, House, LogOut, Menu } from '@lucide/vue'
 import { moduleNavigation } from '../app/modules'
 import AiDock from '../shared/AiDock.vue'
 import CommandPalette from '../shared/CommandPalette.vue'
@@ -84,13 +84,10 @@ function logout() {
     <Button class="mobile-menu" variant="outline" size="icon" aria-label="打开导航" @click="mobileOpen = true"><Menu :size="19" /></Button>
     <div v-if="mobileOpen" class="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" @click="mobileOpen = false" />
     <aside :class="['sidebar', collapsed && 'sidebar--collapsed', mobileOpen && 'sidebar--open']">
-      <div class="flex h-16 items-center gap-3 border-b border-line px-4">
-        <span class="grid size-8 place-items-center rounded-lg bg-cyan text-white"><Boxes :size="17" /></span>
-        <div v-if="!collapsed" class="leading-tight">
-          <strong class="font-display tracking-wide text-text">个人工作台</strong>
-          <p class="font-mono text-[12px] uppercase tracking-[.2em] text-muted-foreground">Personal workspace</p>
-        </div>
-      </div>
+      <RouterLink to="/" class="sidebar-brand" aria-label="个人工作台首页" :title="collapsed ? '个人工作台首页' : undefined" @click="mobileOpen = false">
+        <img v-if="collapsed" src="/work-mark.png" class="sidebar-brand__mark" alt="" />
+        <img v-else src="/work-wordmark.png" class="sidebar-brand__wordmark" alt="" />
+      </RouterLink>
       <Button class="nav-link m-2" variant="ghost" aria-label="快速记录" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></Button>
       <nav class="flex-1 overflow-y-auto p-2" aria-label="主导航">
         <RouterLink to="/" aria-label="工作台首页" title="工作台首页" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">

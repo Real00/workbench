@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Boxes, Globe, LockKeyhole, UserRound } from '@lucide/vue'
+import { ArrowRight, Globe, LockKeyhole, UserRound } from '@lucide/vue'
 import { api, apiError, deviceLabel, ensureDeviceId, getApiBase, isDesktopShell, setApiBase, setDeviceCredentials, setToken } from '../../shared/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,9 +44,8 @@ async function login() {
   <main class="login-grid min-h-screen bg-ink text-text">
     <section class="relative hidden overflow-hidden border-r border-line p-12 lg:flex lg:flex-col lg:justify-between">
       <div class="absolute inset-0 pulse-field opacity-60" aria-hidden="true" />
-      <div class="relative flex items-center gap-3">
-        <span class="grid size-9 place-items-center rounded-lg bg-cyan text-white"><Boxes :size="19" /></span>
-        <strong class="font-display text-lg tracking-wider text-text">个人工作台</strong>
+      <div class="login-brand">
+        <img src="/work-wordmark.png" class="login-brand__wordmark" alt="WORK · 个人工作台" />
       </div>
       <div class="relative max-w-xl">
         <p class="eyebrow">Personal workspace</p>
@@ -54,7 +53,6 @@ async function login() {
         <div class="mt-12 pulse-track"><i style="left: 18%" /><i style="left: 51%" /><i style="left: 82%" /></div>
         <p class="mt-6 max-w-md text-sm leading-7 text-muted-foreground">在一个安全入口访问个人工作模块，让信息有序、操作直接。</p>
       </div>
-      <p class="relative font-mono text-[12px] uppercase tracking-[.2em] text-muted-foreground">Authenticated personal workspace</p>
     </section>
     <section class="grid place-items-center px-6 py-12">
       <form class="w-full max-w-sm" @submit.prevent="login">
