@@ -72,11 +72,11 @@ async function removeDocument() {
 
 <template>
   <Teleport to="body">
-    <div v-if="store.documentEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.documentEditorOpen = false">
+    <div v-if="store.documentEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.closeDocument()">
       <aside class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between border-b border-line px-5 py-4">
           <div><p class="eyebrow">Knowledge document</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
-          <Button aria-label="关闭" @click="store.documentEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
+          <Button aria-label="关闭" @click="store.closeDocument()" variant="ghost" size="icon"><X :size="18" /></Button>
         </header>
         <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
           <label class="field-label">标题<Input v-model="form.title" required maxlength="200" /></label>
@@ -122,7 +122,7 @@ async function removeDocument() {
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
           <footer class="flex justify-end gap-2 border-t border-line pt-5">
             <Button v-if="store.editingDocument" type="button" :disabled="store.saving" @click="removeDocument" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button>
-            <Button type="button" @click="store.documentEditorOpen = false" variant="outline"><X :size="14" />取消</Button>
+            <Button type="button" @click="store.closeDocument()" variant="outline"><X :size="14" />取消</Button>
             <Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存文档' }}</Button>
           </footer>
         </form>

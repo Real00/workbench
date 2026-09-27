@@ -172,6 +172,18 @@ describe('progress store', () => {
     expect(create).toHaveBeenCalledWith(payload)
     expect(store.tasks).toEqual([task])
     expect(store.taskEditorOpen).toBe(false)
+    expect(store.editingTask).toBeNull()
+  })
+
+  it('关闭任务编辑器时清除关联上下文', async () => {
+    mockReads()
+    const store = useProgressStore()
+    await store.initialize()
+    store.openTask(task)
+    expect(store.editingTask?.id).toBe(task.id)
+    store.closeTask()
+    expect(store.taskEditorOpen).toBe(false)
+    expect(store.editingTask).toBeNull()
   })
 
   it('给任务追加进度记录后刷新并保持编辑对象', async () => {

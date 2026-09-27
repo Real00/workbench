@@ -76,6 +76,11 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     documentEditorOpen.value = true
   }
 
+  function closeDocument() {
+    documentEditorOpen.value = false
+    editingDocument.value = null
+  }
+
   function openEntry(entry?: KnowledgeEntry) {
     editingEntry.value = entry ?? null
     entryEditorOpen.value = true
@@ -92,7 +97,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
         ? await knowledgeApi.updateDocument(editingDocument.value.id, payload)
         : await knowledgeApi.createDocument(payload)
       if (file) await knowledgeApi.importDocument(saved.id, file, false)
-      documentEditorOpen.value = false
+      closeDocument()
       await initialize()
     })
   }
@@ -118,7 +123,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   async function deleteDocument(id: string) {
     return runSave(async () => {
       await knowledgeApi.deleteDocument(id)
-      documentEditorOpen.value = false
+      closeDocument()
       await initialize()
     })
   }
@@ -147,7 +152,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   return {
     tags, entries, documents, tagMap, entryMap, loading, saving, error, initialized,
     documentEditorOpen, editingDocument, entryEditorOpen, editingEntry, tagEditorOpen, editingTag,
-    initialize, refresh, openDocument, openEntry, openTag, saveDocument, saveEntry, saveTag,
+    initialize, refresh, openDocument, closeDocument, openEntry, openTag, saveDocument, saveEntry, saveTag,
     deleteDocument, deleteEntry, deleteTag, moveDocument,
   }
 })

@@ -148,8 +148,8 @@ function extractMentions(text: string): MentionPayload[] {
 
 const contextChips = computed(() => {
   const chips: string[] = []
-  if (progress.editingTask) chips.push(`关联任务：${progress.editingTask.title}`)
-  if (knowledge.editingDocument) chips.push(`关联文档：${knowledge.editingDocument.title}`)
+  if (progress.taskEditorOpen && progress.editingTask) chips.push(`关联任务：${progress.editingTask.title}`)
+  if (knowledge.documentEditorOpen && knowledge.editingDocument) chips.push(`关联文档：${knowledge.editingDocument.title}`)
   return chips
 })
 
@@ -451,8 +451,8 @@ async function runTurn(text: string) {
         instruction: text,
         session_id: sessionId.value,
         ...(mentions.length && { mentions }),
-        ...(progress.editingTask && { context_task_id: progress.editingTask.id }),
-        ...(knowledge.editingDocument && { context_document_id: knowledge.editingDocument.id }),
+        ...(progress.taskEditorOpen && progress.editingTask && { context_task_id: progress.editingTask.id }),
+        ...(knowledge.documentEditorOpen && knowledge.editingDocument && { context_document_id: knowledge.editingDocument.id }),
       },
       (event: AiStreamEvent) => {
         if (event.type === 'text') assistant.text += event.delta

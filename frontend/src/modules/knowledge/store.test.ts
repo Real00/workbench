@@ -66,7 +66,19 @@ describe('knowledge store', () => {
     })).toBe(true)
     expect(create).toHaveBeenCalled()
     expect(store.documentEditorOpen).toBe(false)
+    expect(store.editingDocument).toBeNull()
     expect(store.documents).toEqual([document])
+  })
+
+  it('关闭文档编辑器时清除关联上下文', async () => {
+    mockReads()
+    const store = useKnowledgeStore()
+    await store.initialize()
+    store.openDocument(document)
+    expect(store.editingDocument?.id).toBe(document.id)
+    store.closeDocument()
+    expect(store.documentEditorOpen).toBe(false)
+    expect(store.editingDocument).toBeNull()
   })
 
   it('拖拽后写回画布坐标', async () => {

@@ -16,7 +16,7 @@ import { kindBadgeVariant } from '../../../shared/kind-badge'
 
 const store = useProgressStore()
 const panel = ref<HTMLElement | null>(null)
-useDialogFocus(panel, () => store.taskEditorOpen, () => { store.taskEditorOpen = false })
+useDialogFocus(panel, () => store.taskEditorOpen, () => { store.closeTask() })
 const blank = (): TaskInput => ({ title: '', description: '', status: 'todo', priority: 'medium', assignee_id: null, project_id: null, start_date: null, due_date: null, progress: 0, estimated_hours: null, tags: [] })
 const form = reactive<TaskInput>(blank())
 const tagsText = ref('')
@@ -87,9 +87,9 @@ async function removeTask() {
 
 <template>
   <Teleport to="body">
-    <div v-if="store.taskEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.taskEditorOpen = false">
+    <div v-if="store.taskEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="store.closeTask()">
       <aside ref="panel" tabindex="-1" class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
-        <header class="flex items-center justify-between border-b border-line px-5 py-4"><div><p class="eyebrow">{{ store.editingTask?.id ?? 'NEW TASK' }}</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div><Button aria-label="关闭" @click="store.taskEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button></header>
+        <header class="flex items-center justify-between border-b border-line px-5 py-4"><div><p class="eyebrow">{{ store.editingTask?.id ?? 'NEW TASK' }}</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div><Button aria-label="关闭" @click="store.closeTask()" variant="ghost" size="icon"><X :size="18" /></Button></header>
         <form class="task-editor-form" @submit.prevent="submit">
           <div class="task-editor-fields space-y-5">
           <label class="field-label">任务名称<Input v-model="form.title" autofocus required maxlength="200" /></label>
@@ -141,7 +141,7 @@ async function removeTask() {
           <p v-else class="empty-inline !py-2">保存任务后可以上传图片、文档或添加外链。</p>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
           </div>
-          <footer class="editor-actions"><Button v-if="store.editingTask" type="button" :disabled="store.saving" @click="removeTask" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button><Button type="button" @click="store.taskEditorOpen = false" variant="outline"><X :size="14" />取消</Button><Button type="submit" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存任务' }}</Button></footer>
+          <footer class="editor-actions"><Button v-if="store.editingTask" type="button" :disabled="store.saving" @click="removeTask" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button><Button type="button" @click="store.closeTask()" variant="outline"><X :size="14" />取消</Button><Button type="submit" :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存任务' }}</Button></footer>
         </form>
       </aside>
     </div>

@@ -32,6 +32,11 @@ export const useProgressStore = defineStore('progress', () => {
     taskEditorOpen.value = true
   }
 
+  function closeTask() {
+    taskEditorOpen.value = false
+    editingTask.value = null
+  }
+
   function openMember(member?: Member) {
     editingMember.value = member ?? null
     memberEditorOpen.value = true
@@ -115,7 +120,7 @@ export const useProgressStore = defineStore('progress', () => {
     return runSave(async () => {
       if (editingTask.value) await progressApi.updateTask(editingTask.value.id, payload)
       else await progressApi.createTask(payload)
-      taskEditorOpen.value = false
+      closeTask()
       await refreshTasks()
     })
   }
@@ -181,7 +186,7 @@ export const useProgressStore = defineStore('progress', () => {
   async function deleteTask(id: string) {
     return runSave(async () => {
       await progressApi.deleteTask(id)
-      taskEditorOpen.value = false
+      closeTask()
       await refreshTasks()
     })
   }
@@ -248,6 +253,6 @@ export const useProgressStore = defineStore('progress', () => {
   return {
     tasks, members, projects, dashboard, memberMap, operatorMember, assignableMembers, loading, saving, error, initialized,
     taskEditorOpen, editingTask, memberEditorOpen, editingMember, projectEditorOpen, editingProject,
-    initialize, refreshAll, refreshTasks, openTask, saveTask, patchTask, updateTaskStatus, patchMember, patchProject, addTaskEntry, uploadTaskResource, addTaskLink, deleteTaskResource, deleteTask, openMember, saveMember, deleteMember, addMemberEvaluation, removeMemberEvaluation, openProject, saveProject, deleteProject,
+    initialize, refreshAll, refreshTasks, openTask, closeTask, saveTask, patchTask, updateTaskStatus, patchMember, patchProject, addTaskEntry, uploadTaskResource, addTaskLink, deleteTaskResource, deleteTask, openMember, saveMember, deleteMember, addMemberEvaluation, removeMemberEvaluation, openProject, saveProject, deleteProject,
   }
 })
