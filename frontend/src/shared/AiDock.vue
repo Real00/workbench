@@ -6,7 +6,10 @@ import { api, apiError } from './api/client'
 import { pulseApi } from './pulse-api'
 import { useKnowledgeStore } from '../modules/knowledge/store'
 import { useProgressStore } from '../modules/progress/store'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { kindBadgeVariant } from './kind-badge'
 import {
   entryKindMap,
   evaluationKindMap,
@@ -47,7 +50,8 @@ const turns = ref<ChatTurn[]>([])
 const error = ref('')
 const sessionId = ref<string | null>(null)
 const scroller = ref<HTMLElement | null>(null)
-const promptEl = ref<HTMLTextAreaElement | null>(null)
+const promptRef = ref<{ $el?: HTMLTextAreaElement } | null>(null)
+const promptEl = computed(() => promptRef.value?.$el ?? null)
 const route = useRoute()
 let seq = 0
 let abort: AbortController | null = null
@@ -562,11 +566,11 @@ function discard(turn: ChatTurn) {
               <article v-for="(operation, index) in turn.operations" :key="`${operation.op}-${index}`" class="rounded-lg border border-line bg-panel-2 p-3">
                 <b class="text-xs text-text">{{ operationLabel(operation) }}</b>
                 <p v-if="operation.op === 'add_entry'" class="mt-2 text-xs text-text">
-                  <span :class="['entry-kind', `entry-kind--${operation.entry.kind}`]">{{ entryKindMap[operation.entry.kind as ProgressEntryKind] }}</span>
+                  <Badge :variant="kindBadgeVariant(operation.entry.kind)">{{ entryKindMap[operation.entry.kind as ProgressEntryKind] }}</Badge>
                   <span class="ml-2">{{ operation.entry.content }}</span>
                 </p>
                 <p v-if="operation.op === 'add_member_evaluation'" class="mt-2 text-xs text-text">
-                  <span :class="['entry-kind', `entry-kind--${operation.evaluation.kind}`]">{{ evaluationKindMap[operation.evaluation.kind] }}</span>
+                  <Badge :variant="kindBadgeVariant(operation.evaluation.kind)">{{ evaluationKindMap[operation.evaluation.kind] }}</Badge>
                   <span class="ml-2">{{ operation.evaluation.content }}</span>
                 </p>
                 <p v-if="operation.op === 'create_project' || operation.op === 'update_project'" class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
@@ -599,7 +603,7 @@ function discard(turn: ChatTurn) {
       </div>
       <form class="border-t border-line p-3" @submit.prevent="send">
         <div v-if="contextChips.length" class="mb-2 flex flex-wrap gap-1.5">
-          <span v-for="chip in contextChips" :key="chip" class="status-chip">{{ chip }}</span>
+          <Badge v-for="chip in contextChips" :key="chip" variant="secondary">{{ chip }}</Badge>
         </div>
         <div v-if="!loading" class="mb-2 flex flex-wrap gap-1.5">
           <Button v-for="template in quickTemplates" :key="template" type="button" variant="ghost" class="kind-option" @click="applyTemplate(template)">{{ template }}</Button>
@@ -616,18 +620,18 @@ function discard(turn: ChatTurn) {
             @mousedown.prevent="selectMention(candidate)"
             @mousemove="mentionIndex = index"
           >
-            <span :class="['entry-kind', `entry-kind--mention-${candidate.type}`]">{{ TYPE_LABELS[candidate.type] }}</span>
+            <Badge variant="outline">{{ TYPE_LABELS[candidate.type] }}</Badge>
             <b>{{ candidate.label }}</b>
             <small v-if="candidate.hint">{{ candidate.hint }}</small>
           </button>
         </div>
         <div class="flex items-end gap-2">
           <label class="sr-only" for="ai-prompt">输入调整要求</label>
-          <textarea
+          <Textarea
             id="ai-prompt"
-            ref="promptEl"
+            ref="promptRef"
             v-model="instruction"
-            class="input !mt-0 min-h-[40px] flex-1 resize-none py-2.5"
+            class="!mt-0 max-h-40 min-h-10 flex-1 resize-none py-2.5"
             rows="1"
             placeholder="提问或描述你想执行的操作…输入 @ 引用上下文"
             :disabled="loading"

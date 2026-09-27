@@ -9,8 +9,10 @@ import RichTextarea from '../../../shared/RichTextarea.vue'
 import TaskResources from './TaskResources.vue'
 import { confirmDialog } from '../../../shared/confirm'
 import { useDialogFocus } from '../../../shared/useDialogFocus'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { kindBadgeVariant } from '../../../shared/kind-badge'
 
 const store = useProgressStore()
 const panel = ref<HTMLElement | null>(null)
@@ -128,7 +130,7 @@ async function removeTask() {
             <Button type="button" :disabled="store.saving || !entryContent.trim()" @click="recordEntry" class="mt-3" variant="outline">记录进度</Button>
             <ol v-if="entries.length" class="entry-timeline mt-4">
               <li v-for="entry in entries" :key="entry.id" class="entry-item">
-                <span :class="['entry-kind', `entry-kind--${entry.kind}`]">{{ entryKindMap[entry.kind] }}</span>
+                <Badge :variant="kindBadgeVariant(entry.kind)">{{ entryKindMap[entry.kind] }}</Badge>
                 <p>{{ entry.content }}</p>
                 <time>{{ formatTime(entry.created_at) }}</time>
               </li>

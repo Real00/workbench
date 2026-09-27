@@ -3,7 +3,9 @@ import { computed } from 'vue'
 import { ArrowUpRight, ChartNoAxesCombined, CheckCheck, CircleAlert, Play, Plus, Radio, TimerReset } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { entryKindMap } from '../types'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { kindBadgeVariant } from '../../../shared/kind-badge'
 
 const store = useProgressStore()
 const active = computed(() => store.tasks.filter(task => task.status === 'in_progress'))
@@ -44,7 +46,7 @@ function openRecent(taskId: string) {
     </section>
     <section class="dashboard-grid mt-5 grid gap-5 xl:grid-cols-[1.55fr_.8fr]">
       <article class="card">
-        <div class="card-head"><div><h2>进行中的任务</h2><p class="mt-2 text-xs text-muted-foreground">关注当前推进与交付进度</p></div><span class="count-badge">{{ active.length }}</span></div>
+        <div class="card-head"><div><h2>进行中的任务</h2><p class="mt-2 text-xs text-muted-foreground">关注当前推进与交付进度</p></div><Badge variant="secondary">{{ active.length }}</Badge></div>
         <div class="mt-6 flex items-center justify-between text-xs text-muted-foreground"><span>全部任务平均完成度</span><span class="font-mono text-cyan">{{ progress }}%</span></div>
         <div class="progress-line mt-3" role="progressbar" aria-label="全部任务平均完成度" :aria-valuenow="progress" :aria-valuemin="0" :aria-valuemax="100"><i :style="{ width: `${progress}%` }" /></div>
         <div class="mt-8 space-y-3">
@@ -66,7 +68,7 @@ function openRecent(taskId: string) {
         <article class="card"><div class="card-head"><h2>操作记录</h2><TimerReset :size="17" class="text-cyan" /></div>
           <div v-if="store.dashboard?.recent_progress.length" class="mt-5 space-y-3">
             <button v-for="item in store.dashboard.recent_progress" :key="`${item.task_id}-${item.created_at}`" class="task-row w-full text-left" @click="openRecent(item.task_id)">
-              <span :class="['entry-kind', `entry-kind--${item.kind}`]">{{ entryKindMap[item.kind] }}</span>
+              <Badge :variant="kindBadgeVariant(item.kind)">{{ entryKindMap[item.kind] }}</Badge>
               <span class="min-w-0 flex-1"><b>{{ item.task_title }}</b><small>{{ item.content }}</small></span>
             </button>
           </div>

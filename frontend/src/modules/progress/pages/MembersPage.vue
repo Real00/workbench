@@ -5,6 +5,7 @@ import MemberDeskSprite from '../components/MemberDeskSprite.vue'
 import { memberHasDeskWork } from '../pixel-avatar'
 import { useProgressStore } from '../store'
 import type { Member } from '../types'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 const store = useProgressStore()
@@ -41,23 +42,25 @@ async function toggleActive(member: Member) {
           <MemberDeskSprite :seed="member.id" :name="member.name" :color="member.color" :busy="isBusy(member.id)" />
         </div>
         <span class="member-badges">
-          <span v-if="member.operator" class="skill-chip">本人</span>
-          <button
+          <Badge v-if="member.operator" variant="secondary">本人</Badge>
+          <Badge
+            as="button"
             type="button"
-            :class="['status-chip', 'status-chip--interactive', member.active ? 'status-chip--done' : 'status-chip--inactive']"
+            :variant="member.active ? 'default' : 'secondary'"
+            class="cursor-pointer disabled:cursor-default disabled:opacity-70"
             :disabled="member.operator || store.saving"
             :aria-label="member.operator ? '本人始终可分配' : `切换为${member.active ? '停用' : '可分配'}`"
             :title="member.operator ? '本人始终可分配' : '点击切换可分配状态'"
             @click.stop="toggleActive(member)"
           >
             {{ member.active ? '可分配' : '停用' }}
-          </button>
+          </Badge>
         </span>
         <h2 class="mt-3 font-display text-lg text-text">{{ member.name }}</h2>
         <p class="mt-1 text-xs text-muted-foreground">{{ member.title || '未设置职位' }}</p>
         <div v-if="member.skills.length" class="mt-3 flex flex-wrap gap-1.5">
-          <span v-for="skill in member.skills.slice(0, 4)" :key="skill" class="skill-chip">{{ skill }}</span>
-          <span v-if="member.skills.length > 4" class="skill-chip">+{{ member.skills.length - 4 }}</span>
+          <Badge v-for="skill in member.skills.slice(0, 4)" :key="skill" variant="secondary">{{ skill }}</Badge>
+          <Badge v-if="member.skills.length > 4" variant="outline">+{{ member.skills.length - 4 }}</Badge>
         </div>
         <p v-if="member.background" class="mt-3 line-clamp-2 text-[12px] leading-5 text-muted-foreground">{{ member.background }}</p>
         <div class="entity-footer"><div class="divider mb-4" />

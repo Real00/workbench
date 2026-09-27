@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { CheckCircle2, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable } from '@lucide/vue'
 import JevSettingsFields, { type JevSettings } from './JevSettingsFields.vue'
 import { api, apiError, getApiBase, getDeviceId, getDeviceToken, setDeviceCredentials } from '../../shared/api/client'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -185,7 +186,7 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
         <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'mcp' }]" @click="tab = 'mcp'"><Cable :size="17" />MCP 接入</Button>
       </nav>
       <section v-if="tab === 'connection'" class="card">
-        <div class="card-head"><div><p class="eyebrow">OpenAI compatible</p><h2>模型连接</h2><p class="mt-2 text-xs text-muted-foreground">浏览器仅调用工作台后端，不直接连接模型服务</p></div><span class="status-live"><span class="size-1.5 rounded-full bg-cyan" /> ENCRYPTED</span></div>
+        <div class="card-head"><div><p class="eyebrow">OpenAI compatible</p><h2>模型连接</h2><p class="mt-2 text-xs text-muted-foreground">浏览器仅调用工作台后端，不直接连接模型服务</p></div><Badge variant="outline"><span class="size-1.5 rounded-full bg-cyan" /> ENCRYPTED</Badge></div>
         <p v-if="loading" class="empty-inline">正在读取设置…</p>
         <form v-else class="mt-7 space-y-5" @submit.prevent="save">
           <div class="field-label">厂商预设
@@ -261,7 +262,7 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
             <div class="min-w-0">
               <b class="flex items-center gap-2 text-sm text-text">
                 {{ device.device_name }}
-                <span v-if="device.device_id === getDeviceId()" class="status-chip">当前设备</span>
+                <Badge v-if="device.device_id === getDeviceId()" variant="secondary">当前设备</Badge>
               </b>
               <p class="mt-1 font-mono text-[12px] text-muted-foreground">绑定 {{ formatStamp(device.created_at) }} · 最近活跃 {{ formatStamp(device.last_active_at) }}</p>
             </div>

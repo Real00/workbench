@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ChipSelect from '../../../shared/ChipSelect.vue'
 import type { AppSelectOption } from '../../../shared/AppSelect.vue'
+import { Badge } from '@/components/ui/badge'
 import { useProgressStore } from '../store'
 import { isBlocked, latestEntry, priorityMap, statusMap, type Priority, type Task, type TaskStatus } from '../types'
 
@@ -17,10 +18,6 @@ const priorityOptions: AppSelectOption<Priority>[] = Object.entries(priorityMap)
   label,
 }))
 
-function statusLabel(task: Task, display: string, open = false) {
-  return !open && isBlocked(task) ? '阻塞' : display
-}
-
 async function onStatusChange(task: Task, status: TaskStatus | null | undefined) {
   if (!status || status === task.status) return
   await store.patchTask(task.id, { status })
@@ -35,7 +32,7 @@ async function onPriorityChange(task: Task, priority: Priority | null | undefine
 <template>
   <div class="task-board">
     <section v-for="column in columns" :key="column" :class="['board-column', `board-column--${column}`]">
-      <header class="flex items-center justify-between"><h2>{{ statusMap[column] }}</h2><span class="count-badge">{{ tasks.filter(t => t.status === column).length }}</span></header>
+      <header class="flex items-center justify-between"><h2>{{ statusMap[column] }}</h2><Badge variant="secondary">{{ tasks.filter(t => t.status === column).length }}</Badge></header>
       <div class="mt-3 space-y-2">
         <p v-if="!tasks.some(task => task.status === column)" class="empty-inline">暂无任务</p>
         <article
@@ -53,7 +50,6 @@ async function onPriorityChange(task: Task, priority: Priority | null | undefine
                 :model-value="task.priority"
                 :options="priorityOptions"
                 :disabled="store.saving"
-                :trigger-class="['priority', 'priority--interactive', `priority--${task.priority}`]"
                 :aria-label="`修改优先级：${priorityMap[task.priority]}`"
                 @update:model-value="priority => onPriorityChange(task, priority)"
               />
@@ -63,16 +59,9 @@ async function onPriorityChange(task: Task, priority: Priority | null | undefine
                 :model-value="task.status"
                 :options="statusOptions"
                 :disabled="task.status === 'cancelled' || store.saving"
-                :trigger-class="[
-                  'status-chip',
-                  'status-chip--interactive',
-                  `status-chip--${isBlocked(task) ? 'blocked' : task.status}`,
-                ]"
-                :aria-label="`修改状态：${statusLabel(task, statusMap[task.status])}`"
+                :aria-label="`修改状态：${isBlocked(task) ? '阻塞' : statusMap[task.status]}`"
                 @update:model-value="status => onStatusChange(task, status)"
-              >
-                <template #default="{ display, open }">{{ statusLabel(task, display, open) }}</template>
-              </ChipSelect>
+              />
             </div>
           </div>
           <h3>{{ task.title }}</h3>

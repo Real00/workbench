@@ -5,8 +5,10 @@ import { useProgressStore } from '../store'
 import { memberPixelUri } from '../pixel-avatar'
 import RichTextarea from '../../../shared/RichTextarea.vue'
 import { confirmDialog } from '../../../shared/confirm'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { kindBadgeVariant } from '../../../shared/kind-badge'
 import {
   evaluationKindMap,
   type MemberEvaluationInput,
@@ -129,8 +131,8 @@ async function removeMember() {
           </div>
           <div class="flex shrink-0 items-center gap-2">
             <template v-if="store.editingMember">
-              <span v-if="store.editingMember.operator" class="status-chip">本人</span>
-              <span class="status-chip">{{ store.editingMember.active ? '可分配' : '停用' }}</span>
+              <Badge v-if="store.editingMember.operator" variant="secondary">本人</Badge>
+              <Badge :variant="store.editingMember.active ? 'default' : 'secondary'">{{ store.editingMember.active ? '可分配' : '停用' }}</Badge>
             </template>
             <Button aria-label="关闭" @click="store.memberEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
           </div>
@@ -151,7 +153,10 @@ async function removeMember() {
             <div class="field-label">技能
               <small>回车或逗号添加，点 × 移除；供 Pulse 匹配任务时参考，最多 20 个</small>
               <div class="skill-input">
-                <span v-for="(skill, index) in skills" :key="skill" class="skill-chip">{{ skill }}<button type="button" class="skill-chip-remove" :aria-label="`移除技能 ${skill}`" @click="removeSkill(index)"><X :size="10" /></button></span>
+                <Badge v-for="(skill, index) in skills" :key="skill" variant="secondary" class="max-w-full">
+                  <span class="truncate">{{ skill }}</span>
+                  <button type="button" class="rounded-sm outline-none hover:text-destructive" :aria-label="`移除技能 ${skill}`" @click="removeSkill(index)"><X :size="12" /></button>
+                </Badge>
                 <input
                   v-model="skillDraft"
                   class="skill-input-field"
@@ -180,7 +185,7 @@ async function removeMember() {
             <ol v-if="evaluations.length" class="entry-timeline">
               <li v-for="evaluation in evaluations" :key="evaluation.id" class="entry-item">
                 <div class="flex items-center justify-between gap-2">
-                  <span :class="['entry-kind', `entry-kind--${evaluation.kind}`]">{{ evaluationKindMap[evaluation.kind] }}</span>
+                  <Badge :variant="kindBadgeVariant(evaluation.kind)">{{ evaluationKindMap[evaluation.kind] }}</Badge>
                   <Button type="button" aria-label="删除这条评价" @click="removeEvaluation(evaluation.id)" class="!h-6 !w-6" variant="ghost" size="icon"><Trash2 :size="12" /></Button>
                 </div>
                 <p class="whitespace-pre-wrap">{{ evaluation.content }}</p>

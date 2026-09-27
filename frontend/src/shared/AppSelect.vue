@@ -46,7 +46,7 @@ function onChange(value: unknown) {
 
 <template>
   <Select :model-value="encoded" :disabled="disabled" @update:model-value="onChange">
-    <SelectTrigger class="mt-2 h-10 w-full min-w-0">
+    <SelectTrigger class="h-10 w-full min-w-0">
       <SelectValue :placeholder="placeholder ?? '请选择'" />
     </SelectTrigger>
     <SelectContent position="popper" class="w-(--reka-select-trigger-width)">

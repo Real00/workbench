@@ -5,6 +5,7 @@ import type { Node, NodeDragEvent, NodeMouseEvent } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import { useKnowledgeStore } from '../store'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 import { Maximize, Minus, Plus } from '@lucide/vue'
@@ -54,7 +55,7 @@ function onNodeClick(event: NodeMouseEvent) {
         <article v-if="data.document" class="knowledge-doc-node">
           <p class="font-display text-sm text-text">{{ data.document.title }}</p>
           <div class="mt-2 flex flex-wrap gap-1">
-            <span v-for="tagId in data.document.tag_ids" :key="tagId" class="skill-chip">{{ tagName(tagId) }}</span>
+            <Badge v-for="tagId in data.document.tag_ids" :key="tagId" variant="secondary">{{ tagName(tagId) }}</Badge>
           </div>
           <ul class="mt-3 space-y-1 text-[12px] text-text-secondary">
             <li v-for="entryId in data.document.entry_ids.slice(0, 6)" :key="entryId">{{ entrySummary(entryId) }}</li>

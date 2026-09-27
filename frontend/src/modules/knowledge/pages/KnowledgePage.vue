@@ -2,6 +2,7 @@
 import { computed, defineAsyncComponent, ref } from 'vue'
 import { BookOpen, FileText, List, Plus, Search, Tags } from '@lucide/vue'
 import { useKnowledgeStore } from '../store'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 const KnowledgeCanvas = defineAsyncComponent(() => import('../components/KnowledgeCanvas.vue'))
@@ -68,8 +69,8 @@ const filteredTags = computed(() => store.tags.filter(item =>
         <tbody>
           <tr v-for="document in filteredDocuments" :key="document.id" tabindex="0" @keydown.enter="store.openDocument(document)" @click="store.openDocument(document)">
             <td><span class="knowledge-title"><span class="document-symbol"><FileText :size="17" /></span><b>{{ document.title }}</b></span></td>
-            <td><div class="flex flex-wrap gap-1.5"><span v-for="tagId in document.tag_ids" :key="tagId" class="skill-chip">{{ store.tagMap.get(tagId)?.name ?? '未知标签' }}</span><span v-if="!document.tag_ids.length" class="text-muted-foreground">—</span></div></td>
-            <td><span class="count-badge inline-flex">{{ document.entry_ids.length }}</span></td>
+            <td><div class="flex flex-wrap gap-1.5"><Badge v-for="tagId in document.tag_ids" :key="tagId" variant="secondary">{{ store.tagMap.get(tagId)?.name ?? '未知标签' }}</Badge><span v-if="!document.tag_ids.length" class="text-muted-foreground">—</span></div></td>
+            <td><Badge variant="secondary">{{ document.entry_ids.length }}</Badge></td>
           </tr>
         </tbody>
       </table></div>
@@ -83,7 +84,7 @@ const filteredTags = computed(() => store.tags.filter(item =>
           <tr v-for="entry in filteredEntries" :key="entry.id" tabindex="0" @keydown.enter="store.openEntry(entry)" @click="store.openEntry(entry)">
             <td><span class="knowledge-key">{{ entry.key }}</span></td>
             <td class="max-w-xl truncate">{{ entry.value }}</td>
-            <td><div class="flex flex-wrap gap-1.5"><span v-for="tagId in entry.tag_ids" :key="tagId" class="skill-chip">{{ store.tagMap.get(tagId)?.name ?? '未知标签' }}</span><span v-if="!entry.tag_ids.length" class="text-muted-foreground">—</span></div></td>
+            <td><div class="flex flex-wrap gap-1.5"><Badge v-for="tagId in entry.tag_ids" :key="tagId" variant="secondary">{{ store.tagMap.get(tagId)?.name ?? '未知标签' }}</Badge><span v-if="!entry.tag_ids.length" class="text-muted-foreground">—</span></div></td>
           </tr>
         </tbody>
       </table></div>
@@ -95,7 +96,7 @@ const filteredTags = computed(() => store.tags.filter(item =>
         <thead><tr><th>名称</th><th>解释</th></tr></thead>
         <tbody>
           <tr v-for="tag in filteredTags" :key="tag.id" tabindex="0" @keydown.enter="store.openTag(tag)" @click="store.openTag(tag)">
-            <td><span class="skill-chip">{{ tag.name }}</span></td>
+            <td><Badge variant="secondary">{{ tag.name }}</Badge></td>
             <td>{{ tag.explanation }}</td>
           </tr>
         </tbody>

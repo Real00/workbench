@@ -8,6 +8,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select'
 
 const EMPTY = '__empty__'
@@ -15,6 +16,7 @@ const EMPTY = '__empty__'
 const props = defineProps<{
   options: AppSelectOption<T>[]
   disabled?: boolean
+  placeholder?: string
   triggerClass?: HTMLAttributes['class']
   ariaLabel?: string
 }>()
@@ -46,13 +48,10 @@ function onChange(value: unknown) {
 <template>
   <Select :model-value="encoded" :disabled="disabled" @update:model-value="onChange">
     <SelectTrigger
-      :class="cn(
-        'chip-select-trigger h-auto w-fit min-h-0 gap-1 border-0 bg-transparent p-0 shadow-none ring-0 focus-visible:ring-2 [&_svg]:size-3',
-        triggerClass,
-      )"
+      :class="cn('w-fit max-w-full min-w-0', triggerClass)"
       :aria-label="ariaLabel ?? display"
     >
-      <slot :display="display" :open="false">{{ display }}</slot>
+      <SelectValue :placeholder="placeholder ?? '请选择'" />
     </SelectTrigger>
     <SelectContent position="popper" align="start" class="min-w-36">
       <SelectItem

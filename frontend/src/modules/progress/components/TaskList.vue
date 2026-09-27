@@ -42,10 +42,6 @@ function taskHint(task: Task) {
   return `${task.id.slice(0, 8)} · ${task.tags.join(' / ') || '无标签'}${extra}`
 }
 
-function statusLabel(task: Task, display: string, open = false) {
-  return !open && isBlocked(task) ? '阻塞' : display
-}
-
 function assigneeOptionsFor(task: Task): AppSelectOption[] {
   const options = assigneeOptions.value
   if (!task.assignee_id || options.some(option => option.value === task.assignee_id)) return options
@@ -88,7 +84,6 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
                   :model-value="task.priority"
                   :options="priorityOptions"
                   :disabled="store.saving"
-                  :trigger-class="['priority', 'priority--interactive', `priority--${task.priority}`]"
                   :aria-label="`修改优先级：${priorityMap[task.priority]}`"
                   @update:model-value="priority => onPriorityChange(task, priority)"
                 />
@@ -104,31 +99,18 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
               :model-value="task.status"
               :options="statusOptions"
               :disabled="task.status === 'cancelled' || store.saving"
-              :trigger-class="[
-                'status-chip',
-                'status-chip--interactive',
-                `status-chip--${isBlocked(task) ? 'blocked' : task.status}`,
-              ]"
-              :aria-label="`修改状态：${statusLabel(task, statusMap[task.status])}`"
+              :aria-label="`修改状态：${isBlocked(task) ? '阻塞' : statusMap[task.status]}`"
               @update:model-value="status => onStatusChange(task, status)"
-            >
-              <template #default="{ display, open }">{{ statusLabel(task, display, open) }}</template>
-            </ChipSelect>
+            />
           </td>
           <td @click.stop>
             <ChipSelect
               :model-value="task.assignee_id ?? ''"
               :options="assigneeOptionsFor(task)"
               :disabled="store.saving"
-              trigger-class="assignee-chip"
               :aria-label="`修改负责人：${store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配'}`"
               @update:model-value="assigneeId => onAssigneeChange(task, assigneeId)"
-            >
-              <template #default="{ display }">
-                <span class="avatar avatar--sm">{{ store.memberMap.get(task.assignee_id ?? '')?.name.slice(0, 2) ?? '--' }}</span>
-                <span class="assignee-chip__name">{{ display }}</span>
-              </template>
-            </ChipSelect>
+            />
           </td>
           <td class="font-mono text-[12px] text-muted-foreground">{{ task.start_date?.slice(0, 10) ?? '—' }} → {{ task.due_date?.slice(0, 10) ?? '—' }}</td>
           <td><div class="w-28"><div class="progress-line"><i :style="{ width: `${task.progress}%` }" /></div><small class="font-mono">{{ task.progress }}%</small></div></td>

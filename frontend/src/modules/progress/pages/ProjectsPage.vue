@@ -5,6 +5,7 @@ import ChipSelect from '../../../shared/ChipSelect.vue'
 import type { AppSelectOption } from '../../../shared/AppSelect.vue'
 import { useProgressStore } from '../store'
 import { projectStatusMap, type Project, type ProjectStatus } from '../types'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 const store = useProgressStore()
@@ -72,7 +73,6 @@ const projectCards = computed(() =>
               :model-value="item.project.status"
               :options="statusOptions"
               :disabled="store.saving"
-              :trigger-class="['project-status', 'project-status--interactive', `project-status--${item.project.status}`]"
               :aria-label="`修改项目状态：${projectStatusMap[item.project.status]}`"
               @update:model-value="status => onStatusChange(item.project, status)"
             />
@@ -83,7 +83,7 @@ const projectCards = computed(() =>
         <p class="project-date"><CalendarDays :size="13" />立项 {{ formatDate(item.project.started_at) }}</p>
         <div class="project-members">
           <Users :size="14" />
-          <span v-for="memberId in item.project.member_ids.slice(0, 3)" :key="memberId" class="skill-chip">{{ store.memberMap.get(memberId)?.name ?? '未知成员' }}</span>
+          <Badge v-for="memberId in item.project.member_ids.slice(0, 3)" :key="memberId" variant="secondary">{{ store.memberMap.get(memberId)?.name ?? '未知成员' }}</Badge>
           <span v-if="item.project.member_ids.length > 3" class="project-more-members">+{{ item.project.member_ids.length - 3 }}</span>
           <span v-if="!item.project.member_ids.length">暂未分配成员</span>
         </div>
