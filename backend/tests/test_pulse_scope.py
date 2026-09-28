@@ -131,3 +131,43 @@ async def test_explicit_mentions_and_cross_project_requests_resolve_scope():
     assert [scope.project_id for scope in scopes] == [mine.id]
     assert mentions("创建MYAI任务", "myai")
     assert not mentions("myai-server", "myai")
+
+
+async def test_unscoped_tasks_remain_visible_under_project_scope():
+    _, progress, _, _ = await build_service()
+    mine = await progress.create_project({"name": "myai"})
+    other = await progress.create_project({"name": "agentstudio"})
+    unscoped = await progress.create({"title": "独立事务"}, "admin")
+    owned = await progress.create({"title": "项目内", "project_id": mine.id}, "admin")
+    foreign = await progress.create({"title": "外项目", "project_id": other.id}, "admin")
+    ctx = SimpleNamespace(
+        deps=AgentDeps(
+            progress=progress,
+            scopes=[ProjectScope("myai", mine.id, ("myai",))],
+        )
+    )
+    listed_ids = {item["id"] for item in await list_tasks(ctx)}
+    assert unscoped.id in listed_ids
+    assert owned.id in listed_ids
+    assert foreign.id not in listed_ids
+    assert (await get_task(ctx, task_id=unscoped.id))["id"] == unscoped.id
+    assert (await get_task(ctx, title_query="独立事务"))["id"] == unscoped.id
+    with pytest.raises(ModelRetry, match="outside"):
+        await get_task(ctx, task_id=foreign.id)
+
+
+async def test_context_task_id_bypasses_project_scope():
+    _, progress, _, _ = await build_service()
+    mine = await progress.create_project({"name": "myai"})
+    other = await progress.create_project({"name": "agentstudio"})
+    foreign = await progress.create({"title": "外项目任务", "project_id": other.id}, "admin")
+    ctx = SimpleNamespace(
+        deps=AgentDeps(
+            progress=progress,
+            scopes=[ProjectScope("myai", mine.id, ("myai",))],
+            context_task_id=foreign.id,
+        )
+    )
+    assert (await get_task(ctx))["id"] == foreign.id
+    await update_task(ctx, status="done")
+    assert ctx.deps.pending[-1]["task_id"] == foreign.id

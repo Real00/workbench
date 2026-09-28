@@ -32,10 +32,25 @@ INSTRUCTIONS = (
     "To record an observation or evaluation about a person, call record_member_evaluation "
     "(kind: highlight for strengths, risk for concerns, note for everything else). "
     "Projects group related work; tasks may optionally belong to a project via project_id. "
+    "Tasks with no project_id stay visible even when a project scope is active; scope only "
+    "hides tasks that belong to a different project. "
     "To create a project, call create_project; to update its description, background, "
     "started_at, status, or members, call update_project. "
     "Never claim you recorded member information unless that tool queued a change."
 )
+
+
+def _scope_project_ids(scopes: list[Any]) -> set[str]:
+    return {scope.project_id for scope in scopes if getattr(scope, "project_id", None)}
+
+
+def _task_in_scope(task: Task, scope_ids: set[str]) -> bool:
+    """Project scope hides other projects' tasks, not unscoped backlog items."""
+    if not scope_ids:
+        return True
+    if task.project_id is None:
+        return True
+    return task.project_id in scope_ids
 
 
 def _jsonable(value: Any) -> Any:
@@ -84,8 +99,10 @@ async def _resolve_task(
     if ident:
         try:
             task = await domain.get_task(ident)
-            scope_ids = {scope.project_id for scope in ctx.deps.scopes if scope.project_id}
-            if scope_ids and task.project_id not in scope_ids:
+            # 侧栏正在查看的任务始终可操作；其余按项目 scope 过滤（无项目任务不过滤掉）
+            if ctx.deps.context_task_id and ident == ctx.deps.context_task_id:
+                return task
+            if not _task_in_scope(task, _scope_project_ids(ctx.deps.scopes)):
                 raise ModelRetry("task is outside the current project scope")
             return task
         except LookupError as exc:
@@ -93,11 +110,11 @@ async def _resolve_task(
     if not title_query:
         raise ModelRetry("provide task_id or title_query")
     needle = title_query.strip().casefold()
-    scope_ids = {scope.project_id for scope in ctx.deps.scopes if scope.project_id}
+    scope_ids = _scope_project_ids(ctx.deps.scopes)
     tasks = [
         task
         for task in await domain.list_tasks({})
-        if not scope_ids or task.project_id in scope_ids
+        if _task_in_scope(task, scope_ids)
     ]
     exact = [task for task in tasks if task.title.casefold() == needle]
     if len(exact) == 1:
@@ -116,12 +133,12 @@ async def list_tasks(
 ) -> list[dict[str, Any]]:
     """List existing tasks with ids, titles, status, and latest progress."""
     members = {member.id: member.name for member in await ctx.deps.progress.list_members()}
-    scope_ids = {scope.project_id for scope in ctx.deps.scopes if scope.project_id}
+    scope_ids = _scope_project_ids(ctx.deps.scopes)
     return [
         _compact_task(task, members)
         for task in await ctx.deps.progress.list_tasks({})
         if (not project_id or task.project_id == project_id)
-        and (not scope_ids or task.project_id in scope_ids)
+        and _task_in_scope(task, scope_ids)
     ]
 
 
@@ -267,7 +284,15 @@ async def update_task(
     if priority and priority not in PRIORITIES:
         raise ModelRetry("priority must be low, medium, high, or urgent")
     task = await _resolve_task(ctx, task_id, title_query)
-    project_id = await _task_scope(ctx, project_id or task.project_id, tags, task.tags)
+    # 仅在明确改 project_id / tags 时走 scope；避免把无项目任务悄悄挂到当前 scope，
+    # 也避免侧栏打开的外项目任务因保留原 project_id 而被误判冲突。
+    if project_id is not None:
+        project_id = await _task_scope(ctx, project_id, tags, task.tags)
+    elif tags is not None:
+        await _task_scope(ctx, task.project_id, tags, task.tags)
+        project_id = None
+    else:
+        project_id = None
     changes = _changes(
         title=title,
         description=description,

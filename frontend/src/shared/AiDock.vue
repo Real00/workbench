@@ -18,6 +18,7 @@ import {
   rewindCompletedExchanges,
   type PulseAttachmentMeta,
 } from './pulse-session'
+import { IME_ENTER_GUARD_MS, isImeKeyEvent } from './ime'
 import { useKnowledgeStore } from '../modules/knowledge/store'
 import { useProgressStore } from '../modules/progress/store'
 import { Badge } from '@/components/ui/badge'
@@ -82,11 +83,27 @@ const uploading = ref(false)
 const dragging = ref(false)
 const editingUserTurnId = ref<number | null>(null)
 const editDraft = ref('')
+const imeComposing = ref(false)
+let imeGuardUntil = 0
 const route = useRoute()
 let seq = 0
 let abort: AbortController | null = null
 const STREAM_TIMEOUT_MS = 240_000
 const STORAGE_KEY = 'pulse-ai-session-v1'
+
+function onImeCompositionStart() {
+  imeComposing.value = true
+}
+
+function onImeCompositionEnd() {
+  imeComposing.value = false
+  // macOS：选中候选的 Enter 往往落在 compositionend 之后，短时内不触发发送
+  imeGuardUntil = performance.now() + IME_ENTER_GUARD_MS
+}
+
+function imeBusy(event: KeyboardEvent) {
+  return isImeKeyEvent(event, imeComposing.value, imeGuardUntil)
+}
 
 type MentionType = 'task' | 'member' | 'project' | 'document' | 'tool'
 interface MentionCandidate { type: MentionType; id: string | null; label: string; hint?: string }
@@ -232,7 +249,7 @@ function autosizePrompt() {
 }
 
 function onPromptKeydown(event: KeyboardEvent) {
-  if (event.isComposing) return
+  if (imeBusy(event)) return
   const menuOpen = mentionQuery.value !== null && mentionCandidates.value.length > 0
   if (menuOpen) {
     if (event.key === 'ArrowDown') {
@@ -517,7 +534,7 @@ function cancelEdit() {
 }
 
 function onEditKeydown(event: KeyboardEvent, turn: ChatTurn) {
-  if (event.isComposing) return
+  if (imeBusy(event)) return
   if (event.key === 'Escape') {
     event.preventDefault()
     cancelEdit()
@@ -545,7 +562,9 @@ async function submitEdit(turn: ChatTurn) {
 function onPaste(event: ClipboardEvent) {
   const files = filesFromDataTransfer(event.clipboardData).map(namedPastedFile)
   if (!files.length) return
+  // 只在面板根处理一次；输入框/编辑气泡不要再绑 @paste，否则冒泡会添加两份附件
   event.preventDefault()
+  event.stopPropagation()
   const intoEdit = Boolean(
     editingUserTurnId.value && (event.target as HTMLElement | null)?.closest?.('.ai-bubble--edit'),
   )
@@ -580,7 +599,7 @@ function attachmentBucket(target: 'composer' | 'edit') {
 }
 
 async function addFiles(files: File[], target: 'composer' | 'edit' = 'composer') {
-  if (loading.value) return
+  if (loading.value || uploading.value) return
   const bucket = attachmentBucket(target)
   const room = PULSE_MAX_ATTACHMENTS - bucket.length
   if (room <= 0) {
@@ -825,7 +844,8 @@ function copyTurn(turn: ChatTurn) {
               :disabled="loading"
               @input="autosizeEdit"
               @keydown="onEditKeydown($event, turn)"
-              @paste="onPaste"
+              @compositionstart="onImeCompositionStart"
+              @compositionend="onImeCompositionEnd"
             />
             <p v-else class="ai-bubble ai-bubble--user">{{ turn.text }}</p>
             <div v-if="turn.attachments.length" class="ai-attach-chips">
@@ -949,10 +969,10 @@ function copyTurn(turn: ChatTurn) {
                 </p>
               </article>
             </div>
-            <div v-if="turn.token && turn.operations.length && !turn.applied" class="mt-3 flex justify-end gap-2">
-              <Button @click="discard(turn)" variant="outline"><Undo2 :size="13" />放弃</Button>
-              <Button :disabled="confirming" @click="confirm(turn)">
-                <Check :size="14" />{{ confirming ? '应用中…' : '确认应用 ⌘↩' }}
+            <div v-if="turn.token && turn.operations.length && !turn.applied" class="mt-3 flex justify-end gap-1.5">
+              <Button size="sm" @click="discard(turn)" variant="outline"><Undo2 :size="12" />放弃</Button>
+              <Button size="sm" :disabled="confirming" @click="confirm(turn)">
+                <Check :size="12" />{{ confirming ? '应用中…' : '确认应用 ⌘↩' }}
               </Button>
             </div>
             <div v-if="turn.applied" class="success-box mt-3"><Check :size="15" />变更已应用并刷新数据</div>
@@ -1027,7 +1047,8 @@ function copyTurn(turn: ChatTurn) {
             @input="autosizePrompt(); updateMentionQuery()"
             @keydown="onPromptKeydown"
             @click="updateMentionQuery"
-            @paste="onPaste"
+            @compositionstart="onImeCompositionStart"
+            @compositionend="onImeCompositionEnd"
           />
           <div class="ai-composer__bar">
             <Button

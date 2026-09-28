@@ -4,6 +4,7 @@ import { ChevronRight } from '@lucide/vue'
 import ChipSelect from '../../../shared/ChipSelect.vue'
 import type { AppSelectOption } from '../../../shared/AppSelect.vue'
 import { useProgressStore } from '../store'
+import { TASK_FILTER_NONE } from '../task-filters'
 import {
   entryKindMap,
   isBlocked,
@@ -17,6 +18,11 @@ import {
 
 defineProps<{ tasks: Task[] }>()
 const store = useProgressStore()
+
+const statusFilter = defineModel<'' | TaskStatus>('statusFilter', { default: '' })
+const priorityFilter = defineModel<'' | Priority>('priorityFilter', { default: '' })
+const assigneeFilter = defineModel<string>('assigneeFilter', { default: '' })
+const projectFilter = defineModel<string>('projectFilter', { default: '' })
 
 const statusOptions: AppSelectOption<TaskStatus>[] = Object.entries(statusMap).map(([value, label]) => ({
   value: value as TaskStatus,
@@ -33,6 +39,30 @@ const assigneeOptions = computed<AppSelectOption[]>(() => [
     label: member.operator ? `${member.name}（我）` : member.name,
   })),
 ])
+
+const statusFilterOptions = computed<AppSelectOption[]>(() => [
+  { value: '', label: '全部状态' },
+  ...statusOptions,
+])
+const priorityFilterOptions = computed<AppSelectOption[]>(() => [
+  { value: '', label: '全部优先级' },
+  ...priorityOptions,
+])
+const assigneeFilterOptions = computed<AppSelectOption[]>(() => [
+  { value: '', label: '全部负责人' },
+  { value: TASK_FILTER_NONE, label: '未分配' },
+  ...store.assignableMembers.map(member => ({
+    value: member.id,
+    label: member.operator ? `${member.name}（我）` : member.name,
+  })),
+])
+const projectFilterOptions = computed<AppSelectOption[]>(() => [
+  { value: '', label: '全部项目' },
+  { value: TASK_FILTER_NONE, label: '无项目' },
+  ...store.projects.map(project => ({ value: project.id, label: project.name })),
+])
+
+const filterTriggerClass = 'border-dashed bg-transparent font-normal text-muted-foreground hover:text-foreground'
 
 function taskHint(task: Task) {
   const entry = latestEntry(task)
@@ -74,7 +104,58 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
 <template>
   <div class="task-table overflow-x-auto rounded-xl border border-line bg-panel">
     <table class="data-table">
-      <thead><tr><th>任务</th><th>状态</th><th>负责人</th><th>时间窗口</th><th>进度</th><th><span class="sr-only">操作</span></th></tr></thead>
+      <thead>
+        <tr>
+          <th>
+            <div class="task-th">
+              <span>任务</span>
+              <div class="task-th__filters" @click.stop>
+                <ChipSelect
+                  v-model="projectFilter"
+                  :options="projectFilterOptions"
+                  :trigger-class="filterTriggerClass"
+                  aria-label="按项目筛选"
+                />
+                <ChipSelect
+                  v-model="priorityFilter"
+                  :options="priorityFilterOptions"
+                  :trigger-class="filterTriggerClass"
+                  aria-label="按优先级筛选"
+                />
+              </div>
+            </div>
+          </th>
+          <th>
+            <div class="task-th">
+              <span>状态</span>
+              <div class="task-th__filters" @click.stop>
+                <ChipSelect
+                  v-model="statusFilter"
+                  :options="statusFilterOptions"
+                  :trigger-class="filterTriggerClass"
+                  aria-label="按状态筛选"
+                />
+              </div>
+            </div>
+          </th>
+          <th>
+            <div class="task-th">
+              <span>负责人</span>
+              <div class="task-th__filters" @click.stop>
+                <ChipSelect
+                  v-model="assigneeFilter"
+                  :options="assigneeFilterOptions"
+                  :trigger-class="filterTriggerClass"
+                  aria-label="按负责人筛选"
+                />
+              </div>
+            </div>
+          </th>
+          <th>时间窗口</th>
+          <th>进度</th>
+          <th><span class="sr-only">操作</span></th>
+        </tr>
+      </thead>
       <tbody>
         <tr v-for="task in tasks" :key="task.id" tabindex="0" @click="store.openTask(task)" @keydown.enter="store.openTask(task)">
           <td>
@@ -118,6 +199,6 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
         </tr>
       </tbody>
     </table>
-    <p v-if="!tasks.length" class="p-10 text-center text-sm text-muted-foreground">没有匹配任务，尝试其他关键词。</p>
+    <p v-if="!tasks.length" class="p-10 text-center text-sm text-muted-foreground">没有匹配任务，尝试调整表头筛选或搜索。</p>
   </div>
 </template>
