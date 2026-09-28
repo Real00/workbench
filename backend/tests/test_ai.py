@@ -578,7 +578,7 @@ async def test_progress_registers_ai_contribution() -> None:
         **knowledge_overrides(),
     )
     contribs = app[AI_CONTRIBUTIONS]
-    assert [item.id for item in contribs] == ["progress", "knowledge", "pulse"]
+    assert [item.id for item in contribs] == ["progress", "knowledge", "subscription", "pulse"]
     assert [fn.__name__ for fn in contribs[0].tools] == [
         "list_tasks",
         "list_projects",

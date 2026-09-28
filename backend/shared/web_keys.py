@@ -12,6 +12,7 @@ from shared.ai import ModuleAiContribution
 from shared.config import Settings
 from shared.events import ChangeEventBus
 from shared.security import SecurityService
+from subscription.application import SubscriptionApplicationService
 from system.application import SystemApplicationService
 
 SETTINGS: AppKey[Settings] = AppKey("settings")
@@ -20,6 +21,7 @@ SECURITY: AppKey[SecurityService] = AppKey("security")
 IDENTITY: AppKey[IdentityApplicationService] = AppKey("identity")
 PROGRESS: AppKey[ProgressApplicationService] = AppKey("progress")
 KNOWLEDGE: AppKey[KnowledgeApplicationService] = AppKey("knowledge")
+SUBSCRIPTION: AppKey[SubscriptionApplicationService] = AppKey("subscription")
 AI_SETTINGS: AppKey[AISettingsApplicationService] = AppKey("ai_settings")
 AI_TASKS: AppKey[PulseApplicationService] = AppKey("ai_tasks")
 SYSTEM: AppKey[SystemApplicationService] = AppKey("system")

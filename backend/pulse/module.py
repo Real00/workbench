@@ -7,7 +7,7 @@ from pulse.ai_tools import pulse_ai_contribution
 from pulse.application import PulseApplicationService
 from pulse.routes import register_routes
 from shared.module import ModuleContext
-from shared.web_keys import AI_TASKS, KNOWLEDGE, PROGRESS
+from shared.web_keys import AI_TASKS, KNOWLEDGE, PROGRESS, SUBSCRIPTION
 
 
 class PulseModule:
@@ -21,6 +21,7 @@ class PulseModule:
             context.settings.preview_ttl_seconds,
             agent=context.overrides.get("progress_agent") or context.overrides.get("pulse_agent"),
             knowledge=app[KNOWLEDGE],
+            subscription=app[SUBSCRIPTION],
             contributions=context.ai_contributions,
         )
         register_routes(app)

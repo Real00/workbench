@@ -34,6 +34,8 @@ def _scope_for(path: str) -> str | None:
         return "knowledge"
     if path.startswith("/api/v1/captures"):
         return "capture"
+    if path.startswith("/api/v1/subscription"):
+        return "subscription"
     if path.startswith("/api/v1/ai-settings"):
         return "ai-settings"
     return None

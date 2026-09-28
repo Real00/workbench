@@ -253,4 +253,112 @@ def knowledge_overrides() -> dict[str, Any]:
         "knowledge_entry_repository": MemoryEntryRepository(),
         "knowledge_document_repository": MemoryDocumentRepository(),
         "knowledge_corpus": MemoryKnowledgeCorpus(),
+        **subscription_overrides(),
     }
+
+
+def subscription_overrides() -> dict[str, Any]:
+    return {
+        "subscription_plugin_repository": MemoryPluginRepository(),
+        "subscription_source_repository": MemorySourceRepository(),
+        "subscription_article_repository": MemoryArticleRepository(),
+        "subscription_enable_scheduler": False,
+    }
+
+
+class MemoryPluginRepository:
+    def __init__(self):
+        self.items: dict[str, Any] = {}
+
+    async def save(self, plugin: Any) -> None:
+        self.items[plugin.id] = plugin
+
+    async def by_id(self, plugin_id: str) -> Any | None:
+        return self.items.get(plugin_id)
+
+    async def list(self) -> list[Any]:
+        return sorted(self.items.values(), key=lambda item: (not item.builtin, item.name))
+
+    async def delete(self, plugin_id: str) -> bool:
+        return self.items.pop(plugin_id, None) is not None
+
+    async def ensure_indexes(self) -> None:
+        return None
+
+
+class MemorySourceRepository:
+    def __init__(self):
+        self.items: dict[str, Any] = {}
+
+    async def save(self, source: Any) -> None:
+        self.items[source.id] = source
+
+    async def by_id(self, source_id: str) -> Any | None:
+        return self.items.get(source_id)
+
+    async def list(self) -> list[Any]:
+        return sorted(self.items.values(), key=lambda item: item.name)
+
+    async def delete(self, source_id: str) -> bool:
+        return self.items.pop(source_id, None) is not None
+
+    async def ensure_indexes(self) -> None:
+        return None
+
+
+class MemoryArticleRepository:
+    def __init__(self):
+        self.items: dict[str, Any] = {}
+
+    async def upsert(self, article: Any) -> Any:
+        for existing in self.items.values():
+            if (
+                existing.source_id == article.source_id
+                and existing.external_id == article.external_id
+            ):
+                merged = existing.merge_from(article)
+                self.items[merged.id] = merged
+                return merged
+        self.items[article.id] = article
+        return article
+
+    async def by_id(self, article_id: str) -> Any | None:
+        return self.items.get(article_id)
+
+    async def list(
+        self,
+        *,
+        source_id: str | None = None,
+        query: str = "",
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[Any]:
+        result = list(self.items.values())
+        if source_id:
+            result = [item for item in result if item.source_id == source_id]
+        if query:
+            needle = query.casefold()
+            result = [
+                item
+                for item in result
+                if needle in item.title.casefold()
+                or needle in item.author.casefold()
+                or needle in item.content.casefold()
+            ]
+        result.sort(
+            key=lambda item: (
+                item.published_at is None,
+                item.published_at or item.fetched_at,
+            ),
+            reverse=True,
+        )
+        return result[offset : offset + limit]
+
+    async def delete_by_source(self, source_id: str) -> int:
+        remove = [key for key, item in self.items.items() if item.source_id == source_id]
+        for key in remove:
+            del self.items[key]
+        return len(remove)
+
+    async def ensure_indexes(self) -> None:
+        return None

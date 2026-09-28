@@ -10,6 +10,7 @@ import CaptureComposer from '../modules/capture/CaptureComposer.vue'
 import { useCaptureStore } from '../modules/capture/store'
 import { useKnowledgeStore } from '../modules/knowledge/store'
 import { useProgressStore } from '../modules/progress/store'
+import { useSubscriptionStore } from '../modules/subscription/store'
 import { subscribeEvents, type ChangeEvent } from '../shared/api/events'
 import { clearToken } from '../shared/api/client'
 import { setupDesktopBridge } from '../shared/tauri'
@@ -19,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 const captures = useCaptureStore()
 const progress = useProgressStore()
 const knowledge = useKnowledgeStore()
+const subscription = useSubscriptionStore()
 
 // 全局数据变更总线：任何来源（本端/其他设备/MCP/AI）的写操作都会推事件，
 // 300ms 合并后静默刷新已初始化的模块，桌面端无需刷新按钮
@@ -33,11 +35,12 @@ function handleChange(event: ChangeEvent) {
     const scopes = new Set(pendingScopes)
     pendingScopes.clear()
     if (scopes.has('all')) {
-      scopes.add('progress'); scopes.add('knowledge'); scopes.add('capture')
+      scopes.add('progress'); scopes.add('knowledge'); scopes.add('capture'); scopes.add('subscription')
     }
     if (scopes.has('progress') && progress.initialized) void progress.refreshAll()
     if (scopes.has('knowledge') && knowledge.initialized) void knowledge.refresh()
     if (scopes.has('capture')) captures.revision++
+    if (scopes.has('subscription') && subscription.initialized) void subscription.refresh()
     window.dispatchEvent(new Event('workbench-changed'))
   }, 300)
 }

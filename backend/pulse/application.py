@@ -21,6 +21,7 @@ from pulse.scope import resolve_scope
 from shared.ai import ModuleAiContribution, clock_block
 from shared.model_errors import model_error_message
 from shared.security import SecurityService
+from subscription.application import SubscriptionApplicationService
 
 AI_STREAM_TIMEOUT_SECONDS = 240
 _CANCELLED = {"type": "cancelled", "message": "已中断"}
@@ -34,6 +35,7 @@ KNOWLEDGE_OPS = {
     "update_document",
     "link_entry",
 }
+SUBSCRIPTION_OPS = {"create_source", "update_source"}
 MAX_SESSIONS = 50
 MAX_SESSION_EXCHANGES = 8
 # 附件正文内联进 prompt 的上限；超出部分由 read_attachment 工具按需读取
@@ -131,11 +133,13 @@ class PulseApplicationService:
         preview_ttl_seconds: int,
         agent: PulseAgent | None = None,
         knowledge: KnowledgeApplicationService | None = None,
+        subscription: SubscriptionApplicationService | None = None,
         contributions: Sequence[ModuleAiContribution] | None = None,
     ):
         self.settings_reader = settings_reader
         self.progress_domain = progress_domain
         self.knowledge = knowledge
+        self.subscription = subscription
         self.security = security
         self.preview_ttl_seconds = preview_ttl_seconds
         self.contributions = list(contributions or [])
@@ -226,6 +230,7 @@ class PulseApplicationService:
             progress=self.progress_domain,
             knowledge=None if self.knowledge is None else self.knowledge.domain,
             corpus=None if self.knowledge is None else self.knowledge.corpus,
+            subscription=None if self.subscription is None else self.subscription.domain,
             context_task_id=context_task_id,
             context_document_id=context_document_id,
             attachments=attachments,
@@ -323,6 +328,11 @@ class PulseApplicationService:
                 if self.knowledge is None:
                     raise ValueError("knowledge module is not available")
                 results.append(await self.knowledge.apply_operation(operation))
+                continue
+            if op in SUBSCRIPTION_OPS:
+                if self.subscription is None:
+                    raise ValueError("subscription module is not available")
+                results.append(await self.subscription.apply_operation(operation))
                 continue
             if op == "create_task":
                 results.append(

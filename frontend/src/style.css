@@ -434,8 +434,9 @@ html { color-scheme: light; }
 .md-body pre.md-pre code { background: transparent; padding: 0; color: var(--color-text-secondary); }
 .md-body a { color: var(--color-cyan); text-decoration: underline; }
 .md-body hr { margin: 12px 0; border: 0; border-top: 1px solid var(--color-line); }
-.md-body strong { color: var(--color-text); }
-.md-body del { color: var(--muted-foreground); }
+.md-body img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; }
+.md-body figure { margin: 0 0 8px; }
+.md-body figcaption { font-size: 12px; color: var(--muted-foreground); }
 .md-table-wrap { overflow-x: auto; margin: 0 0 8px; }
 .md-body table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .md-body th, .md-body td { border: 1px solid var(--color-line); padding: 6px 8px; text-align: left; vertical-align: top; }
@@ -835,6 +836,10 @@ input[type="checkbox"] { width: 15px; height: 15px; flex-shrink: 0; vertical-ali
 .task-table .data-table td { padding-block: 15px; }
 .task-table .data-table td:first-child { min-width: 260px; max-width: 520px; white-space: normal; overflow-wrap: anywhere; }
 .task-table .data-table small { line-height: 1.6; }
+.task-table .data-table th { vertical-align: bottom; }
+.task-th { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-transform: none; letter-spacing: 0; }
+.task-th > span { font-family: var(--font-mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted-foreground); }
+.task-th__filters { display: flex; flex-wrap: wrap; gap: 4px; }
 .knowledge-table { box-shadow: 0 2px 4px rgb(16 24 40 / .025); }
 .knowledge-table .data-table td { padding-block: 16px; }
 .knowledge-title { display: flex; align-items: center; gap: 11px; }

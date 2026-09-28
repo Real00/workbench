@@ -25,6 +25,7 @@ class AgentDeps:
     progress: ProgressDomainService
     knowledge: Any = None
     corpus: KnowledgeSearch | None = None
+    subscription: Any = None
     pending: list[dict[str, Any]] = field(default_factory=list)
     context_task_id: str | None = None
     context_document_id: str | None = None

@@ -19,6 +19,7 @@ from shared.events import ChangeEventBus
 from shared.module import AppModule, ModuleContext
 from shared.security import SecurityService
 from shared.web_keys import AI_CONTRIBUTIONS, EVENT_BUS, MONGO_CLIENT, SECURITY, SETTINGS
+from subscription.module import SubscriptionModule
 from system.module import SystemModule
 
 
@@ -78,6 +79,7 @@ def create_app(settings: Settings | None = None, **overrides: Any) -> web.Applic
         ProgressModule(),
         KnowledgeModule(),
         CaptureModule(),
+        SubscriptionModule(),
         PulseModule(),
     )
     for module in modules:

@@ -1,6 +1,6 @@
 import { clearToken, consumeSse, ensureSession, getApiBase, getDeviceId, getDeviceToken, getToken } from './client'
 
-export type ChangeScope = 'progress' | 'knowledge' | 'capture' | 'ai-settings' | 'all'
+export type ChangeScope = 'progress' | 'knowledge' | 'capture' | 'subscription' | 'ai-settings' | 'all'
 
 export interface ChangeEvent {
   type: 'changed'

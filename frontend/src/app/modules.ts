@@ -4,12 +4,14 @@ import { authModule } from '../modules/auth'
 import { knowledgeModule } from '../modules/knowledge'
 import { progressModule } from '../modules/progress'
 import { settingsModule } from '../modules/settings'
+import { subscriptionModule } from '../modules/subscription'
 
 export const modules: WorkbenchModule[] = [
   authModule,
   captureModule,
   progressModule,
   knowledgeModule,
+  subscriptionModule,
   settingsModule,
 ].sort((left, right) => left.order - right.order)
 

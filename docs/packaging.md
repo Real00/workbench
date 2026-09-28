@@ -10,7 +10,7 @@
 ## 打包前质量检查
 
 ```bash
-cd backend && uv run ruff check . && uv run mypy app.py workbench api identity progress ai_settings system shared && uv run pytest
+cd backend && uv run ruff check . && uv run mypy app.py workbench api identity progress knowledge subscription ai_settings system shared pulse && uv run pytest
 cd frontend && pnpm typecheck && pnpm test && pnpm build
 ```
 

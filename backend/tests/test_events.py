@@ -78,6 +78,7 @@ def test_scope_mapping_covers_every_write_surface() -> None:
     assert _scope_for("/api/v1/progress/members/m1/evaluations") == "progress"
     assert _scope_for("/api/v1/knowledge/documents") == "knowledge"
     assert _scope_for("/api/v1/captures") == "capture"
+    assert _scope_for("/api/v1/subscription/sources") == "subscription"
     assert _scope_for("/api/v1/ai-settings") == "ai-settings"
     assert _scope_for("/api/v1/ai/confirm") == "all"
     assert _scope_for("/api/v1/progress/ai/confirm") == "all"
