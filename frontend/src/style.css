@@ -346,6 +346,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .ai-dock:not(.ai-dock--open) { right: 16px; bottom: 16px; }
   .ai-trigger { flex-direction: row; gap: 8px; padding: 8px 12px; }
   .ai-trigger b { writing-mode: horizontal-tb; font-size: 12px; letter-spacing: .1em; }
+  .ai-composer__hint { display: none; }
 }
 
 /* ===== UI 打磨：滚动条 / 焦点 / 按压态 / 自定义下拉 ===== */
@@ -430,6 +431,54 @@ html { color-scheme: light; }
 .editor-actions { display: flex; flex-shrink: 0; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--color-line); padding: 16px 20px; background: var(--color-panel); }
 .ai-dock > header, .ai-dock > form { flex-shrink: 0; }
 .ai-dock > form { max-height: 48%; overflow-y: auto; }
+.ai-composer {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #cbd2dc;
+  border-radius: 12px;
+  background: var(--color-ink);
+  padding: 10px 10px 8px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.ai-composer:focus-within {
+  border-color: rgb(37 99 235 / .45);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / .1);
+}
+.ai-composer--busy { opacity: .92; }
+.ai-composer__input {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  max-height: 160px;
+  resize: none;
+  border: 0;
+  background: transparent;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text);
+  outline: none;
+}
+.ai-composer__input::placeholder {
+  color: var(--muted-foreground);
+  font-size: inherit;
+  opacity: 1;
+}
+.ai-composer__input:disabled { cursor: not-allowed; opacity: .7; }
+.ai-composer__bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 28px;
+}
+.ai-composer__hint {
+  margin-right: auto;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted-foreground);
+}
 .ai-help { margin-top: 10px; color: var(--muted-foreground); font-size: 12px; line-height: 1.7; }
 .ai-help summary { cursor: pointer; }
 .main-content--assistant { padding-right: 472px; }

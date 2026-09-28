@@ -8,7 +8,6 @@ import { useKnowledgeStore } from '../modules/knowledge/store'
 import { useProgressStore } from '../modules/progress/store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { kindBadgeVariant } from './kind-badge'
 import {
   entryKindMap,
@@ -50,8 +49,8 @@ const turns = ref<ChatTurn[]>([])
 const error = ref('')
 const sessionId = ref<string | null>(null)
 const scroller = ref<HTMLElement | null>(null)
-const promptRef = ref<{ $el?: HTMLTextAreaElement } | null>(null)
-const promptEl = computed(() => promptRef.value?.$el ?? null)
+const promptRef = ref<HTMLTextAreaElement | null>(null)
+const promptEl = computed(() => promptRef.value)
 const route = useRoute()
 let seq = 0
 let abort: AbortController | null = null
@@ -625,26 +624,44 @@ function discard(turn: ChatTurn) {
             <small v-if="candidate.hint">{{ candidate.hint }}</small>
           </button>
         </div>
-        <div class="flex items-end gap-2">
+        <div :class="['ai-composer', loading && 'ai-composer--busy']">
           <label class="sr-only" for="ai-prompt">输入调整要求</label>
-          <Textarea
+          <textarea
             id="ai-prompt"
             ref="promptRef"
             v-model="instruction"
-            class="!mt-0 max-h-40 min-h-10 flex-1 resize-none py-2.5"
+            class="ai-composer__input"
             rows="1"
-            placeholder="提问或描述你想执行的操作…输入 @ 引用上下文"
+            placeholder="提问或描述要执行的操作，输入 @ 引用上下文"
             :disabled="loading"
             @input="autosizePrompt(); updateMentionQuery()"
             @keydown="onPromptKeydown"
             @click="updateMentionQuery"
           />
-          <Button v-if="loading" type="button" @click="stop" class="shrink-0" variant="outline">
-            <Square :size="12" fill="currentColor" />中断
-          </Button>
-          <Button v-else :disabled="!instruction.trim()" class="shrink-0">
-            <Send :size="15" />发送
-          </Button>
+          <div class="ai-composer__bar">
+            <span class="ai-composer__hint">Enter 发送 · Shift+Enter 换行</span>
+            <Button
+              v-if="loading"
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="中断生成"
+              title="中断"
+              @click="stop"
+            >
+              <Square :size="12" fill="currentColor" />
+            </Button>
+            <Button
+              v-else
+              type="submit"
+              size="icon-sm"
+              aria-label="发送"
+              title="发送"
+              :disabled="!instruction.trim()"
+            >
+              <Send :size="14" />
+            </Button>
+          </div>
         </div>
         <details class="ai-help"><summary>快捷键与引用帮助</summary><p>⌘/Ctrl+K 开关面板 · @ 引用任务、知识或工具<br />⌘/Ctrl+Enter 应用变更 · Shift+Enter 换行 · ↑ 召回</p></details>
       </form>

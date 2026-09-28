@@ -44,6 +44,16 @@ frontend/src-tauri/target/release/bundle/dmg/Workbench_<版本>_aarch64.dmg
 
 版本号在 `frontend/src-tauri/tauri.conf.json` 的 `version` 字段（当前 `0.1.0`），dmg 文件名随之变化。升级版本时改这里即可。
 
+### 应用图标
+
+Dock / `.app` / 托盘图标来自 `frontend/src-tauri/icons/`（含 `icon.icns`），**不会**跟着 `frontend/public/work-mark.png` 自动更新。换品牌后：
+
+1. 准备方形源图（建议 1024×1024）写入 `frontend/src-tauri/app-icon.png`
+2. 在 `frontend` 执行：`pnpm exec tauri icon src-tauri/app-icon.png`
+3. 再跑 `pnpm tauri build`
+
+若重装后 Dock 仍显示旧图，可删掉旧 `.app` 后重装，或注销 / 重启以刷新图标缓存。
+
 ### 桌面端如何连后端
 
 打包的桌面壳**只含前端，不含后端**。API 地址的确定顺序（见 `frontend/src/shared/api/client.ts`）：
