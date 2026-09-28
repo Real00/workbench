@@ -10,7 +10,7 @@
 ## 打包前质量检查
 
 ```bash
-cd backend && uv run ruff check . && uv run mypy app.py workbench api identity progress ai_settings shared && uv run pytest
+cd backend && uv run ruff check . && uv run mypy app.py workbench api identity progress ai_settings system shared && uv run pytest
 cd frontend && pnpm typecheck && pnpm test && pnpm build
 ```
 
@@ -100,8 +100,66 @@ docker compose up --build
 | `WORKBENCH_MONGO_URI` | compose 内固定为 `mongodb://mongo:27017` |
 | `WORKBENCH_UPLOAD_DIR` | 容器内固定 `/app/data/uploads` |
 | `WORKBENCH_CORS_ORIGINS` | 独立网页域名访问 API 时配置（桌面端来源始终放行） |
+| `WORKBENCH_UPDATE_AGENT_TOKEN` | 与宿主机 Update Agent 共享的 HMAC 密钥；未配置则设置页不能一键更新 |
+| `WORKBENCH_UPDATE_CONTROL_DIR` | 容器内控制目录（GHCR compose 示例为 `/app/data/update-control`） |
+| `WORKBENCH_UPDATE_GITHUB_REPO` / `WORKBENCH_UPDATE_GITHUB_REF` | 检查更新时对比的仓库与分支（默认 `real00/workbench` @ `main`） |
+| `WORKBENCH_UPDATE_GITHUB_TOKEN` | 私有仓调用 GitHub API 检查更新时需要 |
 
 数据持久化在三个 named volume：`mongo-data`（数据库）、`app-uploads`（上传文件）、`app-knowledge`（知识库 Markdown 文件），`docker compose down` 不会丢失，加 `-v` 才会。
+
+镜像构建时写入 `WORKBENCH_GIT_SHA` / `WORKBENCH_BUILT_AT`（CI 自动传入），设置页「版本更新」据此展示当前版本。
+
+### 生产：从 GHCR 拉取
+
+仓库根目录的 [`compose.ghcr.yaml`](../compose.ghcr.yaml) 使用预构建镜像，不再在服务器 `build`。
+
+**推荐：一键脚本**（自动沿用已有 Compose 项目名与 `mongo-data` 卷，**绝不** `down -v` / `volume rm`）：
+
+```bash
+# 在已 clone 的仓库根目录；私有 GHCR 先 docker login ghcr.io
+sudo ./deploy/install-server.sh
+# 或指定目录 / 项目名（项目名必须使「项目名_mongo-data」等于现有卷）
+sudo INSTALL_DIR=/opt/workbench COMPOSE_PROJECT_NAME=你的项目名 ./deploy/install-server.sh
+```
+
+手动步骤：
+
+```bash
+cp .env.example .env   # 填入 JWT / 管理员密码 / ENCRYPTION_KEY / UPDATE_AGENT_TOKEN 等
+mkdir -p update-control
+docker login ghcr.io   # 私有包需要
+docker compose -f compose.ghcr.yaml up -d
+```
+
+日常发版后在服务器执行：
+
+```bash
+docker compose -f compose.ghcr.yaml pull app
+docker compose -f compose.ghcr.yaml up -d app
+```
+
+或使用下方 Update Agent，在系统设置里点「更新到最新」。
+
+### 一键更新（宿主机 Update Agent）
+
+**不要**把 `/var/run/docker.sock` 挂进工作台容器。应用只向共享目录写 `request.json`；宿主机 Agent 校验 HMAC 后执行固定的 `docker compose pull/up`。
+
+1. 服务器部署目录放好 `compose.ghcr.yaml`、`.env`，并创建 `update-control/`（已在 compose 中 bind mount）。
+2. 复制 Agent 与 systemd 单元（路径按实际修改）：
+
+```bash
+# 假设部署目录为 /opt/workbench，内含 compose.ghcr.yaml 与 deploy/update-agent/
+sudo cp /opt/workbench/deploy/update-agent/update-agent.env.example /opt/workbench/update-agent.env
+# 编辑 update-agent.env：UPDATE_AGENT_TOKEN 与 .env 里 WORKBENCH_UPDATE_AGENT_TOKEN 一致
+sudo cp /opt/workbench/deploy/update-agent/workbench-update-agent.service /etc/systemd/system/
+# 按需编辑单元中的 WorkingDirectory / Environment 路径
+sudo systemctl daemon-reload
+sudo systemctl enable --now workbench-update-agent
+```
+
+3. 重启 app 容器使 `WORKBENCH_UPDATE_*` 生效后，打开系统设置 →「版本更新」：检查更新 / 更新到最新。
+
+Agent 只接受协议内的请求文件，不执行客户端传入的任意命令。更新期间 API 会短暂不可用，页面会轮询直到新 `git_sha` 出现或超时。
 
 ## CI 自动打包（GitHub Actions）
 

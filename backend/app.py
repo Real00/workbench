@@ -19,6 +19,7 @@ from shared.events import ChangeEventBus
 from shared.module import AppModule, ModuleContext
 from shared.security import SecurityService
 from shared.web_keys import AI_CONTRIBUTIONS, EVENT_BUS, MONGO_CLIENT, SECURITY, SETTINGS
+from system.module import SystemModule
 
 
 def resolve_static_file(static_dir: Path, relative: str) -> Path | None:
@@ -73,6 +74,7 @@ def create_app(settings: Settings | None = None, **overrides: Any) -> web.Applic
     modules: tuple[AppModule, ...] = (
         IdentityModule(),
         AISettingsModule(),
+        SystemModule(),
         ProgressModule(),
         KnowledgeModule(),
         CaptureModule(),

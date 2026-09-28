@@ -1,0 +1,45 @@
+# 生产示例：从 GHCR 拉镜像（非本地 build）。
+# 用法：docker compose -f compose.ghcr.yaml up -d
+# 一键更新需另装宿主机 Update Agent（deploy/update-agent/）。
+
+services:
+  app:
+    image: ghcr.io/real00/workbench:latest
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      WORKBENCH_MONGO_URI: mongodb://mongo:27017
+      WORKBENCH_MONGO_DATABASE: workbench
+      WORKBENCH_UPLOAD_DIR: /app/data/uploads
+      WORKBENCH_UPDATE_CONTROL_DIR: /app/data/update-control
+      WORKBENCH_UPDATE_AGENT_TOKEN: ${WORKBENCH_UPDATE_AGENT_TOKEN:-}
+      WORKBENCH_UPDATE_GITHUB_REPO: ${WORKBENCH_UPDATE_GITHUB_REPO:-real00/workbench}
+      WORKBENCH_UPDATE_GITHUB_REF: ${WORKBENCH_UPDATE_GITHUB_REF:-main}
+      WORKBENCH_UPDATE_GITHUB_TOKEN: ${WORKBENCH_UPDATE_GITHUB_TOKEN:-}
+    volumes:
+      - app-uploads:/app/data/uploads
+      - app-knowledge:/app/data/knowledge
+      - ./update-control:/app/data/update-control
+    ports:
+      - "${WORKBENCH_PORT:-8080}:8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mongo-data:
+  app-uploads:
+  app-knowledge:

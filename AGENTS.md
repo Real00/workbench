@@ -19,7 +19,7 @@
 
 ```bash
 ./start_dev                          # 本机 Vite :5173 + 后端热重载；免登录
-cd backend && uv run ruff check . && uv run mypy app.py workbench api identity progress ai_settings shared && uv run pytest
+cd backend && uv run ruff check . && uv run mypy app.py workbench api identity progress ai_settings system shared && uv run pytest
 cd frontend && pnpm typecheck && pnpm test && pnpm build
 ```
 

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { CheckCircle2, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable } from '@lucide/vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { CheckCircle2, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable, Package } from '@lucide/vue'
 import JevSettingsFields, { type JevSettings } from './JevSettingsFields.vue'
 import { api, apiError, getApiBase, getDeviceId, getDeviceToken, setDeviceCredentials } from '../../shared/api/client'
+import { confirmDialog } from '../../shared/confirm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,8 +14,31 @@ interface AiToolParam { name: string; type: string; required: boolean; default: 
 interface AiTool { name: string; description: string; parameters: AiToolParam[] }
 interface AiModuleTools { id: string; instructions: string; tools: AiTool[] }
 interface DeviceBindingInfo { id: string; device_id: string; device_name: string; created_at: string; last_active_at: string }
+interface SystemVersion {
+  git_sha: string
+  git_sha_short: string
+  built_at: string
+  agent_configured: boolean
+  github_repo: string
+  github_ref: string
+}
+interface UpdateCheck {
+  current_sha: string
+  current_sha_short: string
+  latest_sha: string
+  latest_sha_short: string
+  update_available: boolean
+  github_repo: string
+  github_ref: string
+}
+interface UpdateStatus {
+  id: string
+  state: 'idle' | 'queued' | 'running' | 'succeeded' | 'failed'
+  message: string
+  finished_at: string | null
+}
 
-const tab = ref<'connection' | 'tools' | 'devices' | 'mcp'>('connection')
+const tab = ref<'connection' | 'tools' | 'devices' | 'mcp' | 'updates'>('connection')
 const baseUrl = ref('')
 const model = ref('')
 const apiKey = ref('')
@@ -36,6 +60,15 @@ const devices = ref<DeviceBindingInfo[]>([])
 const devicesLoading = ref(false)
 const devicesError = ref('')
 const unbindingId = ref('')
+const versionInfo = ref<SystemVersion | null>(null)
+const versionLoading = ref(false)
+const versionError = ref('')
+const updateCheck = ref<UpdateCheck | null>(null)
+const checkingUpdate = ref(false)
+const applyingUpdate = ref(false)
+const updateStatus = ref<UpdateStatus | null>(null)
+const updateMessage = ref('')
+let updatePollTimer: number | undefined
 
 const moduleLabels: Record<string, string> = { progress: '进度模块', knowledge: '知识库' }
 
@@ -57,6 +90,9 @@ function formatStamp(value: string | null) {
 }
 
 onMounted(load)
+onUnmounted(() => {
+  if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
+})
 async function load() {
   loading.value = true
   error.value = ''
@@ -137,6 +173,91 @@ async function unbindDevice(binding: DeviceBindingInfo) {
   finally { unbindingId.value = '' }
 }
 
+async function showUpdates() {
+  tab.value = 'updates'
+  if (!versionInfo.value && !versionLoading.value) await loadVersion()
+}
+async function loadVersion() {
+  versionLoading.value = true
+  versionError.value = ''
+  try {
+    const { data } = await api.get<SystemVersion>('/system/version')
+    versionInfo.value = data
+  } catch (cause) { versionError.value = apiError(cause) }
+  finally { versionLoading.value = false }
+}
+async function checkForUpdate() {
+  checkingUpdate.value = true
+  versionError.value = ''
+  updateMessage.value = ''
+  try {
+    const { data } = await api.post<UpdateCheck>('/system/updates/check')
+    updateCheck.value = data
+    updateMessage.value = data.update_available
+      ? `发现新版本 ${data.latest_sha_short}（当前 ${data.current_sha_short}）`
+      : `已是最新（${data.latest_sha_short}）`
+  } catch (cause) { versionError.value = apiError(cause) }
+  finally { checkingUpdate.value = false }
+}
+async function applyUpdate() {
+  const ok = await confirmDialog({
+    title: '更新到最新版本？',
+    message: '将通过宿主机 Update Agent 拉取 GHCR 镜像并重启服务，期间会短暂不可用。',
+    confirmText: '开始更新',
+  })
+  if (!ok) return
+  applyingUpdate.value = true
+  versionError.value = ''
+  updateMessage.value = '已提交更新请求…'
+  const previousSha = versionInfo.value?.git_sha
+  try {
+    const { data } = await api.post<{ accepted: boolean; request_id: string; message: string }>('/system/updates/apply')
+    updateMessage.value = data.message
+    startUpdatePolling(previousSha)
+  } catch (cause) {
+    versionError.value = apiError(cause)
+    applyingUpdate.value = false
+  }
+}
+function startUpdatePolling(previousSha: string | undefined) {
+  if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
+  let attempts = 0
+  updatePollTimer = window.setInterval(async () => {
+    attempts += 1
+    try {
+      const statusRes = await api.get<UpdateStatus>('/system/updates/status')
+      updateStatus.value = statusRes.data
+      if (statusRes.data.state === 'failed') {
+        versionError.value = statusRes.data.message || '更新失败'
+        applyingUpdate.value = false
+        if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
+        return
+      }
+      const versionRes = await api.get<SystemVersion>('/system/version')
+      versionInfo.value = versionRes.data
+      if (previousSha && versionRes.data.git_sha !== previousSha && versionRes.data.git_sha !== 'unknown') {
+        updateMessage.value = `更新完成：${versionRes.data.git_sha_short}，请刷新页面`
+        updateCheck.value = null
+        applyingUpdate.value = false
+        if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
+        return
+      }
+      if (statusRes.data.state === 'succeeded') {
+        updateMessage.value = '容器已重启，正在确认新版本…'
+      } else if (statusRes.data.message) {
+        updateMessage.value = statusRes.data.message
+      }
+    } catch {
+      updateMessage.value = '服务重启中，请稍候…'
+    }
+    if (attempts >= 60) {
+      updateMessage.value = '等待超时：若页面仍可打开请手动刷新确认版本'
+      applyingUpdate.value = false
+      if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
+    }
+  }, 2000)
+}
+
 const mcpUrl = `${getApiBase() || window.location.origin}/mcp`
 const curlLoginBase = (getApiBase() || window.location.origin).replace(/\/+$/, '')
 // 登录/补绑定后凭证才出现，必须响应式读取而非模块期常量
@@ -184,6 +305,7 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
         <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'tools' }]" @click="showTools"><Wrench :size="17" />AI 工具注册</Button>
         <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'devices' }]" @click="showDevices"><MonitorSmartphone :size="17" />绑定设备</Button>
         <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'mcp' }]" @click="tab = 'mcp'"><Cable :size="17" />MCP 接入</Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'updates' }]" @click="showUpdates"><Package :size="17" />版本更新</Button>
       </nav>
       <section v-if="tab === 'connection'" class="card">
         <div class="card-head"><div><p class="eyebrow">OpenAI compatible</p><h2>模型连接</h2><p class="mt-2 text-xs text-muted-foreground">浏览器仅调用工作台后端，不直接连接模型服务</p></div><Badge variant="outline"><span class="size-1.5 rounded-full bg-cyan" /> ENCRYPTED</Badge></div>
@@ -268,6 +390,52 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
             </div>
             <Button type="button" :disabled="unbindingId === device.id" @click="unbindDevice(device)" class="shrink-0" variant="outline"><LoaderCircle v-if="unbindingId === device.id" :size="14" class="animate-spin" /><Trash2 v-else :size="14" />解绑</Button>
           </article>
+        </div>
+      </section>
+      <section v-else-if="tab === 'updates'">
+        <div class="card p-5">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Release channel</p>
+              <h2>版本更新</h2>
+              <p class="mt-2 text-xs text-muted-foreground">通过宿主机 Update Agent 拉取 GHCR 镜像并重启；应用容器不挂 Docker socket。</p>
+            </div>
+            <Package :size="17" class="text-cyan" />
+          </div>
+          <p v-if="versionLoading && !versionInfo" class="empty-inline mt-5">正在读取版本信息…</p>
+          <div v-else class="mt-5 space-y-4">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="rounded-lg border border-line bg-panel-2 p-3">
+                <p class="text-[12px] text-muted-foreground">当前版本</p>
+                <p class="mt-1 font-mono text-sm text-text">{{ versionInfo?.git_sha_short || '—' }}</p>
+                <p class="mt-1 text-[12px] text-muted-foreground">构建 {{ versionInfo?.built_at ? formatStamp(versionInfo.built_at) : '—' }}</p>
+              </div>
+              <div class="rounded-lg border border-line bg-panel-2 p-3">
+                <p class="text-[12px] text-muted-foreground">更新通道</p>
+                <p class="mt-1 text-sm text-text">
+                  <Badge :variant="versionInfo?.agent_configured ? 'secondary' : 'outline'">
+                    {{ versionInfo?.agent_configured ? 'Agent 已配置' : '未配置 Agent' }}
+                  </Badge>
+                </p>
+                <p class="mt-1 font-mono text-[12px] text-muted-foreground">{{ versionInfo?.github_repo || '—' }}@{{ versionInfo?.github_ref || '—' }}</p>
+              </div>
+            </div>
+            <p v-if="!versionInfo?.agent_configured" class="text-[12px] leading-5 text-muted-foreground">
+              未配置控制目录与共享密钥时只能查看版本。服务器需挂载 update-control、设置 WORKBENCH_UPDATE_AGENT_TOKEN，并安装宿主机 Update Agent（见 docs/packaging.md）。
+            </p>
+            <p v-if="updateCheck" class="rounded-lg border border-line bg-panel-2 p-3 font-mono text-[12px] text-muted-foreground">
+              远端 {{ updateCheck.github_repo }}@{{ updateCheck.github_ref }} → {{ updateCheck.latest_sha_short }}
+              · {{ updateCheck.update_available ? '有可用更新' : '已是最新' }}
+            </p>
+            <p v-if="versionError" class="error-box" role="alert">{{ versionError }}</p>
+            <p v-if="updateMessage" :class="versionError ? 'text-[12px] text-muted-foreground' : 'success-box'"><CheckCircle2 v-if="!versionError" :size="14" />{{ updateMessage }}</p>
+            <p v-if="updateStatus?.state && updateStatus.state !== 'idle'" class="text-[12px] text-muted-foreground">Agent 状态：{{ updateStatus.state }}{{ updateStatus.message ? ` · ${updateStatus.message}` : '' }}</p>
+            <footer class="flex flex-wrap justify-end gap-2 border-t border-line pt-5">
+              <Button type="button" :disabled="versionLoading" @click="loadVersion" variant="outline"><LoaderCircle v-if="versionLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新版本</Button>
+              <Button type="button" :disabled="checkingUpdate || applyingUpdate" @click="checkForUpdate" variant="outline"><LoaderCircle v-if="checkingUpdate" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />{{ checkingUpdate ? '检查中…' : '检查更新' }}</Button>
+              <Button type="button" :disabled="!versionInfo?.agent_configured || applyingUpdate || checkingUpdate" @click="applyUpdate"><LoaderCircle v-if="applyingUpdate" :size="15" class="animate-spin" /><Package v-else :size="15" />{{ applyingUpdate ? '更新中…' : '更新到最新' }}</Button>
+            </footer>
+          </div>
         </div>
       </section>
       <section v-else-if="tab === 'mcp'">

@@ -61,7 +61,7 @@ async def auth_middleware(
         return response({"error": "authentication required"}, 401)
     security: SecurityService = request.app[SECURITY]
     request[ACTOR] = security.decode_token(header.removeprefix("Bearer "))
-    admin_paths = ("/api/v1/progress/members", "/api/v1/ai-settings")
+    admin_paths = ("/api/v1/progress/members", "/api/v1/ai-settings", "/api/v1/system")
     if request.path.startswith(admin_paths) and request[ACTOR].get("role") != "admin":
         return response({"error": "admin required"}, 403)
     return await handler(request)

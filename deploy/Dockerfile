@@ -17,11 +17,16 @@ RUN pnpm --filter frontend build
 
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS runtime
 
+ARG WORKBENCH_GIT_SHA=unknown
+ARG WORKBENCH_BUILT_AT=
+
 ENV PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     STATIC_DIR=/app/backend/static \
-    WORKBENCH_UPLOAD_DIR=/app/data/uploads
+    WORKBENCH_UPLOAD_DIR=/app/data/uploads \
+    WORKBENCH_GIT_SHA=${WORKBENCH_GIT_SHA} \
+    WORKBENCH_BUILT_AT=${WORKBENCH_BUILT_AT}
 
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./

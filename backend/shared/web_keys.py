@@ -12,6 +12,7 @@ from shared.ai import ModuleAiContribution
 from shared.config import Settings
 from shared.events import ChangeEventBus
 from shared.security import SecurityService
+from system.application import SystemApplicationService
 
 SETTINGS: AppKey[Settings] = AppKey("settings")
 MONGO_CLIENT: AppKey[AsyncMongoClient[Any]] = AppKey("mongo_client")
@@ -21,6 +22,7 @@ PROGRESS: AppKey[ProgressApplicationService] = AppKey("progress")
 KNOWLEDGE: AppKey[KnowledgeApplicationService] = AppKey("knowledge")
 AI_SETTINGS: AppKey[AISettingsApplicationService] = AppKey("ai_settings")
 AI_TASKS: AppKey[PulseApplicationService] = AppKey("ai_tasks")
+SYSTEM: AppKey[SystemApplicationService] = AppKey("system")
 AI_CONTRIBUTIONS: AppKey[list[ModuleAiContribution]] = AppKey("ai_contributions")
 EVENT_BUS: AppKey[ChangeEventBus] = AppKey("event_bus")
 ACTOR: RequestKey[dict[str, Any]] = RequestKey("actor")

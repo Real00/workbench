@@ -1,8 +1,18 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, BeforeValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _empty_path_as_none(value: object) -> object:
+    if value is None or value == "":
+        return None
+    return value
+
+
+OptionalPath = Annotated[Path | None, BeforeValidator(_empty_path_as_none)]
 
 
 class Settings(BaseSettings):
@@ -33,6 +43,13 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices("WORKBENCH_CORS_ORIGINS", "CORS_ORIGINS"),
     )
+    git_sha: str = "unknown"
+    built_at: str = ""
+    update_control_dir: OptionalPath = None
+    update_agent_token: str = ""
+    update_github_repo: str = "real00/workbench"
+    update_github_ref: str = "main"
+    update_github_token: str = ""
     model_config = SettingsConfigDict(
         env_prefix="WORKBENCH_", env_file=".env", extra="ignore", populate_by_name=True
     )
