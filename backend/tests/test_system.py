@@ -9,10 +9,12 @@ from system.application import SystemApplicationService
 from system.domain import (
     UpdateControlStore,
     UpdateRequest,
+    desktop_update_available,
     sha_matches,
     sign_update_request,
     verify_update_request,
 )
+from system.ports import DesktopReleaseInfo
 from tests.fakes import (
     MemoryAISettingsRepository,
     MemoryDeviceRepository,
@@ -26,16 +28,48 @@ from tests.fakes import (
 
 
 class FakeGithub:
-    def __init__(self, sha: str = "abc123def456", error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        sha: str = "abc123def456",
+        error: Exception | None = None,
+        *,
+        desktop: DesktopReleaseInfo | None = None,
+        dmg: bytes = b"dmg-bytes-placeholder-xxxx",
+    ) -> None:
         self.sha = sha
         self.error = error
+        self.desktop = desktop or DesktopReleaseInfo(
+            tag="desktop-latest",
+            version="0.1.0+bbbbbbb",
+            asset_id=42,
+            asset_name="Workbench-macos-aarch64.dmg",
+            published_at="2026-09-28T00:00:00Z",
+            target_commitish="bbbbbbb",
+        )
+        self.dmg = dmg
         self.calls: list[tuple[str, str, str]] = []
+        self.desktop_calls: list[tuple[str, str]] = []
+        self.download_calls: list[tuple[str, int, str]] = []
 
     async def latest_sha(self, repo: str, ref: str, token: str) -> str:
         self.calls.append((repo, ref, token))
         if self.error:
             raise self.error
         return self.sha
+
+    async def desktop_release(self, repo: str, token: str) -> DesktopReleaseInfo:
+        self.desktop_calls.append((repo, token))
+        if self.error:
+            raise self.error
+        return self.desktop
+
+    async def download_release_asset(
+        self, repo: str, asset_id: int, token: str
+    ) -> tuple[bytes, str]:
+        self.download_calls.append((repo, asset_id, token))
+        if self.error:
+            raise self.error
+        return self.dmg, "application/octet-stream"
 
 
 def test_hmac_roundtrip() -> None:
@@ -51,6 +85,13 @@ def test_sha_matches_prefix() -> None:
     assert sha_matches("abcdef123456", "abcdef1234567890")
     assert not sha_matches("unknown", "abcdef")
     assert not sha_matches("aaaa", "bbbb")
+
+
+def test_desktop_update_available() -> None:
+    assert desktop_update_available("0.1.0+aaaaaaa", "0.1.0+bbbbbbb") is True
+    assert desktop_update_available("0.1.0+bbbbbbb", "0.1.0+bbbbbbb") is False
+    assert desktop_update_available("", "0.1.0+bbbbbbb") is True
+    assert desktop_update_available("0.1.0", "unknown") is False
 
 
 def test_control_store_write_and_status(tmp_path: Path) -> None:
@@ -149,5 +190,21 @@ async def test_system_routes_admin_only(tmp_path: Path) -> None:
         status = await client.get("/api/v1/system/updates/status", headers=headers)
         assert status.status == 200
         assert (await status.json())["state"] == "queued"
+
+        desktop = await client.get(
+            "/api/v1/system/desktop/update",
+            params={"current": "0.1.0+aaaaaaa"},
+            headers=headers,
+        )
+        assert desktop.status == 200
+        desktop_body = await desktop.json()
+        assert desktop_body["update_available"] is True
+        assert desktop_body["latest_version"] == "0.1.0+bbbbbbb"
+        assert desktop_body["download_path"] == "/system/desktop/dmg"
+
+        dmg = await client.get("/api/v1/system/desktop/dmg", headers=headers)
+        assert dmg.status == 200
+        assert dmg.headers.get("Content-Disposition", "").endswith('filename="Workbench-macos-aarch64.dmg"')
+        assert await dmg.read() == b"dmg-bytes-placeholder-xxxx"
     finally:
         await client.close()

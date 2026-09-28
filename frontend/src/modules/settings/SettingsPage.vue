@@ -2,8 +2,9 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { CheckCircle2, CircleAlert, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable, Package, XCircle } from '@lucide/vue'
 import JevSettingsFields, { type JevSettings } from './JevSettingsFields.vue'
-import { api, apiError, getApiBase, getDeviceId, getDeviceToken, setDeviceCredentials } from '../../shared/api/client'
+import { api, apiError, getApiBase, getDeviceId, getDeviceToken, isDesktopShell, setDeviceCredentials } from '../../shared/api/client'
 import { confirmDialog } from '../../shared/confirm'
+import { downloadAndOpenDesktopDmg, getDesktopAppVersion } from '../../shared/tauri'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,8 +45,26 @@ interface UpdateStep {
   id: UpdateStepId
   label: string
 }
+interface DesktopUpdateInfo {
+  current_version: string
+  latest_version: string
+  update_available: boolean
+  download_path: string
+  asset_name: string
+  tag: string
+  published_at: string
+  target_commitish: string
+  github_repo: string
+}
 
 const tab = ref<'connection' | 'tools' | 'devices' | 'mcp' | 'updates'>('connection')
+const desktopShell = isDesktopShell
+const desktopVersion = ref('')
+const desktopUpdate = ref<DesktopUpdateInfo | null>(null)
+const desktopChecking = ref(false)
+const desktopDownloading = ref(false)
+const desktopError = ref('')
+const desktopMessage = ref('')
 const baseUrl = ref('')
 const model = ref('')
 const apiKey = ref('')
@@ -249,6 +268,62 @@ async function unbindDevice(binding: DeviceBindingInfo) {
 async function showUpdates() {
   tab.value = 'updates'
   if (!versionInfo.value && !versionLoading.value) await loadVersion()
+  if (desktopShell && !desktopVersion.value) await loadDesktopVersion()
+}
+async function loadDesktopVersion() {
+  if (!desktopShell) return
+  try {
+    desktopVersion.value = await getDesktopAppVersion()
+  } catch (cause) {
+    desktopError.value = cause instanceof Error ? cause.message : '无法读取桌面端版本'
+  }
+}
+async function checkDesktopUpdate() {
+  if (!desktopShell) return
+  desktopChecking.value = true
+  desktopError.value = ''
+  desktopMessage.value = ''
+  try {
+    if (!desktopVersion.value) await loadDesktopVersion()
+    const { data } = await api.get<DesktopUpdateInfo>('/system/desktop/update', {
+      params: { current: desktopVersion.value || 'unknown' },
+    })
+    desktopUpdate.value = data
+    desktopMessage.value = data.update_available
+      ? `发现新客户端 ${data.latest_version}（当前 ${data.current_version}）`
+      : `客户端已是最新（${data.latest_version}）`
+  } catch (cause) {
+    desktopError.value = apiError(cause)
+  } finally {
+    desktopChecking.value = false
+  }
+}
+async function downloadDesktopUpdate() {
+  if (!desktopShell) return
+  desktopError.value = ''
+  desktopMessage.value = ''
+  if (!desktopUpdate.value) {
+    await checkDesktopUpdate()
+    if (!desktopUpdate.value) return
+  }
+  const ok = await confirmDialog({
+    title: '下载最新桌面端？',
+    message: '将下载 DMG 并用系统打开；请把 Workbench.app 拖进「应用程序」后重新启动。服务器镜像不会因此更新。',
+    confirmText: '下载并打开',
+    danger: false,
+  })
+  if (!ok) return
+  desktopDownloading.value = true
+  desktopMessage.value = '正在下载 DMG，请稍候…'
+  try {
+    const path = await downloadAndOpenDesktopDmg(desktopUpdate.value.download_path)
+    desktopMessage.value = `已打开安装包：${path}。拖进「应用程序」后请退出并重新打开工作台。`
+  } catch (cause) {
+    desktopError.value = cause instanceof Error ? cause.message : apiError(cause)
+    desktopMessage.value = ''
+  } finally {
+    desktopDownloading.value = false
+  }
 }
 async function loadVersion() {
   versionLoading.value = true
@@ -539,13 +614,53 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
           </article>
         </div>
       </section>
-      <section v-else-if="tab === 'updates'">
+      <section v-else-if="tab === 'updates'" class="space-y-5">
+        <div v-if="desktopShell" class="card p-5">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Desktop client</p>
+              <h2>客户端更新</h2>
+              <p class="mt-2 text-xs text-muted-foreground">桌面端内嵌前端。服务器镜像更新不会刷新本机 UI；需要下载新的 DMG 并替换 Applications 中的应用。</p>
+            </div>
+            <MonitorSmartphone :size="17" class="text-cyan" />
+          </div>
+          <div class="mt-5 space-y-4">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="rounded-lg border border-line bg-panel-2 p-3">
+                <p class="text-[12px] text-muted-foreground">当前客户端</p>
+                <p class="mt-1 font-mono text-sm text-text">{{ desktopVersion || '—' }}</p>
+              </div>
+              <div class="rounded-lg border border-line bg-panel-2 p-3">
+                <p class="text-[12px] text-muted-foreground">远端客户端</p>
+                <p class="mt-1 font-mono text-sm text-text">{{ desktopUpdate?.latest_version || '—' }}</p>
+                <p class="mt-1 font-mono text-[12px] text-muted-foreground">{{ desktopUpdate?.tag || 'desktop-latest' }} · {{ desktopUpdate?.asset_name || 'Workbench-macos-aarch64.dmg' }}</p>
+              </div>
+            </div>
+            <p v-if="desktopUpdate" class="rounded-lg border border-line bg-panel-2 p-3 font-mono text-[12px] text-muted-foreground">
+              {{ desktopUpdate.github_repo }} @ {{ desktopUpdate.tag }}
+              · {{ desktopUpdate.update_available ? '有可用客户端更新' : '已是最新客户端' }}
+              <template v-if="desktopUpdate.published_at"> · {{ formatStamp(desktopUpdate.published_at) }}</template>
+            </p>
+            <p v-if="desktopError" class="error-box whitespace-pre-wrap break-words" role="alert">{{ desktopError }}</p>
+            <p v-else-if="desktopMessage" class="success-box"><CheckCircle2 :size="14" />{{ desktopMessage }}</p>
+            <footer class="flex flex-wrap justify-end gap-2 border-t border-line pt-5">
+              <Button type="button" :disabled="desktopChecking || desktopDownloading" @click="checkDesktopUpdate" variant="outline">
+                <LoaderCircle v-if="desktopChecking" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />
+                {{ desktopChecking ? '检查中…' : '检查客户端更新' }}
+              </Button>
+              <Button type="button" :disabled="desktopChecking || desktopDownloading" @click="downloadDesktopUpdate">
+                <LoaderCircle v-if="desktopDownloading" :size="15" class="animate-spin" /><Package v-else :size="15" />
+                {{ desktopDownloading ? '下载中…' : '下载并打开 DMG' }}
+              </Button>
+            </footer>
+          </div>
+        </div>
         <div class="card p-5">
           <div class="card-head">
             <div>
               <p class="eyebrow">Release channel</p>
-              <h2>版本更新</h2>
-              <p class="mt-2 text-xs text-muted-foreground">通过宿主机 Update Agent 拉取 GHCR 镜像并重启；应用容器不挂 Docker socket。</p>
+              <h2>服务器更新</h2>
+              <p class="mt-2 text-xs text-muted-foreground">通过宿主机 Update Agent 拉取 GHCR 镜像并重启。更新的是服务器，不会替换本机桌面客户端。</p>
             </div>
             <Package :size="17" class="text-cyan" />
           </div>

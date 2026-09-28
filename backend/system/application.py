@@ -7,10 +7,11 @@ from shared.config import Settings
 from system.domain import (
     UpdateControlStore,
     UpdateRequest,
+    desktop_update_available,
     sha_matches,
     short_sha,
 )
-from system.ports import GithubCommitLookup
+from system.ports import DesktopReleaseInfo, GithubCommitLookup
 
 
 class SystemApplicationService:
@@ -24,6 +25,7 @@ class SystemApplicationService:
         self.settings = settings
         self.github = github
         self.control_store = control_store or self._store_from_settings(settings)
+        self._desktop_release: DesktopReleaseInfo | None = None
 
     @staticmethod
     def _store_from_settings(settings: Settings) -> UpdateControlStore | None:
@@ -82,3 +84,37 @@ class SystemApplicationService:
         if self.control_store is None:
             return {"id": "", "state": "idle", "message": "未配置更新通道", "finished_at": None}
         return self.control_store.read_status().to_dict()
+
+    async def check_desktop_update(self, current_version: str) -> dict[str, Any]:
+        release = await self.github.desktop_release(
+            self.settings.update_github_repo,
+            self.settings.update_github_token,
+        )
+        self._desktop_release = release
+        available = desktop_update_available(current_version, release.version)
+        return {
+            "current_version": current_version or "unknown",
+            "latest_version": release.version,
+            "update_available": available,
+            "download_path": "/system/desktop/dmg",
+            "asset_name": release.asset_name,
+            "tag": release.tag,
+            "published_at": release.published_at,
+            "target_commitish": release.target_commitish,
+            "github_repo": self.settings.update_github_repo,
+        }
+
+    async def desktop_dmg(self) -> tuple[bytes, str, str]:
+        release = self._desktop_release
+        if release is None:
+            release = await self.github.desktop_release(
+                self.settings.update_github_repo,
+                self.settings.update_github_token,
+            )
+            self._desktop_release = release
+        data, content_type = await self.github.download_release_asset(
+            self.settings.update_github_repo,
+            release.asset_id,
+            self.settings.update_github_token,
+        )
+        return data, content_type, release.asset_name

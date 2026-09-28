@@ -171,6 +171,22 @@ sudo systemctl enable --now workbench-update-agent
 
 Agent 只接受协议内的请求文件，不执行客户端传入的任意命令。更新期间 API 会短暂不可用，页面会轮询直到新 `git_sha` 出现或超时。
 
+### 桌面端客户端更新（DMG）
+
+桌面端把前端打进 `.app`，**服务器镜像更新不会刷新本机 UI**。要换新界面必须装新的 DMG。
+
+流程：
+
+1. CI 在每次 `push` 到 `main` 时构建桌面端，并把版本写成 `tauri.conf.json` 的 `0.x.y+<短SHA>`。
+2. 上传固定文件名 `Workbench-macos-aarch64.dmg` 到 GitHub 预发布 **`desktop-latest`**（覆盖原资产）。
+3. 桌面端打开系统设置 →「版本更新」→ **客户端更新**：检查更新 / 下载并打开 DMG，再拖进「应用程序」后重启。
+
+私有仓库检查与下载走服务端 `WORKBENCH_UPDATE_GITHUB_TOKEN`（需 `contents:read`），客户端经 `/api/v1/system/desktop/dmg` 代理拉取，无需在本机配置 GitHub token。
+
+未做 Apple 公证时，首次打开仍可能被 Gatekeeper 拦截：右键 → 打开。
+
+当前不做静默覆盖安装（需 Tauri updater 签名密钥与 Apple Developer 公证）；有证书后可再加。
+
 ## CI 自动打包（GitHub Actions）
 
 流水线定义在 `.github/workflows/ci.yml`，三个任务串行（后两个依赖质量检查通过）：
@@ -179,12 +195,12 @@ Agent 只接受协议内的请求文件，不执行客户端传入的任意命�
 | --- | --- | --- |
 | `check` | ubuntu + mongo:8 服务容器 | 后端 mypy/pytest、前端 typecheck/test/build |
 | `docker` | ubuntu | 构建镜像并推送到 GHCR |
-| `desktop` | macOS | `pnpm tauri build`，上传 dmg 构件 |
+| `desktop` | macOS | `pnpm tauri build`，上传 dmg；main 刷新 `desktop-latest` |
 
 **触发与产物**
 
-- push 到 `main`：质量检查 + 镜像推送 `ghcr.io/real00/workbench:latest` + dmg 存为 Actions 构件
-- push tag `v*`（如 `v0.1.0`）：同上，镜像额外打 `vX.Y.Z` 版本 tag，dmg 自动创建 GitHub Release
+- push 到 `main`：质量检查 + 镜像推送 `ghcr.io/real00/workbench:latest` + dmg 存为 Actions 构件，并更新 GitHub 预发布 `desktop-latest`
+- push tag `v*`（如 `v0.1.0`）：同上，镜像额外打 `vX.Y.Z` 版本 tag，dmg 写入该正式 Release
 - PR：只跑质量检查
 - 手动触发（workflow_dispatch）：可填 `api_base_url`，作为 `VITE_API_BASE_URL` 烧入当次桌面包
 

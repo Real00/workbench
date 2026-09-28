@@ -116,15 +116,57 @@ jobs:
         with:
           workspaces: frontend/src-tauri
       - run: pnpm install --frozen-lockfile
+      - id: desktop_meta
+        run: |
+          SHORT="$(echo '${{ github.sha }}' | cut -c1-7)"
+          BASE="$(python3 -c "import json; print(json.load(open('frontend/src-tauri/tauri.conf.json'))['version'].split('+')[0])")"
+          VERSION="${BASE}+${SHORT}"
+          python3 -c "
+          import json, re
+          from pathlib import Path
+          version = '${VERSION}'
+          path = Path('frontend/src-tauri/tauri.conf.json')
+          data = json.loads(path.read_text())
+          data['version'] = version
+          path.write_text(json.dumps(data, indent=2) + chr(10))
+          cargo = Path('frontend/src-tauri/Cargo.toml')
+          text = re.sub(r'(?m)^version = \"[^\"]+\"', f'version = \"{version}\"', cargo.read_text(), count=1)
+          cargo.write_text(text)
+          "
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT}" >> "$GITHUB_OUTPUT"
       - run: pnpm tauri build
         working-directory: frontend
+      - name: 固定 DMG 文件名
+        run: |
+          mkdir -p dist-dmg
+          src="$(ls frontend/src-tauri/target/release/bundle/dmg/*.dmg | head -1)"
+          cp "$src" dist-dmg/Workbench-macos-aarch64.dmg
+          ls -lh dist-dmg/
       - uses: actions/upload-artifact@v4
         with:
           name: workbench-macos
-          path: frontend/src-tauri/target/release/bundle/dmg/*.dmg
+          path: dist-dmg/Workbench-macos-aarch64.dmg
           if-no-files-found: error
+      - uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: desktop-latest
+          name: Desktop ${{ steps.desktop_meta.outputs.version }}
+          body: |
+            滚动桌面端构建（prerelease）。
+            - version: `${{ steps.desktop_meta.outputs.version }}`
+            - commit: `${{ github.sha }}`
+            - asset: `Workbench-macos-aarch64.dmg`
+
+            设置页「版本更新 → 更新客户端」会拉取此 Release。
+          prerelease: true
+          make_latest: false
+          files: dist-dmg/Workbench-macos-aarch64.dmg
+          fail_on_unmatched_files: true
       - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: frontend/src-tauri/target/release/bundle/dmg/*.dmg
+          files: dist-dmg/Workbench-macos-aarch64.dmg
           generate_release_notes: true
+          fail_on_unmatched_files: true
