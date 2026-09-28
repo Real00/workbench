@@ -91,7 +91,15 @@ def _first_img(html: str) -> str | None:
 
 class RssAtomParser(SubscriptionParser):
     def parse(self, payload: ParsePayload) -> list[ParsedArticle]:
-        root = ET.fromstring(payload.body)
+        body = (payload.body or "").strip()
+        if not body:
+            raise ValueError("订阅源响应为空")
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError as exc:
+            raise ValueError(
+                f"XML 解析失败（{exc}）。若正文被截断请重试；确认源返回的是完整 RSS/Atom。"
+            ) from exc
         tag = root.tag.split("}")[-1] if "}" in root.tag else root.tag
         if tag == "feed":
             return self._atom(root)

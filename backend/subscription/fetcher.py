@@ -22,9 +22,13 @@ class HttpFetcher:
 
     async def fetch(self, url: str, *, headers: dict[str, str] | None = None) -> FetchResult:
         timeout = ClientTimeout(total=self.timeout_seconds)
+        # 部分 CDN/网关会拒绝非浏览器 UA；保留可识别的产品后缀
         request_headers = {
-            "User-Agent": "WorkbenchSubscription/1.0",
+            "User-Agent": (
+                "Mozilla/5.0 (compatible; WorkbenchSubscription/1.0; +https://localhost)"
+            ),
             "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+            "Accept-Encoding": "gzip, deflate",
         }
         if headers:
             request_headers.update(headers)
@@ -34,7 +38,9 @@ class HttpFetcher:
                     if resp.status >= 400:
                         text = await resp.text(errors="replace")
                         raise ValueError(f"HTTP {resp.status}: {text[:200]}")
-                    raw = await resp.content.read(self.max_bytes + 1)
+                    # 必须用 Response.read()：content.read(n) 在 gzip/chunked 下可能只返回
+                    # 当前缓冲（常见 4KiB），导致 XML 中途截断并触发 ParseError。
+                    raw = await resp.read()
                     if len(raw) > self.max_bytes:
                         raise ValueError(f"响应超过 {self.max_bytes} 字节上限")
                     charset = resp.charset or "utf-8"

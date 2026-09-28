@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from shared.events import ChangeEventBus
@@ -49,6 +50,22 @@ class SubscriptionApplicationService:
                     "script": BUILTIN_RSS_SCRIPT,
                     "builtin": True,
                 }
+            )
+            return
+        if (
+            existing.script != BUILTIN_RSS_SCRIPT
+            or existing.description != BUILTIN_RSS_PLUGIN_DESCRIPTION
+            or existing.name != BUILTIN_RSS_PLUGIN_NAME
+        ):
+            # 平台种子演进时同步内置脚本（绕过「用户不可改内置脚本」）
+            await self.domain.plugins.save(
+                replace(
+                    existing,
+                    name=BUILTIN_RSS_PLUGIN_NAME,
+                    description=BUILTIN_RSS_PLUGIN_DESCRIPTION,
+                    script=BUILTIN_RSS_SCRIPT,
+                    updated_at=datetime.now(UTC),
+                )
             )
 
     # —— plugins ——
