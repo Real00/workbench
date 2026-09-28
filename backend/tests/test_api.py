@@ -405,7 +405,8 @@ async def test_ai_tools_registry_requires_admin_and_lists_modules() -> None:
         assert result.status == 200
         modules = (await result.json())["modules"]
         by_id = {item["id"]: item for item in modules}
-        assert set(by_id) == {"progress", "knowledge"}
+        assert set(by_id) == {"progress", "knowledge", "pulse"}
+        assert {tool["name"] for tool in by_id["pulse"]["tools"]} == {"read_attachment"}
         tool_names = {tool["name"] for tool in by_id["progress"]["tools"]}
         assert "record_member_evaluation" in tool_names
         evaluation_tool = next(
