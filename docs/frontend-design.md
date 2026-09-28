@@ -57,7 +57,7 @@ shadcn 映射：`--primary` ← cyan，`--background` ← ink，`--card` / `--po
 
 - 字体：系统 UI 栈（SF / PingFang / YaHei）。展示标题用 `--font-display`，等宽编号用 `--font-mono`。
 - 页面：`.page-wrap` 最大 1500px，内边距 `32px 32px 88px`（底部给 Pulse 触发器留空）。
-- 侧栏：展开 236px，收起 64px；主区 `padding-left` 同步。Pulse 打开时主区 `padding-right: 472px`。
+- 侧栏：展开 236px，收起 64px；主区 `padding-left` 同步。Pulse 打开时主区 `padding-right: 472px`，加宽后 `752px`。
 - 卡片：12px 圆角、1px `line` 边框、白底、20px 内边距。
 - 控件高度：输入 / 选择 40px（`Input` 默认 `h-10`，`AppSelect` trigger 同高）。主按钮沿用 shadcn `h-8`，空状态和页头主操作可 visually 偏紧，不要再叠一套 `.btn-primary`。
 - 图标：`@lucide/vue`，导航 18px，按钮内 15–16px，芯片内 10–13px。
@@ -144,6 +144,8 @@ shadcn 映射：`--primary` ← cyan，`--background` ← ink，`--card` / `--po
 
 **表单字段** `.field-label`：标签在上，控件在下。shadcn Input / Textarea / SelectTrigger 靠 `[data-slot=…] { margin-top: 8px }` 对齐。嵌套在 `relative` 容器里的输入要加 `!mt-0`。
 
+**输入焦点**：文本类控件（`Input` / `Textarea` / `SelectTrigger` / `.search-box` / `.rich-textarea` / Pulse composer）统一为「只加深边框色」，不加外圈 `ring`，避免双层描边。按钮仍可保留键盘 `ring`。
+
 ## 8. 各页面
 
 ### 登录
@@ -179,10 +181,13 @@ Composer：`Textarea` + `⌘/Ctrl+Enter` 保存，不分类。列表：搜索 `I
 
 ## 9. Pulse
 
-右下触发器 `.ai-trigger`；展开为 472px 侧栏。
+右下触发器 `.ai-trigger`；展开为 440px 侧栏，标题栏可一键加宽到 720px（记住选择）。
 
-- 快捷键：`⌘/Ctrl+I` 开关；`⌘/Ctrl+Enter` 确认排队变更；`Shift+Enter` 换行；`↑` 召回上一条。
+- 快捷键：`⌘/Ctrl+I` 开关；`⌘/Ctrl+Enter` 确认排队变更；`Shift+Enter` 换行；`↑` 在上一条原文修改；气泡内 `Enter` 重发、`Esc` 取消。
 - `@` 弹出提及列表（任务 / 成员 / 项目 / 文档 / 工具），把稳定 id 放进 `context_*`，不要让模型猜当前页对象。
+- 用户气泡在原文上修改后重发（`rewind_exchanges` 丢掉其后轮次）；助手回答下方用小图标复制原文、切换原文/渲染、重试。
+- 可粘贴 / 拖入 / 选择 `.md` `.txt` `.docx`。附件先上传到 `/ai/attachments`，发送时带 `attachment_ids`；空文案默认请模型阅读并在合适时存进知识库。确认卡片展示 `create_document_from_attachment`。
+- 助手回答用现有 `MarkdownView`（`marked` GFM + DOMPurify）：表格、列表、代码块、删除线；用户气泡仍是原文。
 - 工具调用以芯片展示；变更以预览卡片展示；确认前不写库。
 - 不要做第二个 Pulse。新模块的写操作通过后端工具进入同一对话框。
 

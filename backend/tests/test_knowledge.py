@@ -143,6 +143,76 @@ async def test_create_entry_tool_queues_and_confirm_writes_corpus() -> None:
     assert "负责人" in knowledge.corpus.read("index.md")
 
 
+async def test_attachment_is_quoted_in_prompt_and_saved_as_document_on_confirm() -> None:
+    from ai_settings.application import AISettingsApplicationService
+    from ai_settings.domain import AISettingsDomainService
+    from knowledge.ai_tools import save_attachment_as_document
+    from progress.ai_application import AITaskApplicationService
+    from pulse.ai_tools import read_attachment
+    from shared.security import SecurityService
+    from tests.fakes import MemoryAISettingsRepository
+    from tests.test_ai import FakeProgressAgent
+
+    knowledge = _service()
+    progress = ProgressDomainService(MemoryTaskRepository(), MemoryMemberRepository(), MemoryProjectRepository())
+    security = SecurityService("test-secret-with-at-least-32-characters", 60)
+    ai_domain = AISettingsDomainService(MemoryAISettingsRepository())
+    await ai_domain.configure(
+        "https://example.test/v1", "test-model", security.encrypt("secret-api-key")
+    )
+    agent = FakeProgressAgent([{"type": "text", "delta": "将导入附件"}])
+    service = AITaskApplicationService(
+        AISettingsApplicationService(ai_domain, security),
+        progress,
+        security,
+        60,
+        agent=agent,
+        knowledge=knowledge,
+    )
+    with pytest.raises(ValueError, match="暂不支持"):
+        service.add_attachment("slides.pdf", b"%PDF")
+    meta = service.add_attachment("会议纪要.md", "# 纪要\n\n验证码超时先切备用通道".encode())
+    assert meta["name"] == "会议纪要.md" and meta["chars"] > 0
+
+    expired = [event async for event in service.stream("看看附件", attachment_ids=["missing"])]
+    assert expired == [{"type": "error", "message": "附件已过期或不存在，请重新粘贴文件"}]
+
+    events = [event async for event in service.stream("把附件存进知识库", attachment_ids=[meta["id"]])]
+    assert events[-1]["type"] == "done"
+    prompt = agent.prompts[-1]
+    assert f'<attachment id="{meta["id"]}" name="会议纪要.md"' in prompt
+    assert "验证码超时先切备用通道" in prompt
+    assert "save_attachment_as_document" in prompt
+
+    attachment = service.attachments.get(meta["id"])
+    assert attachment is not None
+    ctx = SimpleNamespace(
+        deps=AgentDeps(
+            progress=progress,
+            knowledge=knowledge.domain,
+            corpus=knowledge.corpus,
+            attachments=[attachment],
+        )
+    )
+    piece = await read_attachment(ctx, meta["id"], offset=0, limit=4)
+    assert piece["text"] == "# 纪要" and piece["has_more"] is True
+    with pytest.raises(ModelRetry, match="unknown attachment_id"):
+        await save_attachment_as_document(ctx, attachment_id="nope", title="x")
+    queued = await save_attachment_as_document(ctx, attachment_id=meta["id"], title="登录纪要")
+    assert queued["queued"] is True
+    assert ctx.deps.pending[0]["op"] == "create_document_from_attachment"
+    assert "body" not in ctx.deps.pending[0]["changes"]
+    assert await knowledge.list_documents() == []
+
+    agent.pending = ctx.deps.pending
+    done = [event async for event in service.stream("确认", attachment_ids=[meta["id"]])][-1]
+    confirmed = await service.confirm(done["confirmation_token"], "admin")
+    assert confirmed[0]["title"] == "登录纪要"
+    assert confirmed[0]["has_raw"] is True
+    assert "验证码超时先切备用通道" in confirmed[0]["body"]
+    assert knowledge.corpus.search("备用通道", glob="wiki/documents/**")
+
+
 async def test_list_tags_tool_includes_explanation() -> None:
     knowledge = _service()
     await knowledge.create_tag({"name": "平台", "explanation": "工作台本身"})

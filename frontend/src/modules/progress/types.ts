@@ -131,6 +131,7 @@ export type AiOperation =
   | { op: 'create_entry'; changes: Record<string, unknown> }
   | { op: 'update_entry'; entry_id: string; changes: Record<string, unknown> }
   | { op: 'create_document'; changes: Record<string, unknown> }
+  | { op: 'create_document_from_attachment'; attachment_id: string; filename: string; changes: Record<string, unknown> }
   | { op: 'update_document'; document_id: string; changes: Record<string, unknown> }
   | { op: 'link_entry'; document_id: string; entry_id: string }
 

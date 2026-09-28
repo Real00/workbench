@@ -3,6 +3,7 @@ from typing import cast
 from aiohttp import web
 
 from ai_settings.ports import AISettingsReader
+from pulse.ai_tools import pulse_ai_contribution
 from pulse.application import PulseApplicationService
 from pulse.routes import register_routes
 from shared.module import ModuleContext
@@ -12,6 +13,7 @@ from shared.web_keys import AI_TASKS, KNOWLEDGE, PROGRESS
 class PulseModule:
     def register(self, app: web.Application, context: ModuleContext) -> None:
         settings_reader = cast(AISettingsReader, context.services["ai_settings_reader"])
+        context.ai_contributions.append(pulse_ai_contribution())
         app[AI_TASKS] = PulseApplicationService(
             settings_reader,
             app[PROGRESS].domain,

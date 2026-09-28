@@ -145,6 +145,19 @@ class KnowledgeApplicationService:
         await self.compile()
         return public_document(document)
 
+    async def create_document_from_file(
+        self, filename: str, data: bytes, changes: dict[str, Any]
+    ) -> dict[str, Any]:
+        """用原始文件建文档：正文来自抽取结果，原件归档到 raw/。"""
+        payload = {**changes, "body": extract_markdown(filename, data)}
+        document = await self.domain.create_document(payload)
+        key = await self.corpus.put_raw(document.id, filename, data)
+        document = await self.domain.update_document(
+            document.id, {"raw_filename": filename, "raw_storage_key": key}
+        )
+        await self.compile()
+        return public_document(document)
+
     async def move_document(
         self, document_id: str, canvas_x: float, canvas_y: float
     ) -> dict[str, Any]:

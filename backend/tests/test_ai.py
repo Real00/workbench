@@ -274,6 +274,28 @@ async def test_stream_maintains_multi_turn_session_history() -> None:
     assert all("session_id" not in event or event["session_id"] for event in first_events)
 
 
+async def test_stream_rewind_drops_recent_exchanges_for_edit_and_retry() -> None:
+    service, _, agent, _ = await build_service()
+    session_id = [event async for event in service.stream("第一句")][-1]["session_id"]
+    await _drain(service.stream("第二句", session_id=session_id))
+    await _drain(service.stream("第三句", session_id=session_id))
+    assert len(agent.histories[2]) == 4
+
+    # 修改第二句后重发：丢掉最近两轮（第二、第三句），只保留第一轮
+    await _drain(service.stream("改过的第二句", session_id=session_id, rewind_exchanges=2))
+    history = agent.histories[3]
+    assert len(history) == 2
+    assert history[0].parts[0].content.endswith("第一句")
+
+    # 回退轮数超过已有轮数时清空历史，而不是报错
+    await _drain(service.stream("全部重来", session_id=session_id, rewind_exchanges=99))
+    assert agent.histories[4] == []
+
+
+async def _drain(stream: AsyncIterator[dict[str, object]]) -> list[dict[str, object]]:
+    return [event async for event in stream]
+
+
 async def test_stream_injects_mentions_into_prompt() -> None:
     service, _, agent, member_id = await build_service()
     events = [
@@ -556,7 +578,7 @@ async def test_progress_registers_ai_contribution() -> None:
         **knowledge_overrides(),
     )
     contribs = app[AI_CONTRIBUTIONS]
-    assert [item.id for item in contribs] == ["progress", "knowledge"]
+    assert [item.id for item in contribs] == ["progress", "knowledge", "pulse"]
     assert [fn.__name__ for fn in contribs[0].tools] == [
         "list_tasks",
         "list_projects",

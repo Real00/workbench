@@ -2,6 +2,7 @@ import asyncio
 from typing import Literal
 
 from aiohttp import web
+from aiohttp.multipart import BodyPartReader
 from pydantic import BaseModel, Field
 from pydantic_ai import CancellationToken
 
@@ -21,6 +22,9 @@ class AIPreviewInput(BaseModel):
     context_document_id: str | None = None
     session_id: str | None = Field(default=None, max_length=64)
     mentions: list[MentionInput] | None = None
+    attachment_ids: list[str] | None = Field(default=None, max_length=8)
+    # 「修改后重发」：从服务端会话尾部丢掉的用户轮数
+    rewind_exchanges: int = Field(default=0, ge=0, le=100)
 
 
 class AIConfirmInput(BaseModel):
@@ -57,6 +61,8 @@ async def run_ai_task(request: web.Request) -> web.StreamResponse:
             context_document_id=data.get("context_document_id"),
             session_id=data.get("session_id"),
             mentions=data.get("mentions"),
+            attachment_ids=data.get("attachment_ids"),
+            rewind_exchanges=int(data.get("rewind_exchanges") or 0),
         ):
             try:
                 await stream.write(f"data: {dumps(event)}\n\n".encode())
@@ -106,6 +112,16 @@ async def confirm_ai_task(request: web.Request) -> web.Response:
     )
 
 
+async def upload_attachment(request: web.Request) -> web.Response:
+    reader = await request.multipart()
+    field = await reader.next()
+    if not isinstance(field, BodyPartReader) or field.name != "file":
+        raise ValueError("file is required")
+    data = await field.read(decode=False)
+    return response(request.app[AI_TASKS].add_attachment(field.filename or "", data), 201)
+
+
 def register_routes(app: web.Application) -> None:
     app.router.add_post("/api/v1/ai/run", run_ai_task)
     app.router.add_post("/api/v1/ai/confirm", confirm_ai_task)
+    app.router.add_post("/api/v1/ai/attachments", upload_attachment)

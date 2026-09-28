@@ -20,8 +20,20 @@ INSTRUCTIONS = (
     "Documents are markdown notes that can link many entries and tags. "
     "Tags have a required explanation. "
     "To extract facts from a document, read it then queue create_entry and link_entry. "
+    "To store a user-attached file as a document, queue save_attachment_as_document with "
+    "the attachment_id; the original file is archived and its text becomes the body. "
     "Never claim knowledge was saved until the user confirms."
 )
+
+
+async def _tag_ids(domain: Any, tag_names: list[str] | None) -> list[str]:
+    tag_ids: list[str] = []
+    for name in tag_names or []:
+        tag = await domain.tag_by_name(name)
+        if not tag:
+            raise ModelRetry(f"unknown tag: {name}. Create it with create_tag first.")
+        tag_ids.append(tag.id)
+    return tag_ids
 
 
 def _changes(**fields: Any) -> dict[str, Any]:
@@ -273,6 +285,42 @@ async def create_document(
     return {"queued": True, "op": "create_document", "title": title}
 
 
+async def save_attachment_as_document(
+    ctx: RunContext[AgentDeps],
+    attachment_id: str,
+    title: str,
+    tag_names: list[str] | None = None,
+) -> dict[str, Any]:
+    """Queue saving a user-attached file as a knowledge document. The extracted text becomes
+    the body and the original file is archived; never paste the attachment content yourself."""
+    domain = _knowledge(ctx)
+    attachment = next((item for item in ctx.deps.attachments if item.id == attachment_id), None)
+    if attachment is None:
+        available = ", ".join(f"{item.id} ({item.filename})" for item in ctx.deps.attachments)
+        raise ModelRetry(f"unknown attachment_id: {attachment_id}. Available: {available or 'none'}")
+    tag_ids = await _tag_ids(domain, tag_names)
+    changes = _changes(title=title, tag_ids=tag_ids or None)
+    try:
+        await domain.validate_document_changes(None, {**changes, "body": attachment.text})
+    except ValueError as exc:
+        raise ModelRetry(str(exc)) from exc
+    ctx.deps.pending.append(
+        {
+            "op": "create_document_from_attachment",
+            "attachment_id": attachment.id,
+            "filename": attachment.filename,
+            "changes": changes,
+        }
+    )
+    return {
+        "queued": True,
+        "op": "create_document_from_attachment",
+        "title": title,
+        "filename": attachment.filename,
+        "chars": len(attachment.text),
+    }
+
+
 async def update_document(
     ctx: RunContext[AgentDeps],
     document_id: str | None = None,
@@ -343,6 +391,7 @@ def knowledge_ai_contribution() -> ModuleAiContribution:
             create_entry,
             update_entry,
             create_document,
+            save_attachment_as_document,
             update_document,
             link_entry,
         ),

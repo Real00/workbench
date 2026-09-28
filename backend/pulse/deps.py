@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from progress.domain import ProgressDomainService
+from pulse.attachments import PulseAttachment
 from pulse.scope import ProjectScope
 
 
@@ -30,6 +31,7 @@ class AgentDeps:
     instruction: str = ""
     scopes: list[ProjectScope] = field(default_factory=list)
     produced_messages: list[Any] = field(default_factory=list)
+    attachments: list[PulseAttachment] = field(default_factory=list)
 
     @property
     def domain(self) -> ProgressDomainService:

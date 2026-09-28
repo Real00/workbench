@@ -38,6 +38,7 @@ ALWAYS_AVAILABLE_TOOLS = {
     "read_knowledge",
     "list_tags",
     "list_entries",
+    "read_attachment",
 }
 
 

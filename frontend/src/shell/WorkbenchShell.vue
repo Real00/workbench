@@ -70,6 +70,7 @@ const router = useRouter()
 const collapsed = ref(false)
 const mobileOpen = ref(false)
 const assistantOpen = ref(false)
+const assistantWide = ref(false)
 const primaryNavigation = moduleNavigation.filter(group => group.id !== 'platform')
 const platformNavigation = moduleNavigation.filter(group => group.id === 'platform')
 
@@ -112,9 +113,9 @@ function logout() {
         </Button>
       </div>
     </aside>
-    <main :class="['main-content', collapsed && 'main-content--wide', assistantOpen && 'main-content--assistant']">
+    <main :class="['main-content', collapsed && 'main-content--wide', assistantOpen && 'main-content--assistant', assistantOpen && assistantWide && 'main-content--assistant-wide']">
       <RouterView />
-      <AiDock @open-change="assistantOpen = $event" />
+      <AiDock @open-change="assistantOpen = $event" @wide-change="assistantWide = $event" />
       <Dialog :open="captures.quickOpen" @update:open="captures.quickOpen = $event">
         <DialogContent class="sm:max-w-lg">
           <DialogHeader>

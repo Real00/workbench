@@ -7,6 +7,6 @@ const html = computed(() => renderMarkdown(props.source))
 </script>
 
 <template>
-  <!-- source 经 renderMarkdown 全量转义后才生成 HTML，无注入面 -->
+  <!-- marked 出 HTML 后经 DOMPurify 消毒，再 v-html -->
   <div class="md-body" v-html="html" />
 </template>

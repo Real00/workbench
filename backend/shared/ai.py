@@ -18,7 +18,7 @@ PLATFORM_AI_INSTRUCTIONS = (
     "will apply after confirmation. If earlier steps reveal the request is wrong, say so "
     "instead of forcing a change. "
     "Read tools (list_tasks, list_members, list_projects, get_task, search_knowledge, "
-    "list_tags, list_entries) are always available. Other tools (creating or updating "
+    "list_tags, list_entries, read_attachment) are always available. Other tools (creating or updating "
     "tasks, members, projects, evaluations, knowledge entries) may be preloaded or deferred. "
     "Call tools already visible directly. For other tools, discover them via search_tools "
     "with related keywords; after a tool is revealed "
