@@ -6,13 +6,18 @@
 #   - 自动沿用已有 Compose 项目名，使 mongo-data 等 named volume 继续挂载旧数据
 #   - 默认只 recreate 需要变更的容器；mongo 镜像未变时通常不会动数据卷
 #
-# 用法（在已 clone 的仓库根目录，或把本脚本与 compose.ghcr.yaml 放到部署目录后）：
-#   sudo ./deploy/install-server.sh
-#   sudo INSTALL_DIR=/opt/workbench ./deploy/install-server.sh
-#   sudo COMPOSE_PROJECT_NAME=console ./deploy/install-server.sh   # 手动指定项目名
+# 用法：
+#   A) 完整仓库：sudo ./deploy/install-server.sh
+#   B) 精简部署目录（推荐）：把下列文件放在同一目录后执行 ./install-server.sh
+#        compose.ghcr.yaml
+#        install-server.sh          （本脚本，可放目录根）
+#        deploy/update-agent/agent.py
+#        .env                       （已有生产配置务必保留）
+#   sudo INSTALL_DIR=/data/workbench ./install-server.sh
+#   sudo COMPOSE_PROJECT_NAME=workbench ./install-server.sh
 #
 # 可选环境变量：
-#   INSTALL_DIR          部署目录（默认：若 cwd 已有 compose.ghcr.yaml 则用 cwd，否则 /opt/workbench）
+#   INSTALL_DIR          部署目录（默认：脚本所在目录，若其旁已有 compose/.env）
 #   COMPOSE_PROJECT_NAME 强制使用的 compose 项目名（默认自动探测运行中的实例）
 #   COMPOSE_FILE         默认 compose.ghcr.yaml
 #   SKIP_AGENT=1         不安装 systemd Update Agent
@@ -34,14 +39,60 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "缺少命令：$1"
 }
 
-# ---------- 定位仓库 / 安装目录 ----------
+# ---------- 定位素材目录 / 安装目录 ----------
+# 支持两种布局：
+#   1) 仓库：deploy/install-server.sh → 素材在仓库根（SCRIPT_DIR/..）
+#   2) 扁平：/data/workbench/install-server.sh → 素材就在 SCRIPT_DIR
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+resolve_source_root() {
+  local candidate
+  for candidate in \
+    "${SCRIPT_DIR}" \
+    "$(cd "${SCRIPT_DIR}/.." && pwd)" \
+    "${PWD}"; do
+    if [[ -f "${candidate}/${COMPOSE_FILE}" ]]; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if SOURCE_ROOT="$(resolve_source_root)"; then
+  log "素材目录：${SOURCE_ROOT}"
+else
+  die "找不到 ${COMPOSE_FILE}。请放到脚本同目录，或在完整仓库根执行 ./deploy/install-server.sh
+当前脚本目录：${SCRIPT_DIR}
+需要至少：
+  ${COMPOSE_FILE}
+  deploy/update-agent/agent.py
+  .env（已有实例请用现成的，勿覆盖）"
+fi
+
+find_agent_file() {
+  local name="$1"
+  local candidate
+  for candidate in \
+    "${SOURCE_ROOT}/deploy/update-agent/${name}" \
+    "${SOURCE_ROOT}/update-agent/${name}" \
+    "${SCRIPT_DIR}/deploy/update-agent/${name}" \
+    "${SCRIPT_DIR}/update-agent/${name}"; do
+    if [[ -f "${candidate}" ]]; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
 
 if [[ -n "${INSTALL_DIR:-}" ]]; then
   mkdir -p "${INSTALL_DIR}"
   INSTALL_DIR="$(cd "${INSTALL_DIR}" && pwd)"
-elif [[ -f "${PWD}/${COMPOSE_FILE}" ]]; then
+elif [[ -f "${SOURCE_ROOT}/${COMPOSE_FILE}" || -f "${SOURCE_ROOT}/.env" ]]; then
+  # 精简部署：素材已在目标目录时，就地安装，避免误写到 /opt/workbench
+  INSTALL_DIR="${SOURCE_ROOT}"
+elif [[ -f "${PWD}/${COMPOSE_FILE}" || -f "${PWD}/.env" ]]; then
   INSTALL_DIR="${PWD}"
 else
   INSTALL_DIR="/opt/workbench"
@@ -158,29 +209,41 @@ mkdir -p "${INSTALL_DIR}"
 mkdir -p "${INSTALL_DIR}/update-control"
 mkdir -p "${INSTALL_DIR}/deploy/update-agent"
 
-copy_if_present() {
-  local src="$1" dest="$2"
+copy_file() {
+  local src="$1" dest="$2" mode="${3:-0644}"
   [[ -f "${src}" ]] || die "缺少文件：${src}"
-  install -m 0644 "${src}" "${dest}"
+  if [[ "$(cd "$(dirname "${src}")" && pwd)/$(basename "${src}")" == \
+        "$(cd "$(dirname "${dest}")" 2>/dev/null && pwd)/$(basename "${dest}")" ]]; then
+    log "已就位：${dest}"
+    chmod "${mode}" "${dest}" 2>/dev/null || true
+    return 0
+  fi
+  install -m "${mode}" "${src}" "${dest}"
+  log "已同步：${dest}"
 }
 
-copy_if_present "${REPO_ROOT}/${COMPOSE_FILE}" "${INSTALL_DIR}/${COMPOSE_FILE}"
-copy_if_present "${REPO_ROOT}/deploy/update-agent/agent.py" "${INSTALL_DIR}/deploy/update-agent/agent.py"
-chmod 0755 "${INSTALL_DIR}/deploy/update-agent/agent.py"
-copy_if_present "${REPO_ROOT}/deploy/update-agent/workbench-update-agent.service" \
-  "${INSTALL_DIR}/deploy/update-agent/workbench-update-agent.service"
-copy_if_present "${REPO_ROOT}/deploy/update-agent/update-agent.env.example" \
-  "${INSTALL_DIR}/deploy/update-agent/update-agent.env.example"
+AGENT_PY="$(find_agent_file agent.py)" || die "缺少 deploy/update-agent/agent.py（可放在素材目录的 deploy/update-agent/ 或 update-agent/）"
+AGENT_UNIT="$(find_agent_file workbench-update-agent.service || true)"
+AGENT_ENV_EXAMPLE="$(find_agent_file update-agent.env.example || true)"
+
+copy_file "${SOURCE_ROOT}/${COMPOSE_FILE}" "${INSTALL_DIR}/${COMPOSE_FILE}"
+copy_file "${AGENT_PY}" "${INSTALL_DIR}/deploy/update-agent/agent.py" 0755
+if [[ -n "${AGENT_UNIT}" ]]; then
+  copy_file "${AGENT_UNIT}" "${INSTALL_DIR}/deploy/update-agent/workbench-update-agent.service"
+fi
+if [[ -n "${AGENT_ENV_EXAMPLE}" ]]; then
+  copy_file "${AGENT_ENV_EXAMPLE}" "${INSTALL_DIR}/deploy/update-agent/update-agent.env.example"
+fi
 
 if [[ ! -f "${INSTALL_DIR}/.env" ]]; then
-  if [[ -f "${REPO_ROOT}/.env" ]]; then
-    log "复制仓库 .env → ${INSTALL_DIR}/.env"
-    install -m 0600 "${REPO_ROOT}/.env" "${INSTALL_DIR}/.env"
-  elif [[ -f "${REPO_ROOT}/.env.example" ]]; then
+  if [[ -f "${SOURCE_ROOT}/.env" && "${SOURCE_ROOT}/.env" != "${INSTALL_DIR}/.env" ]]; then
+    log "复制 .env → ${INSTALL_DIR}/.env"
+    install -m 0600 "${SOURCE_ROOT}/.env" "${INSTALL_DIR}/.env"
+  elif [[ -f "${SOURCE_ROOT}/.env.example" ]]; then
     warn "未找到 .env，从 .env.example 生成（请务必改掉默认密码与密钥）"
-    install -m 0600 "${REPO_ROOT}/.env.example" "${INSTALL_DIR}/.env"
+    install -m 0600 "${SOURCE_ROOT}/.env.example" "${INSTALL_DIR}/.env"
   else
-    die "需要 ${INSTALL_DIR}/.env（可从 .env.example 复制）"
+    die "需要 ${INSTALL_DIR}/.env（沿用现有生产 .env，勿用空模板覆盖）"
   fi
 else
   log "保留已有 .env（不覆盖）"

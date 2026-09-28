@@ -116,10 +116,20 @@ docker compose up --build
 **推荐：一键脚本**（自动沿用已有 Compose 项目名与 `mongo-data` 卷，**绝不** `down -v` / `volume rm`）：
 
 ```bash
-# 在已 clone 的仓库根目录；私有 GHCR 先 docker login ghcr.io
+# 方式 A：完整仓库
 sudo ./deploy/install-server.sh
-# 或指定目录 / 项目名（项目名必须使「项目名_mongo-data」等于现有卷）
-sudo INSTALL_DIR=/opt/workbench COMPOSE_PROJECT_NAME=你的项目名 ./deploy/install-server.sh
+
+# 方式 B：精简目录（例如 /data/workbench），同目录放入：
+#   compose.ghcr.yaml
+#   install-server.sh
+#   deploy/update-agent/agent.py
+#   .env（已有生产配置）
+cd /data/workbench
+sudo ./install-server.sh
+
+# 私有 GHCR 先 docker login ghcr.io
+# 项目名必须使「项目名_mongo-data」等于现有卷；一般脚本会自动探测
+sudo COMPOSE_PROJECT_NAME=workbench ./install-server.sh
 ```
 
 手动步骤：
