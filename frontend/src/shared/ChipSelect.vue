@@ -48,7 +48,12 @@ function onChange(value: unknown) {
 <template>
   <Select :model-value="encoded" :disabled="disabled" @update:model-value="onChange">
     <SelectTrigger
-      :class="cn('w-fit max-w-full min-w-0', triggerClass)"
+      :class="cn(
+        'h-7 w-fit max-w-full min-w-0 shrink-0 gap-1 overflow-hidden px-2 text-xs whitespace-nowrap',
+        '*:data-[slot=select-value]:!block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:!whitespace-nowrap',
+        '[&_svg:not([class*=size-])]:size-3.5',
+        triggerClass,
+      )"
       :aria-label="ariaLabel ?? display"
     >
       <SelectValue :placeholder="placeholder ?? '请选择'" />

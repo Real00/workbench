@@ -131,8 +131,11 @@ async function removeMember() {
           </div>
           <div class="flex shrink-0 items-center gap-2">
             <template v-if="store.editingMember">
-              <Badge v-if="store.editingMember.operator" variant="secondary">本人</Badge>
-              <Badge :variant="store.editingMember.active ? 'default' : 'secondary'">{{ store.editingMember.active ? '可分配' : '停用' }}</Badge>
+              <Badge v-if="store.editingMember.operator" variant="secondary" class="status-tag">本人</Badge>
+              <Badge
+                variant="outline"
+                :class="['status-tag', store.editingMember.active ? 'status-tag--active' : 'status-tag--inactive']"
+              >{{ store.editingMember.active ? '可分配' : '停用' }}</Badge>
             </template>
             <Button aria-label="关闭" @click="store.memberEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
           </div>

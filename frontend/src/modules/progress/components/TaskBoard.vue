@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import ChipSelect from '../../../shared/ChipSelect.vue'
 import type { AppSelectOption } from '../../../shared/AppSelect.vue'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +18,25 @@ const priorityOptions: AppSelectOption<Priority>[] = Object.entries(priorityMap)
   value: value as Priority,
   label,
 }))
+const assigneeOptions = computed<AppSelectOption[]>(() => [
+  { value: '', label: '未分配' },
+  ...store.assignableMembers.map(member => ({
+    value: member.id,
+    label: member.operator ? `${member.name}（我）` : member.name,
+  })),
+])
+
+function assigneeOptionsFor(task: Task): AppSelectOption[] {
+  const options = assigneeOptions.value
+  if (!task.assignee_id || options.some(option => option.value === task.assignee_id)) return options
+  const member = store.memberMap.get(task.assignee_id)
+  if (!member) return options
+  return [
+    options[0]!,
+    { value: member.id, label: `${member.name}（不可分配）` },
+    ...options.slice(1),
+  ]
+}
 
 async function onStatusChange(task: Task, status: TaskStatus | null | undefined) {
   if (!status || status === task.status) return
@@ -26,6 +46,12 @@ async function onStatusChange(task: Task, status: TaskStatus | null | undefined)
 async function onPriorityChange(task: Task, priority: Priority | null | undefined) {
   if (!priority || priority === task.priority) return
   await store.patchTask(task.id, { priority })
+}
+
+async function onAssigneeChange(task: Task, assigneeId: string | null | undefined) {
+  const next = assigneeId || null
+  if (next === task.assignee_id) return
+  await store.patchTask(task.id, { assignee_id: next })
 }
 </script>
 
@@ -44,8 +70,8 @@ async function onPriorityChange(task: Task, priority: Priority | null | undefine
           @click="store.openTask(task)"
           @keydown.enter="store.openTask(task)"
         >
-          <div class="flex justify-between gap-2">
-            <div @click.stop>
+          <div class="board-card__chips">
+            <div class="board-card__chip" @click.stop>
               <ChipSelect
                 :model-value="task.priority"
                 :options="priorityOptions"
@@ -54,7 +80,7 @@ async function onPriorityChange(task: Task, priority: Priority | null | undefine
                 @update:model-value="priority => onPriorityChange(task, priority)"
               />
             </div>
-            <div @click.stop>
+            <div class="board-card__chip" @click.stop>
               <ChipSelect
                 :model-value="task.status"
                 :options="statusOptions"
@@ -66,7 +92,21 @@ async function onPriorityChange(task: Task, priority: Priority | null | undefine
           </div>
           <h3>{{ task.title }}</h3>
           <p>{{ isBlocked(task) ? `阻塞 · ${latestEntry(task)?.content}` : (latestEntry(task)?.content || task.tags.join(' / ') || '无标签') }}</p>
-          <div class="mt-4 flex items-center gap-2"><span class="avatar avatar--sm">{{ store.memberMap.get(task.assignee_id ?? '')?.name.slice(0, 2) ?? '--' }}</span><div class="progress-line flex-1"><i :style="{ width: `${task.progress}%` }" /></div><span class="font-mono text-[12px] text-muted-foreground">{{ task.progress }}%</span><span v-if="task.resources.length" class="font-mono text-[12px] text-muted-foreground">{{ task.resources.length }}</span></div>
+          <div class="board-card__foot">
+            <div class="board-card__assignee" @click.stop>
+              <ChipSelect
+                :model-value="task.assignee_id ?? ''"
+                :options="assigneeOptionsFor(task)"
+                :disabled="store.saving"
+                trigger-class="max-w-full"
+                :aria-label="`修改负责人：${store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配'}`"
+                @update:model-value="assigneeId => onAssigneeChange(task, assigneeId)"
+              />
+            </div>
+            <div class="progress-line min-w-0 flex-1"><i :style="{ width: `${task.progress}%` }" /></div>
+            <span class="shrink-0 font-mono text-[12px] text-muted-foreground">{{ task.progress }}%</span>
+            <span v-if="task.resources.length" class="shrink-0 font-mono text-[12px] text-muted-foreground">{{ task.resources.length }}</span>
+          </div>
         </article>
       </div>
     </section>

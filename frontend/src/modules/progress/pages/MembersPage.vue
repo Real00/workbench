@@ -42,12 +42,12 @@ async function toggleActive(member: Member) {
           <MemberDeskSprite :seed="member.id" :name="member.name" :color="member.color" :busy="isBusy(member.id)" />
         </div>
         <span class="member-badges">
-          <Badge v-if="member.operator" variant="secondary">本人</Badge>
+          <Badge v-if="member.operator" variant="secondary" class="status-tag">本人</Badge>
           <Badge
             as="button"
             type="button"
-            :variant="member.active ? 'default' : 'secondary'"
-            class="cursor-pointer disabled:cursor-default disabled:opacity-70"
+            variant="outline"
+            :class="['status-tag', 'status-tag--interactive', member.active ? 'status-tag--active' : 'status-tag--inactive']"
             :disabled="member.operator || store.saving"
             :aria-label="member.operator ? '本人始终可分配' : `切换为${member.active ? '停用' : '可分配'}`"
             :title="member.operator ? '本人始终可分配' : '点击切换可分配状态'"
