@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { apiError } from '../../shared/api/client'
+import { isSupportedPulseAttachment } from '../../shared/pulse-session'
 import { knowledgeApi } from './api'
 import type { DocumentInput, EntryInput, KnowledgeDocument, KnowledgeEntry, KnowledgeTag, TagInput } from './types'
 
@@ -10,6 +11,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   const documents = ref<KnowledgeDocument[]>([])
   const loading = ref(false)
   const saving = ref(false)
+  const uploading = ref(false)
   const error = ref('')
   const initialized = ref(false)
   const documentEditorOpen = ref(false)
@@ -102,6 +104,41 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     })
   }
 
+  async function importDocuments(files: File[]) {
+    const supported = files.filter(file => isSupportedPulseAttachment(file.name))
+    const skipped = files.filter(file => !isSupportedPulseAttachment(file.name)).map(file => file.name)
+    if (!supported.length) {
+      error.value = skipped.length
+        ? `不支持的文件类型：${skipped.join('、')}。仅支持 .md / .txt / .docx`
+        : '请选择要上传的文档'
+      return false
+    }
+    uploading.value = true
+    error.value = ''
+    const failures: string[] = []
+    try {
+      for (const file of supported) {
+        try {
+          await knowledgeApi.createDocumentFromFile(file)
+        } catch (cause) {
+          failures.push(`${file.name}：${apiError(cause)}`)
+        }
+      }
+      await initialize()
+      const parts = [
+        ...skipped.map(name => `${name}：不支持的类型`),
+        ...failures,
+      ]
+      if (parts.length) {
+        error.value = parts.join('；')
+        return false
+      }
+      return true
+    } finally {
+      uploading.value = false
+    }
+  }
+
   async function saveEntry(payload: EntryInput) {
     return runSave(async () => {
       if (editingEntry.value) await knowledgeApi.updateEntry(editingEntry.value.id, payload)
@@ -150,9 +187,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   }
 
   return {
-    tags, entries, documents, tagMap, entryMap, loading, saving, error, initialized,
+    tags, entries, documents, tagMap, entryMap, loading, saving, uploading, error, initialized,
     documentEditorOpen, editingDocument, entryEditorOpen, editingEntry, tagEditorOpen, editingTag,
-    initialize, refresh, openDocument, closeDocument, openEntry, openTag, saveDocument, saveEntry, saveTag,
-    deleteDocument, deleteEntry, deleteTag, moveDocument,
+    initialize, refresh, openDocument, closeDocument, openEntry, openTag, saveDocument, importDocuments,
+    saveEntry, saveTag, deleteDocument, deleteEntry, deleteTag, moveDocument,
   }
 })

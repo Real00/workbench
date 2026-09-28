@@ -91,4 +91,34 @@ describe('knowledge store', () => {
     expect(store.documents[0]?.canvas_x).toBe(160)
     expect(store.documents[0]?.canvas_y).toBe(90)
   })
+
+  it('批量上传支持的文件并跳过非法类型', async () => {
+    mockReads()
+    const created = { ...document, id: 'doc-2', title: '纪要', has_raw: true, raw_filename: '纪要.md' }
+    const create = vi.spyOn(knowledgeApi, 'createDocumentFromFile').mockResolvedValue(created)
+    const store = useKnowledgeStore()
+    const ok = await store.importDocuments([
+      new File(['# hi'], '纪要.md', { type: 'text/markdown' }),
+      new File(['x'], 'slides.pdf', { type: 'application/pdf' }),
+    ])
+    expect(ok).toBe(false)
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(store.error).toContain('slides.pdf')
+    expect(store.documents).toEqual([document])
+  })
+
+  it('部分上传失败时继续处理后续文件', async () => {
+    mockReads()
+    const create = vi.spyOn(knowledgeApi, 'createDocumentFromFile')
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce({ ...document, id: 'doc-3', title: '第二篇' })
+    const store = useKnowledgeStore()
+    const ok = await store.importDocuments([
+      new File(['a'], '坏的.md', { type: 'text/markdown' }),
+      new File(['b'], '好的.md', { type: 'text/markdown' }),
+    ])
+    expect(ok).toBe(false)
+    expect(create).toHaveBeenCalledTimes(2)
+    expect(store.error).toContain('坏的.md')
+  })
 })

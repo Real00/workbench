@@ -35,6 +35,17 @@ export const knowledgeApi = {
       }],
     })).data
   },
+  createDocumentFromFile: async (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return (await api.post<KnowledgeDocument>(`${base}/documents/from-file`, form, {
+      timeout: 60_000,
+      transformRequest: [(data, headers) => {
+        if (headers && 'delete' in headers) headers.delete('Content-Type')
+        return data
+      }],
+    })).data
+  },
   importDocument: async (id: string, file: File, applyBody = false) => {
     const form = new FormData()
     form.append('file', file)

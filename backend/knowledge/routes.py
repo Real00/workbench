@@ -1,9 +1,22 @@
+from pathlib import Path
+from urllib.parse import unquote
+
 from aiohttp import web
 from aiohttp.multipart import BodyPartReader
 from pydantic import BaseModel, Field
 
 from api.http import body, response
 from shared.web_keys import KNOWLEDGE
+
+
+def _normalize_upload_filename(filename: str) -> str:
+    name = unquote(filename.replace("\\", "/").rsplit("/", 1)[-1]).strip()
+    return name
+
+
+def _title_from_filename(filename: str) -> str:
+    stem = Path(_normalize_upload_filename(filename)).stem.strip()
+    return stem or "未命名文档"
 
 
 class TagInput(BaseModel):
@@ -60,7 +73,7 @@ async def _read_upload(request: web.Request) -> tuple[str, bytes]:
     field = await reader.next()
     if not isinstance(field, BodyPartReader) or field.name != "file":
         raise ValueError("file is required")
-    return field.filename or "", await field.read(decode=False)
+    return _normalize_upload_filename(field.filename or ""), await field.read(decode=False)
 
 
 async def list_tags(request: web.Request) -> web.Response:
@@ -158,6 +171,16 @@ async def extract_upload(request: web.Request) -> web.Response:
     return response(request.app[KNOWLEDGE].extract(filename, data))
 
 
+async def create_document_from_file(request: web.Request) -> web.Response:
+    filename, data = await _read_upload(request)
+    return response(
+        await request.app[KNOWLEDGE].create_document_from_file(
+            filename, data, {"title": _title_from_filename(filename)}
+        ),
+        201,
+    )
+
+
 async def import_document(request: web.Request) -> web.Response:
     filename, data = await _read_upload(request)
     apply_body = request.query.get("apply_body", "1") != "0"
@@ -181,6 +204,7 @@ def register_routes(app: web.Application) -> None:
     app.router.add_delete(f"{prefix}/entries/{{entry_id}}", delete_entry)
     app.router.add_get(f"{prefix}/documents", list_documents)
     app.router.add_post(f"{prefix}/documents", create_document)
+    app.router.add_post(f"{prefix}/documents/from-file", create_document_from_file)
     app.router.add_get(f"{prefix}/documents/{{document_id}}", get_document)
     app.router.add_patch(f"{prefix}/documents/{{document_id}}", update_document)
     app.router.add_patch(f"{prefix}/documents/{{document_id}}/canvas", move_document)

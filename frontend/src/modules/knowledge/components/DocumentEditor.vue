@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { Save, Trash2, X } from '@lucide/vue'
+import { Save, Trash2, Upload, X } from '@lucide/vue'
 import { apiError } from '../../../shared/api/client'
 import { confirmDialog } from '../../../shared/confirm'
 import MarkdownView from '../../../shared/MarkdownView.vue'
+import {
+  filesFromDataTransfer,
+  isSupportedPulseAttachment,
+  PULSE_ATTACHMENT_ACCEPT,
+} from '../../../shared/pulse-session'
 import RichTextarea from '../../../shared/RichTextarea.vue'
 import { knowledgeApi } from '../api'
 import { useKnowledgeStore } from '../store'
@@ -18,6 +23,8 @@ const pendingFile = ref<File | null>(null)
 const extracted = ref('')
 const confirmOverwrite = ref(false)
 const bodyPreview = ref(false)
+const dragging = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 const title = computed(() => store.editingDocument ? '编辑文档' : '新建文档')
 
 watch(() => store.documentEditorOpen, (open) => {
@@ -33,25 +40,59 @@ watch(() => store.documentEditorOpen, (open) => {
   pendingFile.value = null
   extracted.value = ''
   confirmOverwrite.value = false
+  dragging.value = false
 })
 
-async function onFile(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
+async function ingestFile(file: File | undefined | null) {
   if (!file) return
+  if (!isSupportedPulseAttachment(file.name)) {
+    store.error = '仅支持 .md / .txt / .docx'
+    return
+  }
   try {
     const result = await knowledgeApi.extract(file)
     extracted.value = result.body
     pendingFile.value = file
     store.error = ''
-    if (!store.editingDocument?.body) {
+    if (!form.body.trim()) {
       form.body = result.body
       confirmOverwrite.value = true
+      if (!form.title.trim()) {
+        form.title = file.name.replace(/\.[^.]+$/, '') || form.title
+      }
     }
   } catch (cause) {
     pendingFile.value = null
     extracted.value = ''
     store.error = apiError(cause)
   }
+}
+
+async function onFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  await ingestFile(input.files?.[0])
+  input.value = ''
+}
+
+function pickFile() {
+  fileInput.value?.click()
+}
+
+async function onDrop(event: DragEvent) {
+  dragging.value = false
+  const file = filesFromDataTransfer(event.dataTransfer)[0]
+  await ingestFile(file)
+}
+
+function onDragOver(event: DragEvent) {
+  if (![...(event.dataTransfer?.types ?? [])].includes('Files')) return
+  dragging.value = true
+}
+
+function onDragLeave(event: DragEvent) {
+  const next = event.relatedTarget as Node | null
+  if (next && (event.currentTarget as Node).contains(next)) return
+  dragging.value = false
 }
 
 function applyExtract() {
@@ -93,9 +134,37 @@ async function removeDocument() {
               <MarkdownView :source="form.body" />
             </div>
           </div>
-          <label class="field-label">导入 Markdown / Word
-            <input type="file" class="mt-2 text-xs text-muted-foreground" accept=".md,.txt,.docx" @change="onFile" />
-          </label>
+          <div class="field-label">
+            <span>导入 Markdown / Word</span>
+            <small>拖入或选择 .md / .txt / .docx；保存时原件归档到 raw/</small>
+            <button
+              type="button"
+              class="knowledge-import-drop relative"
+              :class="{ 'knowledge-import-drop--active': dragging }"
+              @click="pickFile"
+              @dragover.prevent="onDragOver"
+              @dragleave="onDragLeave"
+              @drop.prevent="onDrop"
+            >
+              <span class="flex items-center gap-2 text-sm text-text">
+                <Upload :size="16" />
+                {{ pendingFile ? pendingFile.name : '拖拽到此处，或点击选择文件' }}
+              </span>
+              <span class="text-[12px] text-muted-foreground">
+                <template v-if="store.editingDocument?.has_raw">
+                  已有原件 {{ store.editingDocument.raw_filename }}；重新导入会替换归档。
+                </template>
+                <template v-else>单文件导入，抽出正文后可再编辑。</template>
+              </span>
+              <input
+                ref="fileInput"
+                type="file"
+                :accept="PULSE_ATTACHMENT_ACCEPT"
+                @change="onFile"
+                @click.stop
+              >
+            </button>
+          </div>
           <div v-if="extracted && store.editingDocument?.body && form.body !== extracted" class="rounded-xl border border-line bg-panel-2 p-4">
             <p class="text-[12px] text-muted-foreground">抽出的正文尚未覆盖当前内容。确认后才会写入编辑区；保存时原件进 raw/，不会再抽一次。</p>
             <pre class="mt-3 max-h-32 overflow-auto text-[12px] text-text-secondary">{{ extracted }}</pre>

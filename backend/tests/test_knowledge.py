@@ -58,6 +58,19 @@ async def test_reimport_without_apply_keeps_edited_body() -> None:
     assert "抽出的新正文" not in service.corpus.read(f"wiki/documents/{document['id']}.md")
 
 
+async def test_create_document_from_file_sets_body_and_raw() -> None:
+    service = _service()
+    document = await service.create_document_from_file(
+        "会议纪要.md", "# 纪要\n\n讨论检索".encode(), {"title": "会议纪要"}
+    )
+    assert document["title"] == "会议纪要"
+    assert "讨论检索" in document["body"]
+    assert document["has_raw"] is True
+    assert document["raw_filename"] == "会议纪要.md"
+    with pytest.raises(ValueError, match="unsupported"):
+        await service.create_document_from_file("slides.pdf", b"%PDF", {"title": "幻灯片"})
+
+
 async def test_entry_links_to_document_both_sides() -> None:
     service = _service()
     tag = await service.create_tag({"name": "平台", "explanation": "工作台本身"})
@@ -315,5 +328,26 @@ async def test_knowledge_http_create_document_and_entry() -> None:
         )
         assert extracted.status == 200
         assert "按行可搜" in (await extracted.json())["body"]
+        from_file = FormData()
+        from_file.add_field(
+            "file",
+            "# 上传建档\n\n正文进 wiki".encode(),
+            filename="上传建档.md",
+            content_type="text/markdown",
+        )
+        created = await client.post(
+            "/api/v1/knowledge/documents/from-file", data=from_file, headers=headers
+        )
+        assert created.status == 201
+        created_doc = await created.json()
+        assert created_doc["title"] == "上传建档"
+        assert "正文进 wiki" in created_doc["body"]
+        assert created_doc["has_raw"] is True
+        bad = FormData()
+        bad.add_field("file", b"%PDF", filename="slides.pdf", content_type="application/pdf")
+        rejected = await client.post(
+            "/api/v1/knowledge/documents/from-file", data=bad, headers=headers
+        )
+        assert rejected.status == 400
     finally:
         await client.close()

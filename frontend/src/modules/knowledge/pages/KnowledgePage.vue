@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue'
-import { BookOpen, FileText, List, Plus, Search, Tags } from '@lucide/vue'
+import { BookOpen, FileText, List, Plus, Search, Tags, Upload } from '@lucide/vue'
+import { filesFromDataTransfer, PULSE_ATTACHMENT_ACCEPT } from '../../../shared/pulse-session'
 import { useKnowledgeStore } from '../store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,9 @@ const kind = ref<Kind>('documents')
 const query = ref('')
 const store = useKnowledgeStore()
 const needle = computed(() => query.value.trim().toLowerCase())
+const fileInput = ref<HTMLInputElement | null>(null)
+const dragging = ref(false)
+const documentSurface = computed(() => view.value === 'canvas' || kind.value === 'documents')
 
 const filteredDocuments = computed(() => store.documents.filter(item =>
   !needle.value || item.title.toLowerCase().includes(needle.value) || item.body.toLowerCase().includes(needle.value)
@@ -25,10 +29,53 @@ const filteredTags = computed(() => store.tags.filter(item =>
   !needle.value || item.name.toLowerCase().includes(needle.value) || item.explanation.toLowerCase().includes(needle.value)
 ))
 
+function pickFiles() {
+  fileInput.value?.click()
+}
+
+async function onFilesSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = [...(input.files ?? [])]
+  input.value = ''
+  if (files.length) await store.importDocuments(files)
+}
+
+async function onDrop(event: DragEvent) {
+  dragging.value = false
+  if (!documentSurface.value || store.uploading) return
+  const files = filesFromDataTransfer(event.dataTransfer)
+  if (files.length) await store.importDocuments(files)
+}
+
+function onDragOver(event: DragEvent) {
+  if (!documentSurface.value || store.uploading) return
+  if (![...(event.dataTransfer?.types ?? [])].includes('Files')) return
+  dragging.value = true
+}
+
+function onDragLeave(event: DragEvent) {
+  const next = event.relatedTarget as Node | null
+  if (next && (event.currentTarget as Node).contains(next)) return
+  dragging.value = false
+}
 </script>
 
 <template>
-  <div class="page-wrap knowledge-page">
+  <div
+    class="page-wrap knowledge-page"
+    :class="{ 'knowledge-page--drop': dragging && documentSurface }"
+    @dragover.prevent="onDragOver"
+    @dragleave="onDragLeave"
+    @drop.prevent="onDrop"
+  >
+    <input
+      ref="fileInput"
+      type="file"
+      class="sr-only"
+      multiple
+      :accept="PULSE_ATTACHMENT_ACCEPT"
+      @change="onFilesSelected"
+    >
     <header class="page-header">
       <div>
         <p class="eyebrow">Knowledge</p>
@@ -38,9 +85,16 @@ const filteredTags = computed(() => store.tags.filter(item =>
       <div class="flex gap-2">
         <Button @click="store.openTag()" variant="outline"><Tags :size="16" />标签</Button>
         <Button @click="store.openEntry()" variant="outline"><Plus :size="16" />条目</Button>
+        <Button :disabled="store.uploading" @click="pickFiles" variant="outline">
+          <Upload :size="16" />{{ store.uploading ? '上传中…' : '上传文档' }}
+        </Button>
         <Button @click="store.openDocument()"><Plus :size="16" />文档</Button>
       </div>
     </header>
+    <p v-if="store.error" class="error-box mb-4">{{ store.error }}</p>
+    <p v-if="dragging && documentSurface" class="mb-4 rounded-xl border border-dashed border-cyan bg-panel-2 px-4 py-3 text-sm text-muted-foreground">
+      松开即可导入 .md / .txt / .docx，每份文件会建成一篇文档。
+    </p>
     <div class="mb-4 flex flex-col gap-3 rounded-xl border border-line bg-panel p-2 md:flex-row md:items-center md:justify-between">
       <div class="segmented-tabs" role="group" aria-label="知识视图">
         <Button type="button" variant="ghost" :class="['view-tab', view === 'list' && 'view-tab--active']" :aria-pressed="view === 'list'" @click="view = 'list'"><List :size="15" />列表</Button>
@@ -61,8 +115,14 @@ const filteredTags = computed(() => store.tags.filter(item =>
         </div>
       </div>
       <div v-else-if="kind === 'documents' && !filteredDocuments.length" class="empty-state">
-        <BookOpen :size="28" /><h2>{{ needle ? '没有匹配的文档' : '尚无文档' }}</h2><p>{{ needle ? '尝试其他关键词或清除搜索。' : '创建文档，沉淀可检索的工作知识。' }}</p>
-        <Button v-if="needle" @click="query = ''" variant="outline">清除搜索</Button><Button v-else @click="store.openDocument()">新建文档</Button>
+        <BookOpen :size="28" /><h2>{{ needle ? '没有匹配的文档' : '尚无文档' }}</h2><p>{{ needle ? '尝试其他关键词或清除搜索。' : '创建文档，或拖入 / 选择 .md、.txt、.docx 导入。' }}</p>
+        <div class="flex flex-wrap justify-center gap-2">
+          <Button v-if="needle" @click="query = ''" variant="outline">清除搜索</Button>
+          <template v-else>
+            <Button :disabled="store.uploading" @click="pickFiles" variant="outline"><Upload :size="16" />上传文档</Button>
+            <Button @click="store.openDocument()">新建文档</Button>
+          </template>
+        </div>
       </div>
       <div v-else-if="kind === 'documents'" class="knowledge-table"><table class="data-table">
         <thead><tr><th>标题</th><th>标签</th><th>条目</th></tr></thead>
