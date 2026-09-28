@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { CheckCircle2, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable, Package } from '@lucide/vue'
+import { CheckCircle2, CircleAlert, Copy, Check, Eye, EyeOff, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable, Package, XCircle } from '@lucide/vue'
 import JevSettingsFields, { type JevSettings } from './JevSettingsFields.vue'
 import { api, apiError, getApiBase, getDeviceId, getDeviceToken, setDeviceCredentials } from '../../shared/api/client'
 import { confirmDialog } from '../../shared/confirm'
@@ -31,11 +31,18 @@ interface UpdateCheck {
   github_repo: string
   github_ref: string
 }
+type UpdateState = 'idle' | 'queued' | 'pulling' | 'restarting' | 'running' | 'succeeded' | 'failed'
 interface UpdateStatus {
   id: string
-  state: 'idle' | 'queued' | 'running' | 'succeeded' | 'failed'
+  state: UpdateState
   message: string
   finished_at: string | null
+  phase?: string
+}
+type UpdateStepId = 'submit' | 'queued' | 'pulling' | 'restarting' | 'verify'
+interface UpdateStep {
+  id: UpdateStepId
+  label: string
 }
 
 const tab = ref<'connection' | 'tools' | 'devices' | 'mcp' | 'updates'>('connection')
@@ -68,7 +75,20 @@ const checkingUpdate = ref(false)
 const applyingUpdate = ref(false)
 const updateStatus = ref<UpdateStatus | null>(null)
 const updateMessage = ref('')
+const updateRequestId = ref('')
+const updateStartedAt = ref<number | null>(null)
+const updateElapsedSec = ref(0)
+const updatePhase = ref<UpdateStepId | 'done' | 'failed' | null>(null)
 let updatePollTimer: number | undefined
+let updateElapsedTimer: number | undefined
+
+const UPDATE_STEPS: UpdateStep[] = [
+  { id: 'submit', label: '提交更新请求' },
+  { id: 'queued', label: '等待 Update Agent' },
+  { id: 'pulling', label: '拉取最新镜像' },
+  { id: 'restarting', label: '重启应用容器' },
+  { id: 'verify', label: '确认新版本' },
+]
 
 const moduleLabels: Record<string, string> = { progress: '进度模块', knowledge: '知识库' }
 
@@ -91,8 +111,61 @@ function formatStamp(value: string | null) {
 
 onMounted(load)
 onUnmounted(() => {
-  if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
+  stopUpdateTimers()
 })
+
+function stopUpdateTimers() {
+  if (updatePollTimer !== undefined) {
+    window.clearInterval(updatePollTimer)
+    updatePollTimer = undefined
+  }
+  if (updateElapsedTimer !== undefined) {
+    window.clearInterval(updateElapsedTimer)
+    updateElapsedTimer = undefined
+  }
+}
+
+function formatElapsed(seconds: number) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return m > 0 ? `${m} 分 ${s} 秒` : `${s} 秒`
+}
+
+function failedStepFromStatus(status: UpdateStatus | null): UpdateStepId {
+  if (!status) return 'submit'
+  const phase = status.phase || status.state || 'queued'
+  if (phase === 'pulling' || phase === 'running') return 'pulling'
+  if (phase === 'restarting') return 'restarting'
+  if (phase === 'verify' || phase === 'succeeded') return 'verify'
+  if (phase === 'submit') return 'submit'
+  return 'queued'
+}
+
+function stepTone(stepId: UpdateStepId): 'done' | 'active' | 'pending' | 'failed' {
+  const phase = updatePhase.value
+  if (!phase) return 'pending'
+  const order = UPDATE_STEPS.map(step => step.id)
+  const index = order.indexOf(stepId)
+  if (phase === 'done') return 'done'
+  if (phase === 'failed') {
+    const failedIndex = order.indexOf(failedStepFromStatus(updateStatus.value))
+    if (index < failedIndex) return 'done'
+    if (index === failedIndex) return 'failed'
+    return 'pending'
+  }
+  const currentIndex = order.indexOf(phase)
+  if (index < currentIndex) return 'done'
+  if (index === currentIndex) return 'active'
+  return 'pending'
+}
+
+const updateProgressVisible = computed(
+  () => applyingUpdate.value || updatePhase.value === 'done' || updatePhase.value === 'failed',
+)
+
+const updateStuckQueued = computed(
+  () => applyingUpdate.value && updatePhase.value === 'queued' && updateElapsedSec.value >= 20,
+)
 async function load() {
   loading.value = true
   error.value = ''
@@ -200,6 +273,13 @@ async function checkForUpdate() {
   finally { checkingUpdate.value = false }
 }
 async function applyUpdate() {
+  versionError.value = ''
+  updateMessage.value = ''
+  if (!versionInfo.value?.agent_configured) {
+    versionError.value =
+      '未配置更新通道：请在服务器 .env 设置 WORKBENCH_UPDATE_AGENT_TOKEN，挂载 update-control，并启动宿主机 Update Agent（见 docs/packaging.md）'
+    return
+  }
   const ok = await confirmDialog({
     title: '更新到最新版本？',
     message: '将通过宿主机 Update Agent 拉取 GHCR 镜像并重启服务，期间会短暂不可用。',
@@ -207,55 +287,122 @@ async function applyUpdate() {
   })
   if (!ok) return
   applyingUpdate.value = true
-  versionError.value = ''
-  updateMessage.value = '已提交更新请求…'
+  updatePhase.value = 'submit'
+  updateStatus.value = null
+  updateRequestId.value = ''
+  updateStartedAt.value = Date.now()
+  updateElapsedSec.value = 0
+  updateMessage.value = '正在提交更新请求…'
+  stopUpdateTimers()
+  updateElapsedTimer = window.setInterval(() => {
+    if (updateStartedAt.value) {
+      updateElapsedSec.value = Math.floor((Date.now() - updateStartedAt.value) / 1000)
+    }
+  }, 1000)
   const previousSha = versionInfo.value?.git_sha
   try {
     const { data } = await api.post<{ accepted: boolean; request_id: string; message: string }>('/system/updates/apply')
-    updateMessage.value = data.message
+    updateRequestId.value = data.request_id
+    updatePhase.value = 'queued'
+    updateStatus.value = {
+      id: data.request_id,
+      state: 'queued',
+      message: data.message,
+      finished_at: null,
+      phase: 'queued',
+    }
+    updateMessage.value = data.message || '更新请求已提交，等待 Agent 处理'
     startUpdatePolling(previousSha)
   } catch (cause) {
     versionError.value = apiError(cause)
+    updatePhase.value = 'failed'
     applyingUpdate.value = false
+    stopUpdateTimers()
   }
 }
-function startUpdatePolling(previousSha: string | undefined) {
-  if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
-  let attempts = 0
-  updatePollTimer = window.setInterval(async () => {
-    attempts += 1
-    try {
-      const statusRes = await api.get<UpdateStatus>('/system/updates/status')
-      updateStatus.value = statusRes.data
-      if (statusRes.data.state === 'failed') {
-        versionError.value = statusRes.data.message || '更新失败'
-        applyingUpdate.value = false
-        if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
-        return
-      }
-      const versionRes = await api.get<SystemVersion>('/system/version')
-      versionInfo.value = versionRes.data
-      if (previousSha && versionRes.data.git_sha !== previousSha && versionRes.data.git_sha !== 'unknown') {
-        updateMessage.value = `更新完成：${versionRes.data.git_sha_short}，请刷新页面`
-        updateCheck.value = null
-        applyingUpdate.value = false
-        if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
-        return
-      }
-      if (statusRes.data.state === 'succeeded') {
-        updateMessage.value = '容器已重启，正在确认新版本…'
-      } else if (statusRes.data.message) {
-        updateMessage.value = statusRes.data.message
-      }
-    } catch {
-      updateMessage.value = '服务重启中，请稍候…'
+async function pollUpdateOnce(previousSha: string | undefined) {
+  try {
+    const statusRes = await api.get<UpdateStatus>('/system/updates/status')
+    // 忽略上一轮残留状态，只认当前 request
+    if (updateRequestId.value && statusRes.data.id && statusRes.data.id !== updateRequestId.value) {
+      updateMessage.value = '等待 Update Agent 接手当前请求…'
+      return 'continue' as const
     }
-    if (attempts >= 60) {
-      updateMessage.value = '等待超时：若页面仍可打开请手动刷新确认版本'
+    updateStatus.value = statusRes.data
+    if (statusRes.data.state === 'failed') {
+      versionError.value = statusRes.data.message || '更新失败'
+      updateMessage.value = ''
+      updatePhase.value = 'failed'
       applyingUpdate.value = false
-      if (updatePollTimer !== undefined) window.clearInterval(updatePollTimer)
+      stopUpdateTimers()
+      return 'stop' as const
     }
-  }, 2000)
+    if (statusRes.data.state === 'queued') {
+      updatePhase.value = 'queued'
+      updateMessage.value = statusRes.data.message || '等待宿主机 Update Agent 处理'
+    } else if (statusRes.data.state === 'pulling' || statusRes.data.state === 'running') {
+      updatePhase.value = 'pulling'
+      updateMessage.value = statusRes.data.message || '正在拉取最新镜像…'
+    } else if (statusRes.data.state === 'restarting') {
+      updatePhase.value = 'restarting'
+      updateMessage.value = statusRes.data.message || '正在重启应用容器…'
+    } else if (statusRes.data.state === 'succeeded') {
+      updatePhase.value = 'verify'
+      updateMessage.value = statusRes.data.message || '容器已重启，正在确认新版本…'
+    }
+
+    const versionRes = await api.get<SystemVersion>('/system/version')
+    versionInfo.value = versionRes.data
+    if (previousSha && versionRes.data.git_sha !== previousSha && versionRes.data.git_sha !== 'unknown') {
+      updateMessage.value = `更新完成：${versionRes.data.git_sha_short}，请刷新页面加载新前端`
+      updateCheck.value = null
+      updatePhase.value = 'done'
+      applyingUpdate.value = false
+      stopUpdateTimers()
+      return 'stop' as const
+    }
+    if (statusRes.data.state === 'succeeded') {
+      updateMessage.value = '容器已重启，正在确认新版本…'
+    }
+  } catch {
+    // 重启期间 API 短暂不可用是预期行为
+    if (updatePhase.value === 'restarting' || updatePhase.value === 'verify' || updatePhase.value === 'pulling') {
+      updatePhase.value = 'verify'
+      updateMessage.value = '服务重启中，正在等待恢复…'
+    } else {
+      updateMessage.value = '暂时无法连接服务，将继续重试…'
+    }
+  }
+  return 'continue' as const
+}
+function startUpdatePolling(previousSha: string | undefined) {
+  stopUpdateTimers()
+  updateElapsedTimer = window.setInterval(() => {
+    if (updateStartedAt.value) {
+      updateElapsedSec.value = Math.floor((Date.now() - updateStartedAt.value) / 1000)
+    }
+  }, 1000)
+  let attempts = 0
+  let inFlight = false
+  const tick = async () => {
+    if (inFlight) return
+    inFlight = true
+    try {
+      attempts += 1
+      const result = await pollUpdateOnce(previousSha)
+      if (result === 'stop') return
+      if (attempts >= 90) {
+        versionError.value = '等待超时：若页面仍可打开请手动刷新确认版本；若长期停在「等待 Agent」，请检查宿主机 workbench-update-agent 是否在运行'
+        updatePhase.value = 'failed'
+        applyingUpdate.value = false
+        stopUpdateTimers()
+      }
+    } finally {
+      inFlight = false
+    }
+  }
+  void tick()
+  updatePollTimer = window.setInterval(() => { void tick() }, 2000)
 }
 
 const mcpUrl = `${getApiBase() || window.location.origin}/mcp`
@@ -420,20 +567,53 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
                 <p class="mt-1 font-mono text-[12px] text-muted-foreground">{{ versionInfo?.github_repo || '—' }}@{{ versionInfo?.github_ref || '—' }}</p>
               </div>
             </div>
-            <p v-if="!versionInfo?.agent_configured" class="text-[12px] leading-5 text-muted-foreground">
-              未配置控制目录与共享密钥时只能查看版本。服务器需挂载 update-control、设置 WORKBENCH_UPDATE_AGENT_TOKEN，并安装宿主机 Update Agent（见 docs/packaging.md）。
+            <p v-if="!versionInfo?.agent_configured" class="error-box" role="status">
+              更新通道未就绪：只能查看版本与检查更新。请挂载 update-control、在 .env 设置 WORKBENCH_UPDATE_AGENT_TOKEN，并启动宿主机 Update Agent（见 docs/packaging.md）。
             </p>
             <p v-if="updateCheck" class="rounded-lg border border-line bg-panel-2 p-3 font-mono text-[12px] text-muted-foreground">
               远端 {{ updateCheck.github_repo }}@{{ updateCheck.github_ref }} → {{ updateCheck.latest_sha_short }}
               · {{ updateCheck.update_available ? '有可用更新' : '已是最新' }}
             </p>
-            <p v-if="versionError" class="error-box" role="alert">{{ versionError }}</p>
-            <p v-if="updateMessage" :class="versionError ? 'text-[12px] text-muted-foreground' : 'success-box'"><CheckCircle2 v-if="!versionError" :size="14" />{{ updateMessage }}</p>
-            <p v-if="updateStatus?.state && updateStatus.state !== 'idle'" class="text-[12px] text-muted-foreground">Agent 状态：{{ updateStatus.state }}{{ updateStatus.message ? ` · ${updateStatus.message}` : '' }}</p>
+            <div v-if="updateProgressVisible" class="rounded-lg border border-line bg-panel-2 p-4" role="status" aria-live="polite">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-sm font-medium text-text">
+                  <template v-if="updatePhase === 'done'">更新完成</template>
+                  <template v-else-if="updatePhase === 'failed'">更新失败</template>
+                  <template v-else>正在更新</template>
+                </p>
+                <p class="font-mono text-[12px] text-muted-foreground">已用时 {{ formatElapsed(updateElapsedSec) }}</p>
+              </div>
+              <ol class="mt-3 space-y-2">
+                <li
+                  v-for="step in UPDATE_STEPS"
+                  :key="step.id"
+                  class="flex items-center gap-2 text-[13px]"
+                  :class="{
+                    'text-muted-foreground': stepTone(step.id) === 'pending',
+                    'text-text': stepTone(step.id) === 'active' || stepTone(step.id) === 'done',
+                    'text-danger': stepTone(step.id) === 'failed',
+                  }"
+                >
+                  <LoaderCircle v-if="stepTone(step.id) === 'active'" :size="14" class="shrink-0 animate-spin text-cyan" />
+                  <CheckCircle2 v-else-if="stepTone(step.id) === 'done'" :size="14" class="shrink-0 text-success" />
+                  <XCircle v-else-if="stepTone(step.id) === 'failed'" :size="14" class="shrink-0 text-danger" />
+                  <span v-else class="inline-block size-3.5 shrink-0 rounded-full border border-line" />
+                  <span>{{ step.label }}</span>
+                </li>
+              </ol>
+              <p v-if="updateMessage && updatePhase !== 'failed'" class="mt-3 text-[12px] leading-5 text-muted-foreground">{{ updateMessage }}</p>
+              <p v-if="updateStuckQueued" class="mt-3 flex items-start gap-2 text-[12px] leading-5 text-warning">
+                <CircleAlert :size="14" class="mt-0.5 shrink-0" />
+                已等待超过 20 秒仍停在队列：请检查宿主机 `systemctl status workbench-update-agent` 是否在运行，以及 token / 控制目录是否一致。
+              </p>
+            </div>
+            <p v-if="versionError" class="error-box whitespace-pre-wrap break-words" role="alert">{{ versionError }}</p>
+            <p v-else-if="updatePhase === 'done' && updateMessage" class="success-box"><CheckCircle2 :size="14" />{{ updateMessage }}</p>
+            <p v-else-if="!updateProgressVisible && updateMessage" class="success-box"><CheckCircle2 :size="14" />{{ updateMessage }}</p>
             <footer class="flex flex-wrap justify-end gap-2 border-t border-line pt-5">
-              <Button type="button" :disabled="versionLoading" @click="loadVersion" variant="outline"><LoaderCircle v-if="versionLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新版本</Button>
+              <Button type="button" :disabled="versionLoading || applyingUpdate" @click="loadVersion" variant="outline"><LoaderCircle v-if="versionLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新版本</Button>
               <Button type="button" :disabled="checkingUpdate || applyingUpdate" @click="checkForUpdate" variant="outline"><LoaderCircle v-if="checkingUpdate" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />{{ checkingUpdate ? '检查中…' : '检查更新' }}</Button>
-              <Button type="button" :disabled="!versionInfo?.agent_configured || applyingUpdate || checkingUpdate" @click="applyUpdate"><LoaderCircle v-if="applyingUpdate" :size="15" class="animate-spin" /><Package v-else :size="15" />{{ applyingUpdate ? '更新中…' : '更新到最新' }}</Button>
+              <Button type="button" :disabled="applyingUpdate || checkingUpdate" :title="versionInfo?.agent_configured ? undefined : '需先配置 Update Agent'" @click="applyUpdate"><LoaderCircle v-if="applyingUpdate" :size="15" class="animate-spin" /><Package v-else :size="15" />{{ applyingUpdate ? '更新中…' : '更新到最新' }}</Button>
             </footer>
           </div>
         </div>

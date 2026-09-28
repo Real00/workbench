@@ -9,7 +9,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-UpdateState = Literal["idle", "queued", "running", "succeeded", "failed"]
+UpdateState = Literal[
+    "idle",
+    "queued",
+    "pulling",
+    "restarting",
+    "running",  # 兼容旧 Agent：视同进行中
+    "succeeded",
+    "failed",
+]
 
 
 @dataclass(frozen=True)
@@ -38,6 +46,7 @@ class UpdateStatus:
     state: UpdateState
     message: str = ""
     finished_at: str | None = None
+    phase: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -75,7 +84,12 @@ class UpdateControlStore:
         tmp.write_text(json.dumps(request.to_dict(), ensure_ascii=False), encoding="utf-8")
         tmp.replace(self.request_path)
         self.write_status(
-            UpdateStatus(id=request.id, state="queued", message="等待宿主机 Update Agent 处理")
+            UpdateStatus(
+                id=request.id,
+                state="queued",
+                message="等待宿主机 Update Agent 处理",
+                phase="queued",
+            )
         )
 
     def read_status(self) -> UpdateStatus:
@@ -83,13 +97,22 @@ class UpdateControlStore:
             return UpdateStatus(id="", state="idle", message="")
         raw = json.loads(self.status_path.read_text(encoding="utf-8"))
         state = raw.get("state", "idle")
-        if state not in {"idle", "queued", "running", "succeeded", "failed"}:
+        if state not in {
+            "idle",
+            "queued",
+            "pulling",
+            "restarting",
+            "running",
+            "succeeded",
+            "failed",
+        }:
             state = "idle"
         return UpdateStatus(
             id=str(raw.get("id") or ""),
             state=state,
             message=str(raw.get("message") or ""),
             finished_at=raw.get("finished_at"),
+            phase=str(raw.get("phase") or state),
         )
 
     def write_status(self, status: UpdateStatus) -> None:

@@ -28,6 +28,7 @@ COMPOSE_PROJECT_NAME = os.environ.get("COMPOSE_PROJECT_NAME", "")
 REQUEST_NAME = "request.json"
 STATUS_NAME = "status.json"
 HANDLED_NAME = "handled_request_id"
+ERROR_TAIL = 800
 
 
 def _now() -> str:
@@ -55,11 +56,13 @@ def _write_status(
     request_id: str,
     state: str,
     message: str,
+    phase: str | None = None,
     finished: bool = False,
 ) -> None:
     payload = {
         "id": request_id,
         "state": state,
+        "phase": phase or state,
         "message": message,
         "finished_at": _now() if finished else None,
     }
@@ -74,6 +77,13 @@ def _compose_cmd(*args: str) -> list[str]:
     return cmd
 
 
+class ComposeError(RuntimeError):
+    def __init__(self, returncode: int, detail: str) -> None:
+        self.returncode = returncode
+        self.detail = detail
+        super().__init__(f"docker compose failed (exit {returncode})")
+
+
 def _run_compose(args: list[str]) -> None:
     env = os.environ.copy()
     if COMPOSE_PROJECT_NAME:
@@ -82,7 +92,20 @@ def _run_compose(args: list[str]) -> None:
         f"running: {' '.join(args)} (cwd={COMPOSE_DIR}"
         f"{f', project={COMPOSE_PROJECT_NAME}' if COMPOSE_PROJECT_NAME else ''})"
     )
-    subprocess.run(args, cwd=COMPOSE_DIR, check=True, env=env)
+    result = subprocess.run(
+        args,
+        cwd=COMPOSE_DIR,
+        check=False,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return
+    detail = (result.stderr or result.stdout or "").strip()
+    if len(detail) > ERROR_TAIL:
+        detail = detail[-ERROR_TAIL:]
+    raise ComposeError(result.returncode, detail)
 
 
 def _handled_path() -> Path:
@@ -98,60 +121,74 @@ def _mark_handled(request_id: str) -> None:
     _handled_path().write_text(request_id, encoding="utf-8")
 
 
+def _fail(request_id: str, message: str, *, phase: str = "queued") -> None:
+    _write_status(
+        request_id=request_id,
+        state="failed",
+        message=message,
+        phase=phase,
+        finished=True,
+    )
+    if request_id:
+        _mark_handled(request_id)
+
+
 def _process_request(raw: dict) -> None:
     request_id = str(raw.get("id") or "")
     requested_at = str(raw.get("requested_at") or "")
     signature = str(raw.get("signature") or "")
     if not request_id or not requested_at or not signature:
-        _write_status(
-            request_id=request_id,
-            state="failed",
-            message="request.json 字段不完整",
-            finished=True,
-        )
+        _fail(request_id, "request.json 字段不完整", phase="queued")
         return
     if _already_handled(request_id):
         return
     expected = _sign(request_id, requested_at)
     if not hmac.compare_digest(expected, signature):
         _log(f"invalid signature for request {request_id}")
-        _write_status(
-            request_id=request_id,
-            state="failed",
-            message="签名校验失败",
-            finished=True,
+        _fail(
+            request_id,
+            "签名校验失败：请确认 UPDATE_AGENT_TOKEN 与 WORKBENCH_UPDATE_AGENT_TOKEN 一致",
+            phase="queued",
         )
-        _mark_handled(request_id)
         return
 
-    _write_status(request_id=request_id, state="running", message="正在拉取并重启容器")
+    phase = "pulling"
     try:
-        _run_compose(_compose_cmd("pull", COMPOSE_SERVICE))
-        _run_compose(_compose_cmd("up", "-d", COMPOSE_SERVICE))
-    except subprocess.CalledProcessError as exc:
-        _log(f"compose failed: {exc}")
         _write_status(
             request_id=request_id,
-            state="failed",
-            message=f"docker compose 失败（exit {exc.returncode}）",
-            finished=True,
+            state="pulling",
+            phase="pulling",
+            message="正在拉取最新镜像…",
         )
-        _mark_handled(request_id)
+        _run_compose(_compose_cmd("pull", COMPOSE_SERVICE))
+        phase = "restarting"
+        _write_status(
+            request_id=request_id,
+            state="restarting",
+            phase="restarting",
+            message="正在重启应用容器…",
+        )
+        _run_compose(_compose_cmd("up", "-d", COMPOSE_SERVICE))
+    except ComposeError as exc:
+        _log(f"compose failed: {exc} {exc.detail}")
+        detail = exc.detail.replace("\n", " · ") if exc.detail else ""
+        message = f"docker compose 失败（exit {exc.returncode}）"
+        if detail:
+            message = f"{message}：{detail}"
+        _fail(request_id, message, phase=phase)
         return
     except FileNotFoundError:
-        _write_status(
-            request_id=request_id,
-            state="failed",
-            message="未找到 docker 或 compose 命令",
-            finished=True,
-        )
-        _mark_handled(request_id)
+        _fail(request_id, "未找到 docker 或 compose 命令，请在宿主机安装 Docker Compose", phase=phase)
+        return
+    except OSError as exc:
+        _fail(request_id, f"无法执行 docker compose：{exc}", phase=phase)
         return
 
     _write_status(
         request_id=request_id,
         state="succeeded",
-        message="已拉取最新镜像并重启 app",
+        phase="verify",
+        message="已拉取最新镜像并重启 app，等待页面确认新版本",
         finished=True,
     )
     _mark_handled(request_id)
