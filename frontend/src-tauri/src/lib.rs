@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use tauri::menu::{Menu, MenuItem};
-use tauri::tray::TrayIconBuilder;
-use tauri::{Emitter, Manager};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -124,6 +124,17 @@ pub fn run() {
         )
         .tooltip("个人工作台")
         .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+          if let TrayIconEvent::Click {
+            button: MouseButton::Left,
+            button_state: MouseButtonState::Up,
+            ..
+          } = event
+          {
+            reveal_main(tray.app_handle());
+          }
+        })
         .on_menu_event(|app, event| match event.id().as_ref() {
           "open" => reveal_main(app),
           "quick" => trigger_quick_capture(app),
@@ -133,6 +144,23 @@ pub fn run() {
         .build(app)?;
       Ok(())
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    // 点窗口关闭：藏到托盘，不退出；真正退出走托盘「退出」或 Cmd+Q
+    .on_window_event(|window, event| {
+      if let WindowEvent::CloseRequested { api, .. } = event {
+        api.prevent_close();
+        let _ = window.hide();
+      }
+    })
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application")
+    .run(|app_handle, event| {
+      // macOS：Dock 图标再点一次时，若窗口已隐藏则重新显示
+      if let RunEvent::Reopen {
+        has_visible_windows: false,
+        ..
+      } = event
+      {
+        reveal_main(app_handle);
+      }
+    });
 }
