@@ -36,11 +36,16 @@ async def error_middleware(
         return response({"error": "validation_error", "details": exc.errors()}, 422)
     except (ValueError, json.JSONDecodeError) as exc:
         return response({"error": str(exc)}, 400)
+    except KeyError as exc:
+        # KeyError 是 LookupError 子类，必须先于 LookupError；缺字段≠404/401
+        key = exc.args[0] if exc.args else "unknown"
+        return response({"error": f"missing field: {key}"}, 400)
     except LookupError as exc:
         return response({"error": str(exc)}, 404)
     except PermissionError as exc:
         return response({"error": str(exc)}, 401)
-    except (jwt.InvalidTokenError, KeyError):
+    except jwt.InvalidTokenError:
+        # 仅会话/Bearer 类 JWT 失败走 401；业务预览令牌应在用例层转成 ValueError
         return response({"error": "invalid or expired token"}, 401)
     except web.HTTPException:
         raise
@@ -50,7 +55,8 @@ async def error_middleware(
 async def auth_middleware(
     request: web.Request, handler: Callable[[web.Request], Awaitable[web.StreamResponse]]
 ) -> web.StreamResponse:
-    if not request.path.startswith("/api/v1") or request.path in {"/api/v1/auth/login", "/api/v1/auth/device"}:
+    public = {"/api/v1/auth/login", "/api/v1/auth/device"}
+    if not request.path.startswith("/api/v1") or request.path in public:
         return await handler(request)
     settings = request.app.get(SETTINGS)
     if settings and settings.dev_auth_bypass and request.remote in {"127.0.0.1", "::1"}:

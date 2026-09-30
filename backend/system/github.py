@@ -27,7 +27,8 @@ class GithubCommitClient:
         return headers
 
     async def _get_json(self, url: str, token: str) -> Any:
-        timeout = ClientTimeout(total=20)
+        # sock_connect 单独设短超时，避免 DNS/建连挂死被前端收成 Network Error
+        timeout = ClientTimeout(total=25, sock_connect=8)
         try:
             async with ClientSession(timeout=timeout) as session:
                 async with session.get(url, headers=self._headers(token)) as resp:
@@ -36,6 +37,11 @@ class GithubCommitClient:
                             f"未找到资源 {url}；私有仓需配置 WORKBENCH_UPDATE_GITHUB_TOKEN"
                         )
                     if resp.status in {401, 403}:
+                        text = await resp.text()
+                        if "rate limit" in text.lower():
+                            raise ValueError(
+                                "GitHub API 速率受限；请配置 WORKBENCH_UPDATE_GITHUB_TOKEN"
+                            )
                         raise ValueError(
                             "GitHub API 拒绝访问；请检查 WORKBENCH_UPDATE_GITHUB_TOKEN 权限"
                         )
@@ -44,7 +50,7 @@ class GithubCommitClient:
                         raise ValueError(f"GitHub API 错误 {resp.status}: {text[:200]}")
                     return await resp.json()
         except TimeoutError as exc:
-            raise ValueError("检查更新超时，请稍后重试") from exc
+            raise ValueError("检查更新超时（无法在时限内访问 GitHub），请稍后重试") from exc
         except ClientError as exc:
             raise ValueError(f"无法连接 GitHub：{exc}") from exc
 
@@ -121,7 +127,7 @@ class GithubCommitClient:
         self, repo: str, asset_id: int, token: str
     ) -> tuple[bytes, str]:
         url = f"{self.base_url}/repos/{repo}/releases/assets/{asset_id}"
-        timeout = ClientTimeout(total=600)
+        timeout = ClientTimeout(total=600, sock_connect=15)
         try:
             async with ClientSession(timeout=timeout) as session:
                 async with session.get(
@@ -132,6 +138,11 @@ class GithubCommitClient:
                     if resp.status == 404:
                         raise LookupError("未找到 DMG 资产")
                     if resp.status in {401, 403}:
+                        text = await resp.text()
+                        if "rate limit" in text.lower():
+                            raise ValueError(
+                                "下载 DMG 触发 GitHub 速率限制；请配置 WORKBENCH_UPDATE_GITHUB_TOKEN"
+                            )
                         raise ValueError(
                             "下载 DMG 被拒绝；请检查 WORKBENCH_UPDATE_GITHUB_TOKEN 权限"
                         )

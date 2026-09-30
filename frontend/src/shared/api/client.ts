@@ -78,12 +78,41 @@ export async function bindCurrentDevice(): Promise<boolean> {
   }
 }
 
-/** 无有效 JWT 时，用设备绑定凭证静默换发新会话；成功返回 true */
+/** 解析 JWT payload 的过期时间（毫秒）；仅读 exp，不做签名校验 */
+function accessTokenExpiresAt(token: string): number | null {
+  try {
+    const segment = token.split('.')[1]
+    if (!segment) return null
+    const normalized = segment.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    const payload = JSON.parse(atob(padded)) as { exp?: unknown }
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
+/** 本地 JWT 是否仍在有效期内（提前 skewMs 视为过期，给换发留余量） */
+export function hasFreshToken(skewMs = 30_000): boolean {
+  const token = getToken()
+  if (!token) return false
+  const expiresAt = accessTokenExpiresAt(token)
+  // 无法解析 exp 时交给后续请求 / 服务端判定
+  if (expiresAt == null) return true
+  return expiresAt > Date.now() + skewMs
+}
+
+/**
+ * 保证有可用会话：JWT 未过期直接成功；否则用设备长效凭证静默换发。
+ * 注意：过期 JWT 仍会占着 localStorage，不能只看 hasToken()。
+ */
 export async function ensureSession(): Promise<boolean> {
-  if (hasToken()) return true
+  if (hasFreshToken()) return true
   const deviceToken = getDeviceToken()
   const deviceId = getDeviceId()
   if (!deviceToken || !deviceId) return false
+  // 先清掉过期 JWT，避免换发前后其它请求继续带坏 token
+  clearToken()
   try {
     const response = await fetch(`${getApiBase()}/api/v1/auth/device`, {
       method: 'POST',
@@ -120,9 +149,15 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
   const config = error.config as (AxiosError['config'] & { _deviceRetried?: boolean }) | undefined
   const isAuthPath = Boolean(config?.url?.includes('/auth/login') || config?.url?.includes('/auth/device'))
   if (error.response?.status === 401 && config && !isAuthPath) {
-    // JWT 过期但存在设备绑定凭证：静默换发后重试一次原请求
+    // 确认接口在旧后端会把「预览令牌过期」也打成 401；本地会话仍新鲜时不要踢登录
+    const url = `${config.baseURL ?? ''}${config.url ?? ''}`
+    if (url.includes('/ai/confirm') && hasFreshToken()) {
+      return Promise.reject(error)
+    }
+    // JWT 失效但存在设备绑定凭证：清掉坏 token 后静默换发，再重试一次原请求
     if (!config._deviceRetried && getDeviceToken() && getDeviceId()) {
       config._deviceRetried = true
+      clearToken()
       if (await ensureSession()) {
         config.headers = config.headers ?? {}
         config.headers.Authorization = `Bearer ${getToken()}`
@@ -182,6 +217,7 @@ export async function streamSse(
   payload: unknown,
   onEvent: (event: unknown) => void,
   signal?: AbortSignal,
+  retried = false,
 ) {
   const token = getToken()
   const response = await fetch(`${getApiBase()}/api/v1${path}`, {
@@ -194,6 +230,13 @@ export async function streamSse(
     body: JSON.stringify(payload),
   })
   if (response.status === 401 && !path.includes('/auth/login')) {
+    if (!retried && getDeviceToken() && getDeviceId()) {
+      clearToken()
+      if (await ensureSession()) {
+        await streamSse(path, payload, onEvent, signal, true)
+        return
+      }
+    }
     clearToken()
     if (window.location.pathname !== '/login') window.location.assign('/login')
     throw new Error('未登录')
@@ -215,7 +258,22 @@ export async function streamSse(
 export function apiError(error: unknown) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as { error?: string; details?: { msg?: string }[] } | undefined
-    return data?.details?.[0]?.msg ?? data?.error ?? error.message
+    const fromBody = data?.details?.[0]?.msg ?? data?.error
+    if (fromBody) return fromBody
+    if (error.code === 'ECONNABORTED') return '请求超时，请稍后重试'
+    // WKWebView 下 XHR 超时/跨源失败常落成 status 0 + "Network Error"
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      return (
+        '无法连接服务器（Network Error）。请确认登录时填写的 API 地址可达；'
+        + '若仅「检查更新」失败，多半是服务器访问 GitHub 超时或未配置 WORKBENCH_UPDATE_GITHUB_TOKEN。'
+      )
+    }
+    return error.message
+  }
+  if (typeof error === 'string' && error.trim()) return error
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message
   }
   return error instanceof Error ? error.message : '请求失败'
 }

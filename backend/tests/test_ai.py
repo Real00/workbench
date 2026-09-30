@@ -416,6 +416,24 @@ async def test_ai_stream_issues_preview_token_then_confirm_writes() -> None:
     assert "last week Monday=" in agent.prompts[0]
 
 
+async def test_confirm_expired_preview_token_is_business_error() -> None:
+    service, _, _, member_id = await build_service()
+    token = service.security.issue_preview_token(
+        {
+            "operations": [
+                {
+                    "op": "create_task",
+                    "changes": {"title": "过期", "assignee_id": member_id},
+                }
+            ]
+        },
+        ttl_seconds=-1,
+        purpose="progress-ai-preview",
+    )
+    with pytest.raises(ValueError, match="确认令牌无效或已过期"):
+        await service.confirm(token, "admin")
+
+
 async def test_ai_stream_cancel_skips_confirm_token() -> None:
     service, _, _, _ = await build_service(
         events=[{"type": "text", "delta": "部分回复"}],

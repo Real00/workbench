@@ -285,8 +285,10 @@ async function checkDesktopUpdate() {
   desktopMessage.value = ''
   try {
     if (!desktopVersion.value) await loadDesktopVersion()
+    // 服务端需请求 GitHub；默认 15s 在弱网/墙内易被 WKWebView 收成 Network Error
     const { data } = await api.get<DesktopUpdateInfo>('/system/desktop/update', {
       params: { current: desktopVersion.value || 'unknown' },
+      timeout: 60_000,
     })
     desktopUpdate.value = data
     desktopMessage.value = data.update_available
@@ -302,9 +304,18 @@ async function downloadDesktopUpdate() {
   if (!desktopShell) return
   desktopError.value = ''
   desktopMessage.value = ''
+  // 下载走 Rust→API 代理，不依赖检查接口；检查失败仍可直接拉 DMG
   if (!desktopUpdate.value) {
-    await checkDesktopUpdate()
-    if (!desktopUpdate.value) return
+    try {
+      if (!desktopVersion.value) await loadDesktopVersion()
+      const { data } = await api.get<DesktopUpdateInfo>('/system/desktop/update', {
+        params: { current: desktopVersion.value || 'unknown' },
+        timeout: 60_000,
+      })
+      desktopUpdate.value = data
+    } catch {
+      /* 仍用默认 download_path */
+    }
   }
   const ok = await confirmDialog({
     title: '下载最新桌面端？',
@@ -316,10 +327,12 @@ async function downloadDesktopUpdate() {
   desktopDownloading.value = true
   desktopMessage.value = '正在下载 DMG，请稍候…'
   try {
-    const path = await downloadAndOpenDesktopDmg(desktopUpdate.value.download_path)
+    const path = await downloadAndOpenDesktopDmg(
+      desktopUpdate.value?.download_path || '/system/desktop/dmg',
+    )
     desktopMessage.value = `已打开安装包：${path}。拖进「应用程序」后请退出并重新打开工作台。`
   } catch (cause) {
-    desktopError.value = cause instanceof Error ? cause.message : apiError(cause)
+    desktopError.value = apiError(cause)
     desktopMessage.value = ''
   } finally {
     desktopDownloading.value = false
@@ -339,7 +352,9 @@ async function checkForUpdate() {
   versionError.value = ''
   updateMessage.value = ''
   try {
-    const { data } = await api.post<UpdateCheck>('/system/updates/check')
+    const { data } = await api.post<UpdateCheck>('/system/updates/check', undefined, {
+      timeout: 60_000,
+    })
     updateCheck.value = data
     updateMessage.value = data.update_available
       ? `发现新版本 ${data.latest_sha_short}（当前 ${data.current_sha_short}）`

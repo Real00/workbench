@@ -7,6 +7,7 @@ from time import monotonic
 from typing import Any
 from uuid import uuid4
 
+import jwt
 from pydantic_ai import CancellationToken
 from pydantic_ai.exceptions import RunCancelled
 
@@ -305,7 +306,11 @@ class PulseApplicationService:
         }
 
     async def confirm(self, token: str, actor_id: str) -> list[dict[str, Any]]:
-        payload = self.security.decode_token(token, "progress-ai-preview")
+        try:
+            payload = self.security.decode_token(token, "progress-ai-preview")
+        except jwt.InvalidTokenError as exc:
+            # 预览令牌过期/损坏是业务错误 → 400；勿让中间件当成会话 401 踢登录
+            raise ValueError("确认令牌无效或已过期，请重新发起对话后再应用") from exc
         operations = payload.get("operations") or []
         if not operations:
             raise ValueError("没有可应用的变更")

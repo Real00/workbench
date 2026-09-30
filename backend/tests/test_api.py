@@ -466,6 +466,19 @@ async def test_cors_preflight_and_origin_allowlist() -> None:
         assert tauri_preflight.status == 204
         assert tauri_preflight.headers["Access-Control-Allow-Origin"] == "tauri://localhost"
 
+        tauri_https_preflight = await client.options(
+            "/api/v1/progress/tasks",
+            headers={
+                "Origin": "https://tauri.localhost",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert tauri_https_preflight.status == 204
+        assert (
+            tauri_https_preflight.headers["Access-Control-Allow-Origin"]
+            == "https://tauri.localhost"
+        )
+
         blocked_preflight = await client.options(
             "/api/v1/progress/tasks",
             headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"},
@@ -588,6 +601,67 @@ async def test_device_binding_and_silent_login_flow() -> None:
             "/api/v1/auth/login", json={"username": "admin", "password": "password123"}
         )
         assert "device_token" not in await plain.json()
+    finally:
+        await client.close()
+
+
+async def test_ai_confirm_expired_preview_returns_400_not_401() -> None:
+    """预览令牌过期必须是业务 400，避免前端把 401 当成会话失效并踢登录。"""
+    secret = "test-secret-with-at-least-32-characters"
+    security = SecurityService(secret, 3600)
+    app = create_app(
+        Settings(admin_password="password123", jwt_secret=secret),
+        user_repository=MemoryUserRepository(),
+        task_repository=MemoryTaskRepository(),
+        member_repository=MemoryMemberRepository(),
+        project_repository=MemoryProjectRepository(),
+        ai_repository=MemoryAISettingsRepository(),
+        resource_storage=MemoryResourceStorage(),
+        **knowledge_overrides(),
+    )
+    client = TestClient(TestServer(app))
+    await client.start_server()
+    try:
+        login = await client.post(
+            "/api/v1/auth/login", json={"username": "admin", "password": "password123"}
+        )
+        headers = {"Authorization": f"Bearer {(await login.json())['access_token']}"}
+        expired = security.issue_preview_token(
+            {"operations": [{"op": "create_task", "changes": {"title": "x"}}]},
+            ttl_seconds=-1,
+            purpose="progress-ai-preview",
+        )
+        confirmed = await client.post(
+            "/api/v1/ai/confirm",
+            json={"confirmation_token": expired},
+            headers=headers,
+        )
+        assert confirmed.status == 400
+        body = await confirmed.json()
+        assert "确认令牌" in body["error"]
+        # 会话 JWT 仍可用
+        me = await client.get("/api/v1/progress/tasks", headers=headers)
+        assert me.status == 200
+    finally:
+        await client.close()
+
+
+async def test_key_error_is_bad_request_not_unauthorized() -> None:
+    from aiohttp import web
+
+    from api.http import error_middleware
+
+    async def boom(_: web.Request) -> web.Response:
+        raise KeyError("changes")
+
+    app = web.Application(middlewares=[error_middleware])
+    app.router.add_get("/boom", boom)
+    client = TestClient(TestServer(app))
+    await client.start_server()
+    try:
+        result = await client.get("/boom")
+        assert result.status == 400
+        assert (await result.json())["error"] == "missing field: changes"
     finally:
         await client.close()
 

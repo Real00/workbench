@@ -61,7 +61,7 @@ Dock / `.app` / 托盘图标来自 `frontend/src-tauri/icons/`（含 `icon.icns`
 1. 打包期默认值：构建时设置 `VITE_API_BASE_URL`（如 `VITE_API_BASE_URL=https://your-server pnpm tauri build`）；
 2. 运行时覆盖：登录页可设置服务器地址，保存在 `localStorage`（`workbench_api_base`），优先于打包期默认值。
 
-后端跨源放行无需配置：`tauri://localhost`、`http://tauri.localhost` 两个桌面默认来源在 `backend/shared/config.py` 中始终放行。若另用独立网页域名访问 API，才需要配置 `WORKBENCH_CORS_ORIGINS`。
+后端跨源放行无需配置：`tauri://localhost`、`http://tauri.localhost`、`https://tauri.localhost` 桌面默认来源在 `backend/shared/config.py` 中始终放行。若另用独立网页域名访问 API，才需要配置 `WORKBENCH_CORS_ORIGINS`。
 
 ### 桌面专属功能验证
 

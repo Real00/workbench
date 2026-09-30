@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_database: str = "workbench"
     jwt_secret: str = "change-me-in-production-with-32-bytes"
-    jwt_ttl_seconds: int = 86_400
+    jwt_ttl_seconds: int = 604_800  # 7 天；设备凭证仍可在过期后静默换发
     preview_ttl_seconds: int = 600
     encryption_key: str | None = None
     admin_username: str = "admin"
@@ -60,7 +60,12 @@ def get_settings() -> Settings:
     return Settings()
 
 
-TAURI_DEFAULT_ORIGINS = ("tauri://localhost", "http://tauri.localhost")
+# macOS WKWebView 多为 tauri://；Win/Linux 为 http(s)://tauri.localhost
+TAURI_DEFAULT_ORIGINS = (
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+)
 
 
 def cors_origin_set(cors_origins: str) -> frozenset[str]:

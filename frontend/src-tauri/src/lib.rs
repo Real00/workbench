@@ -46,10 +46,9 @@ async fn download_and_open_dmg(url: String, authorization: Option<String>) -> Re
     request = request.header("Authorization", token);
   }
 
-  let response = request
-    .send()
-    .await
-    .map_err(|err| format!("下载失败：{err}"))?;
+  let response = request.send().await.map_err(|err| {
+    format!("下载失败：{err}（请确认 API 地址 {url} 可达，且服务器能访问 GitHub）")
+  })?;
   if !response.status().is_success() {
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
@@ -62,7 +61,10 @@ async fn download_and_open_dmg(url: String, authorization: Option<String>) -> Re
     .await
     .map_err(|err| format!("读取 DMG 失败：{err}"))?;
   if bytes.len() < 1024 {
-    return Err("下载内容过小，不像有效的 DMG".into());
+    return Err(format!(
+      "下载内容过小（{} 字节），不像有效的 DMG；请检查服务器 WORKBENCH_UPDATE_GITHUB_TOKEN 与 desktop-latest Release",
+      bytes.len()
+    ));
   }
 
   let dir = std::env::temp_dir().join("workbench-desktop-update");
