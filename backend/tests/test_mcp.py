@@ -1,6 +1,5 @@
 import json
 
-import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from app import create_app
@@ -12,6 +11,7 @@ from tests.fakes import (
     MemoryMemberRepository,
     MemoryProjectRepository,
     MemoryResourceStorage,
+    MemorySkillsRepository,
     MemoryTaskRepository,
     MemoryUserRepository,
     knowledge_overrides,
@@ -29,6 +29,7 @@ async def build_mcp_client(cors_origins: str = "") -> tuple[TestClient, dict[str
         project_repository=MemoryProjectRepository(),
         device_repository=MemoryDeviceRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )

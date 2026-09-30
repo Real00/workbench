@@ -12,7 +12,7 @@ from typing import Any
 
 from aiohttp import web
 
-from mcp.tools import TOOL_MAP, TOOLS
+from mcp_server.tools import TOOL_MAP, TOOLS
 from shared.events import ChangeEventBus
 from shared.security import SecurityService
 from shared.web_keys import EVENT_BUS, IDENTITY, SECURITY

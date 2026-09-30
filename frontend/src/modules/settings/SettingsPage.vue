@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { CheckCircle2, ChevronDown, CircleAlert, Copy, Check, Eye, EyeOff, Info, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable, Package, XCircle } from '@lucide/vue'
+import { CheckCircle2, ChevronDown, CircleAlert, Copy, Check, Eye, EyeOff, Info, LoaderCircle, MonitorSmartphone, PlugZap, RefreshCw, Save, Trash2, Wrench, Cable, Package, XCircle, Bot } from '@lucide/vue'
+import AgentSettingsTab from './AgentSettingsTab.vue'
 import JevSettingsFields, { type JevSettings } from './JevSettingsFields.vue'
 import { api, apiError, getApiBase, getDeviceId, getDeviceToken, isDesktopShell, setDeviceCredentials } from '../../shared/api/client'
 import { confirmDialog } from '../../shared/confirm'
@@ -58,8 +59,8 @@ interface DesktopUpdateInfo {
   github_repo: string
 }
 
-type SettingsTab = 'connection' | 'tools' | 'devices' | 'mcp' | 'updates'
-const SETTINGS_TABS: SettingsTab[] = ['connection', 'tools', 'devices', 'mcp', 'updates']
+type SettingsTab = 'connection' | 'tools' | 'agent' | 'devices' | 'mcp' | 'updates'
+const SETTINGS_TABS: SettingsTab[] = ['connection', 'tools', 'agent', 'devices', 'mcp', 'updates']
 const route = useRoute()
 const router = useRouter()
 // A50：当前分类写入 ?tab=，刷新和分享链接可回到同一类别
@@ -71,6 +72,7 @@ const tab = ref<SettingsTab>(parseTab(route.query.tab))
 const tabMeta: Record<SettingsTab, string> = {
   connection: '模型连接信息由后端加密保存',
   tools: '查看各模块注册给 Pulse 的 AI 工具能力（只读）',
+  agent: '运行开关、出站 MCP 服务器与自定义技能',
   devices: '管理通过「保持登录」绑定的设备',
   mcp: '把工作台工具开放给支持 MCP 的客户端',
   updates: '检查并安装服务器与桌面客户端的新版本',
@@ -84,6 +86,7 @@ function ensureTabData(value: SettingsTab) {
     if (!versionInfo.value && !versionLoading.value) void loadVersion()
     if (isDesktopShell && !desktopVersion.value) void loadDesktopVersion()
   }
+  // agent 分类由 AgentSettingsTab 挂载时自行加载，无需预取
 }
 watch(tab, value => {
   if (parseTab(route.query.tab) === value) return
@@ -657,6 +660,7 @@ async function testMcpConnection() {
       <nav class="settings-nav card flex gap-1 overflow-x-auto p-2 lg:h-fit lg:flex-col" aria-label="设置分类">
         <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', { 'nav-link--active': tab === 'connection' }]" @click="tab = 'connection'"><PlugZap :size="17" /><span>模型连接</span></Button>
         <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', { 'nav-link--active': tab === 'tools' }]" @click="showTools"><Wrench :size="17" /><span>AI 工具</span></Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', { 'nav-link--active': tab === 'agent' }]" @click="tab = 'agent'"><Bot :size="17" /><span>智能体</span></Button>
         <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', { 'nav-link--active': tab === 'devices' }]" @click="showDevices"><MonitorSmartphone :size="17" /><span>设备</span></Button>
         <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', { 'nav-link--active': tab === 'mcp' }]" @click="tab = 'mcp'"><Cable :size="17" /><span>MCP</span></Button>
         <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', { 'nav-link--active': tab === 'updates' }]" @click="showUpdates"><Package :size="17" /><span>更新</span></Button>
@@ -756,6 +760,7 @@ async function testMcpConnection() {
           </article>
         </div>
       </section>
+      <AgentSettingsTab v-else-if="tab === 'agent'" />
       <section v-else-if="tab === 'devices'">
         <div class="mb-4 flex items-center justify-between gap-3">
           <p class="text-xs text-muted-foreground">勾选「保持登录」的设备可静默续登；在这里解绑后该设备需重新输入密码。</p>

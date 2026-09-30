@@ -6,11 +6,12 @@ from shared.config import Settings
 from shared.security import SecurityService
 from tests.fakes import (
     MemoryAISettingsRepository,
+    MemoryDeviceRepository,
     MemoryMemberRepository,
     MemoryProjectRepository,
     MemoryResourceStorage,
+    MemorySkillsRepository,
     MemoryTaskRepository,
-    MemoryDeviceRepository,
     MemoryUserRepository,
     knowledge_overrides,
 )
@@ -24,6 +25,7 @@ async def test_login_and_task_flow() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -125,6 +127,7 @@ async def test_member_evaluation_endpoints() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -186,6 +189,7 @@ async def test_project_crud_and_task_linkage() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -297,6 +301,7 @@ async def test_api_requires_authentication() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -319,6 +324,7 @@ async def test_ai_settings_secret_requires_admin_and_returns_plaintext_on_demand
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -384,6 +390,7 @@ async def test_ai_tools_registry_requires_admin_and_lists_modules() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -441,6 +448,7 @@ async def test_cors_preflight_and_origin_allowlist() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -512,6 +520,7 @@ async def test_ai_stream_endpoint_sends_cors_headers_for_desktop_shell() -> None
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -544,6 +553,7 @@ async def test_device_binding_and_silent_login_flow() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -616,6 +626,7 @@ async def test_ai_confirm_expired_preview_returns_400_not_401() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
@@ -675,6 +686,7 @@ async def test_logged_in_session_can_bind_device_after_upgrade() -> None:
         project_repository=MemoryProjectRepository(),
         device_repository=MemoryDeviceRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )

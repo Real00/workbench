@@ -131,7 +131,11 @@ class MemoryDeviceRepository:
 
     async def delete(self, user_id: str, binding_id: str) -> bool:
         found = next(
-            (key for key, item in self.items.items() if key[0] == user_id and item.id == binding_id),
+            (
+                key
+                for key, item in self.items.items()
+                if key[0] == user_id and item.id == binding_id
+            ),
             None,
         )
         return self.items.pop(found, None) is not None if found else False
@@ -240,6 +244,55 @@ class MemoryAISettingsRepository:
 
     async def save(self, settings: AISettings) -> None:
         self.settings = settings
+
+    async def ensure_indexes(self) -> None:
+        return None
+
+
+class MemorySkillsRepository:
+    """内存版技能仓库：name 唯一性由应用层校验，这里只存取。"""
+
+    def __init__(self):
+        self.items: dict[str, dict[str, Any]] = {}
+        self._next = 0
+
+    def _record(self, data: dict[str, Any]) -> Any:
+        from ai_settings.skills_repository import SkillRecord
+
+        return SkillRecord({"_id": data["id"], **data})
+
+    async def list(self) -> list[Any]:
+        return [self._record({"id": key, **value}) for key, value in self.items.items()]
+
+    async def get(self, skill_id: str) -> Any | None:
+        value = self.items.get(skill_id)
+        return self._record({"id": skill_id, **value}) if value else None
+
+    async def create(self, data: Any) -> Any:
+        from datetime import UTC, datetime
+
+        self._next += 1
+        skill_id = f"skill-{self._next}"
+        stored = {
+            "name": data.name,
+            "trigger": data.trigger,
+            "instructions": data.instructions,
+            "script": data.script,
+            "enabled": data.enabled,
+            "updated_at": datetime.now(UTC),
+        }
+        self.items[skill_id] = stored
+        return self._record({"id": skill_id, **stored})
+
+    async def update(self, skill_id: str, changes: dict[str, Any]) -> Any | None:
+        value = self.items.get(skill_id)
+        if not value:
+            return None
+        value.update(changes)
+        return await self.get(skill_id)
+
+    async def delete(self, skill_id: str) -> bool:
+        return self.items.pop(skill_id, None) is not None
 
     async def ensure_indexes(self) -> None:
         return None

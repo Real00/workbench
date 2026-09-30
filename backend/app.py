@@ -11,7 +11,7 @@ from api.http import auth_middleware, error_middleware
 from capture.module import CaptureModule
 from identity.module import IdentityModule
 from knowledge.module import KnowledgeModule
-from mcp.routes import register_mcp_routes
+from mcp_server.routes import register_mcp_routes
 from progress.module import ProgressModule
 from pulse.module import PulseModule
 from shared.config import Settings, cors_origin_set, get_settings

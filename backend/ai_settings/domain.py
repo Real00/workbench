@@ -10,6 +10,8 @@ class AISettings:
     encrypted_api_key: str
     updated_at: datetime
     jev: dict[str, Any] | None = None
+    mcp_servers: list[dict[str, Any]] | None = None
+    agent: dict[str, Any] | None = None
 
     @classmethod
     def create(cls, base_url: str, model: str, encrypted_api_key: str) -> "AISettings":
@@ -33,9 +35,13 @@ class AISettingsDomainService:
     async def configure(
         self, base_url: str, model: str, encrypted_api_key: str,
         jev: dict[str, Any] | None = None,
+        mcp_servers: list[dict[str, Any]] | None = None,
+        agent: dict[str, Any] | None = None,
     ) -> AISettings:
         settings = AISettings.create(base_url, model, encrypted_api_key)
         settings.jev = jev
+        settings.mcp_servers = mcp_servers or []
+        settings.agent = agent
         await self.repository.save(settings)
         return settings
 

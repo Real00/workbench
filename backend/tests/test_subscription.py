@@ -26,6 +26,7 @@ from tests.fakes import (
     MemoryPluginRepository,
     MemoryProjectRepository,
     MemoryResourceStorage,
+    MemorySkillsRepository,
     MemorySourceRepository,
     MemoryTaskRepository,
     MemoryUserRepository,
@@ -159,6 +160,7 @@ async def _client(**extra) -> TestClient:
         project_repository=MemoryProjectRepository(),
         device_repository=MemoryDeviceRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **overrides,
     )

@@ -259,8 +259,8 @@ async def test_knowledge_http_create_document_and_entry() -> None:
     from tests.fakes import (
         MemoryAISettingsRepository,
         MemoryMemberRepository,
-    MemoryProjectRepository,
         MemoryResourceStorage,
+        MemorySkillsRepository,
         MemoryTaskRepository,
         MemoryUserRepository,
         knowledge_overrides,
@@ -272,6 +272,7 @@ async def test_knowledge_http_create_document_and_entry() -> None:
         task_repository=MemoryTaskRepository(),
         member_repository=MemoryMemberRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )

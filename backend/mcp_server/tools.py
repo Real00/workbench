@@ -5,8 +5,9 @@ handler 直接调用领域服务——与站内 Pulse 相同的校验逻辑，
 区别在于 MCP 调用立即生效（没有站内的排队确认环节）。
 """
 
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from aiohttp import web
 

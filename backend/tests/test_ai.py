@@ -30,6 +30,7 @@ from tests.fakes import (
     MemoryMemberRepository,
     MemoryProjectRepository,
     MemoryResourceStorage,
+    MemorySkillsRepository,
     MemoryTaskRepository,
     MemoryUserRepository,
     knowledge_overrides,
@@ -327,7 +328,7 @@ def test_prepare_tools_defers_write_tools_and_keeps_read_tools() -> None:
     tools = prepare_tools([progress_ai_contribution()])
     by_name = {}
     for item in tools:
-        name = item.name if isinstance(item, Tool) else getattr(item, "__name__")
+        name = item.name if isinstance(item, Tool) else item.__name__
         by_name[name] = item
     assert set(by_name) >= {"list_tasks", "list_members", "create_task", "record_member_evaluation"}
     assert not isinstance(by_name["list_tasks"], Tool)
@@ -338,8 +339,8 @@ def test_prepare_tools_defers_write_tools_and_keeps_read_tools() -> None:
 
 
 async def test_deferred_tool_is_discovered_via_search_then_callable() -> None:
-    from pydantic_ai import Tool
     from pydantic_ai import Agent as PAAgent
+    from pydantic_ai import Tool
     from pydantic_ai.capabilities import ToolSearch
     from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
     from pydantic_ai.models.test import TestModel
@@ -525,6 +526,7 @@ async def test_run_http_streams_events_and_does_not_write_until_confirm() -> Non
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         progress_agent=agent,
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
@@ -592,6 +594,7 @@ async def test_progress_registers_ai_contribution() -> None:
         member_repository=MemoryMemberRepository(),
         project_repository=MemoryProjectRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )

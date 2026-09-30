@@ -14,6 +14,7 @@ from tests.fakes import (
     MemoryMemberRepository,
     MemoryProjectRepository,
     MemoryResourceStorage,
+    MemorySkillsRepository,
     MemoryTaskRepository,
     MemoryUserRepository,
     knowledge_overrides,
@@ -29,6 +30,7 @@ async def build_client(cors_origins: str = "") -> TestClient:
         project_repository=MemoryProjectRepository(),
         device_repository=MemoryDeviceRepository(),
         ai_repository=MemoryAISettingsRepository(),
+        ai_skills_repository=MemorySkillsRepository(),
         resource_storage=MemoryResourceStorage(),
         **knowledge_overrides(),
     )
