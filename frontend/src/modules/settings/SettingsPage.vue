@@ -537,12 +537,12 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
   <div class="page-wrap max-w-5xl">
     <header class="page-header"><div><p class="eyebrow">System preferences</p><h1>系统设置</h1><p>由后端加密保存模型连接信息</p></div></header>
     <div class="grid gap-5 lg:grid-cols-[220px_1fr]">
-      <nav class="card h-fit p-2" aria-label="设置分类">
-        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'connection' }]" @click="tab = 'connection'"><PlugZap :size="17" />模型连接</Button>
-        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'tools' }]" @click="showTools"><Wrench :size="17" />AI 工具注册</Button>
-        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'devices' }]" @click="showDevices"><MonitorSmartphone :size="17" />绑定设备</Button>
-        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'mcp' }]" @click="tab = 'mcp'"><Cable :size="17" />MCP 接入</Button>
-        <Button type="button" variant="ghost" :class="['nav-link', 'w-full', { 'nav-link--active': tab === 'updates' }]" @click="showUpdates"><Package :size="17" />版本更新</Button>
+      <nav class="card flex gap-1 overflow-x-auto p-2 lg:h-fit lg:flex-col" aria-label="设置分类">
+        <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', 'lg:w-full', { 'nav-link--active': tab === 'connection' }]" @click="tab = 'connection'"><PlugZap :size="17" /><span>模型连接</span></Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', 'lg:w-full', { 'nav-link--active': tab === 'tools' }]" @click="showTools"><Wrench :size="17" /><span>AI 工具</span></Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', 'lg:w-full', { 'nav-link--active': tab === 'devices' }]" @click="showDevices"><MonitorSmartphone :size="17" /><span>设备</span></Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', 'lg:w-full', { 'nav-link--active': tab === 'mcp' }]" @click="tab = 'mcp'"><Cable :size="17" /><span>MCP</span></Button>
+        <Button type="button" variant="ghost" :class="['nav-link', 'shrink-0', 'lg:w-full', { 'nav-link--active': tab === 'updates' }]" @click="showUpdates"><Package :size="17" /><span>更新</span></Button>
       </nav>
       <section v-if="tab === 'connection'" class="card">
         <div class="card-head"><div><p class="eyebrow">OpenAI compatible</p><h2>模型连接</h2><p class="mt-2 text-xs text-muted-foreground">浏览器仅调用工作台后端，不直接连接模型服务</p></div><Badge variant="outline"><span class="size-1.5 rounded-full bg-cyan" /> ENCRYPTED</Badge></div>
@@ -560,8 +560,8 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
             已保存 API Key
             <div class="flex gap-2">
               <Input type="text" readonly :model-value="revealedKey || maskedKey" class="min-w-0 flex-1 font-mono" />
-              <Button v-if="revealedKey" type="button" @click="revealedKey = ''" variant="outline"><EyeOff :size="15" />隐藏</Button>
-              <Button v-else type="button" :disabled="revealing" @click="revealSecret" variant="outline"><LoaderCircle v-if="revealing" :size="15" class="animate-spin" /><Eye v-else :size="15" />{{ revealing ? '查看中…' : '查看' }}</Button>
+              <Button v-if="revealedKey" type="button" class="shrink-0" @click="revealedKey = ''" variant="outline"><EyeOff :size="15" /><span class="hidden sm:inline">隐藏</span></Button>
+              <Button v-else type="button" class="shrink-0" :disabled="revealing" @click="revealSecret" variant="outline"><LoaderCircle v-if="revealing" :size="15" class="animate-spin" /><Eye v-else :size="15" /><span class="hidden sm:inline">{{ revealing ? '查看中…' : '查看' }}</span></Button>
             </div>
           </div>
           <label class="field-label">API Key<Input v-model="apiKey" type="password" autocomplete="new-password" placeholder="sk-..." :required="!maskedKey" class="font-mono" /><small>{{ maskedKey ? '输入新密钥可替换，留空则保留现有密钥。' : '密钥提交至后端加密保存，不写入浏览器存储。' }}</small></label>

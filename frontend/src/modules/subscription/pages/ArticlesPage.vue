@@ -41,7 +41,7 @@ function openArticle(id: string) {
 </script>
 
 <template>
-  <div class="page-wrap">
+  <div>
     <header class="page-header">
       <div>
         <p class="eyebrow">Articles</p>
@@ -51,7 +51,7 @@ function openArticle(id: string) {
     </header>
 
     <div class="mb-4 flex flex-col gap-3 rounded-xl border border-line bg-panel p-2 md:flex-row md:items-center">
-      <div class="min-w-48">
+      <div class="min-w-0 w-full sm:min-w-48 sm:w-auto">
         <AppSelect v-model="sourceId" :options="sourceOptions" placeholder="来源" />
       </div>
       <label class="search-box !h-8 !min-h-8 flex-1">

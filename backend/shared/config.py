@@ -60,7 +60,7 @@ def get_settings() -> Settings:
     return Settings()
 
 
-# macOS WKWebView 多为 tauri://；Win/Linux 为 http(s)://tauri.localhost
+# macOS WKWebView 多为 tauri://；Win/Linux/Android 为 http(s)://tauri.localhost
 TAURI_DEFAULT_ORIGINS = (
     "tauri://localhost",
     "http://tauri.localhost",
@@ -71,8 +71,8 @@ TAURI_DEFAULT_ORIGINS = (
 def cors_origin_set(cors_origins: str) -> frozenset[str]:
     """解析逗号分隔的放行来源，统一去掉尾部斜杠。
 
-    Tauri 桌面壳的默认来源始终放行：自定义 scheme 无法被网页伪造，
-    不构成跨源风险；这样打包的桌面应用无需额外配置即可连接后端。
+    Tauri 壳（桌面 / Android）的默认来源始终放行：自定义 scheme 无法被网页伪造，
+    不构成跨源风险；这样打包的客户端无需额外配置即可连接后端。
     """
     origins = {
         origin.strip().rstrip("/")

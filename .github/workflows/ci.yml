@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       api_base_url:
-        description: 可选：烧入桌面端安装包的默认 API 地址
+        description: 可选：烧入桌面端 / Android 安装包的默认 API 地址
         required: false
         type: string
 
@@ -168,5 +168,102 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: dist-dmg/Workbench-macos-aarch64.dmg
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+  android:
+    name: Android（APK）
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    env:
+      VITE_API_BASE_URL: ${{ inputs.api_base_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'tools platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973'
+      - name: 设置 NDK_HOME
+        run: echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('frontend/src-tauri/gen/android/**/*.gradle*', 'frontend/src-tauri/gen/android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - id: android_meta
+        run: |
+          SHORT="$(echo '${{ github.sha }}' | cut -c1-7)"
+          BASE="$(python3 -c "import json; print(json.load(open('frontend/src-tauri/tauri.conf.json'))['version'].split('+')[0])")"
+          VERSION="${BASE}+${SHORT}"
+          python3 -c "
+          import json, re
+          from pathlib import Path
+          version = '${VERSION}'
+          path = Path('frontend/src-tauri/tauri.conf.json')
+          data = json.loads(path.read_text())
+          data['version'] = version
+          path.write_text(json.dumps(data, indent=2) + chr(10))
+          cargo = Path('frontend/src-tauri/Cargo.toml')
+          text = re.sub(r'(?m)^version = \"[^\"]+\"', f'version = \"{version}\"', cargo.read_text(), count=1)
+          cargo.write_text(text)
+          "
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT}" >> "$GITHUB_OUTPUT"
+      - run: pnpm tauri android build --debug --apk --target aarch64
+        working-directory: frontend
+      - name: 固定 APK 文件名
+        run: |
+          mkdir -p dist-apk
+          src="$(find frontend/src-tauri/gen/android/app/build/outputs/apk -path '*universal*debug*.apk' -o -name '*aarch64*debug*.apk' -o -name '*.apk' | head -1)"
+          test -n "$src"
+          cp "$src" dist-apk/Workbench-android-aarch64-debug.apk
+          ls -lh dist-apk/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workbench-android
+          path: dist-apk/Workbench-android-aarch64-debug.apk
+          if-no-files-found: error
+      - uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: android-latest
+          name: Android ${{ steps.android_meta.outputs.version }}
+          body: |
+            滚动 Android debug 构建（prerelease）。
+            - version: `${{ steps.android_meta.outputs.version }}`
+            - commit: `${{ github.sha }}`
+            - asset: `Workbench-android-aarch64-debug.apk`
+
+            仅前端壳；登录页填写 API 地址（模拟器可用 `http://10.0.2.2:8080`）。
+          prerelease: true
+          make_latest: false
+          files: dist-apk/Workbench-android-aarch64-debug.apk
+          fail_on_unmatched_files: true
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist-apk/Workbench-android-aarch64-debug.apk
           generate_release_notes: true
           fail_on_unmatched_files: true

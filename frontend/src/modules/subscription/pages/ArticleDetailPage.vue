@@ -38,7 +38,7 @@ function formatTime(value: string | null) {
 </script>
 
 <template>
-  <div class="page-wrap">
+  <div>
     <Button variant="ghost" class="mb-3 px-0" @click="router.push('/subscription/articles')">
       <ArrowLeft :size="16" />返回文章列表
     </Button>

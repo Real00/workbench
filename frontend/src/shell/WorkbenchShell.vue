@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { ChevronLeft, House, LogOut, Menu } from '@lucide/vue'
+import { ChevronLeft, Command, House, LogOut, Menu } from '@lucide/vue'
 import { moduleNavigation } from '../app/modules'
 import AiDock from '../shared/AiDock.vue'
 import CommandPalette from '../shared/CommandPalette.vue'
@@ -85,14 +85,17 @@ function logout() {
 
 <template>
   <div class="min-h-screen bg-ink text-text">
-    <Button class="mobile-menu" variant="outline" size="icon" aria-label="打开导航" @click="mobileOpen = true"><Menu :size="19" /></Button>
+    <Button :class="['mobile-menu', mobileOpen && 'mobile-menu--hidden']" variant="outline" size="icon" aria-label="打开导航" @click="mobileOpen = true"><Menu :size="19" /></Button>
     <div v-if="mobileOpen" class="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" @click="mobileOpen = false" />
     <aside :class="['sidebar', collapsed && 'sidebar--collapsed', mobileOpen && 'sidebar--open']">
       <RouterLink to="/" class="sidebar-brand" aria-label="个人工作台首页" :title="collapsed ? '个人工作台首页' : undefined" @click="mobileOpen = false">
         <img v-if="collapsed" src="/work-mark.png" class="sidebar-brand__mark" alt="" />
         <img v-else src="/work-wordmark.png" class="sidebar-brand__wordmark" alt="" />
       </RouterLink>
-      <Button class="nav-link m-2" variant="ghost" aria-label="快速记录" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></Button>
+      <Button class="nav-link m-2" variant="ghost" aria-label="快速记录" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true; mobileOpen = false"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></Button>
+      <Button class="nav-link mx-2 mb-1 lg:hidden" variant="ghost" aria-label="打开命令面板" @click="paletteOpen = true; mobileOpen = false">
+        <Command :size="18" /><span v-if="!collapsed">命令面板</span>
+      </Button>
       <nav class="flex-1 overflow-y-auto p-2" aria-label="主导航">
         <RouterLink to="/" aria-label="工作台首页" title="工作台首页" class="nav-link" active-class="" exact-active-class="router-link-active" @click="mobileOpen = false">
           <House :size="18" /><span v-if="!collapsed">工作台首页</span>

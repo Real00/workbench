@@ -8,7 +8,11 @@
     "build": "vue-tsc -b && vite build",
     "typecheck": "vue-tsc -b --noEmit",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build --apk",
+    "android:build:debug": "tauri android build --debug --apk"
   },
   "dependencies": {
     "@dicebear/core": "^9.4.2",

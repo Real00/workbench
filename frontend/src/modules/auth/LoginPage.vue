@@ -2,26 +2,36 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Globe, LockKeyhole, UserRound } from '@lucide/vue'
-import { api, apiError, deviceLabel, ensureDeviceId, getApiBase, isDesktopShell, setApiBase, setDeviceCredentials, setToken } from '../../shared/api/client'
+import { api, apiError, deviceLabel, ensureDeviceId, getApiBase, isTauriShell, setApiBase, setDeviceCredentials, setToken } from '../../shared/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+
+function defaultTauriApiBase() {
+  const saved = getApiBase()
+  if (saved) return saved
+  // Android 模拟器访问宿主机用 10.0.2.2；真机请填局域网 IP
+  if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
+    return 'http://10.0.2.2:8080'
+  }
+  return 'http://127.0.0.1:8080'
+}
 
 const router = useRouter()
 const route = useRoute()
 const username = ref('')
 const password = ref('')
-const remember = ref(isDesktopShell)
+const remember = ref(isTauriShell)
 const loading = ref(false)
 const error = ref('')
-// 桌面壳没有同源后端：首次启动需要指定服务器地址；默认指向本机后端
-const server = ref(isDesktopShell ? getApiBase() || 'http://127.0.0.1:8080' : getApiBase())
+// Tauri 壳没有同源后端：首次启动需要指定服务器地址
+const server = ref(isTauriShell ? defaultTauriApiBase() : getApiBase())
 const deviceName = deviceLabel()
 
 async function login() {
   loading.value = true
   error.value = ''
   try {
-    if (isDesktopShell) setApiBase(server.value)
+    if (isTauriShell) setApiBase(server.value)
     const payload: Record<string, unknown> = { username: username.value, password: password.value }
     if (remember.value) {
       payload.device_id = ensureDeviceId()
@@ -56,6 +66,9 @@ async function login() {
     </section>
     <section class="grid place-items-center px-6 py-12">
       <form class="w-full max-w-sm" @submit.prevent="login">
+        <div class="login-brand mb-8 lg:hidden">
+          <img src="/work-wordmark.png" class="login-brand__wordmark max-w-[180px]" alt="WORK · 个人工作台" />
+        </div>
         <p class="eyebrow">Workspace access</p>
         <h2 class="mt-3 font-display text-3xl font-semibold text-text">进入控制台</h2>
         <p class="mt-2 text-sm text-muted-foreground">使用组织账号继续</p>
@@ -65,7 +78,7 @@ async function login() {
             <Input v-model="username" class="!mt-0 pl-8" autocomplete="username" placeholder="输入用户名" required />
           </span>
         </label>
-        <label v-if="isDesktopShell" class="field-label mt-8">服务器地址
+        <label v-if="isTauriShell" class="field-label mt-8">服务器地址
           <span class="relative mt-2 block">
             <Globe :size="16" class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2" />
             <Input v-model="server" class="!mt-0 pl-8" autocomplete="url" spellcheck="false" placeholder="https://你的云端域名或 http://127.0.0.1:8080" />

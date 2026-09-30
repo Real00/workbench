@@ -97,7 +97,7 @@ async function trial() {
 </script>
 
 <template>
-  <div class="page-wrap">
+  <div>
     <header class="page-header">
       <div>
         <p class="eyebrow">Plugins</p>

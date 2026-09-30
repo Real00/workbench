@@ -1,9 +1,15 @@
 import axios, { AxiosError } from 'axios'
 
 const API_BASE_KEY = 'workbench_api_base'
-/** 打包期默认值：桌面端可留空，登录页会写入运行时地址；网页端同源部署为空即同源 */
+/** 打包期默认值：Tauri 壳可留空，登录页会写入运行时地址；网页端同源部署为空即同源 */
 const ENV_API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
-export const isDesktopShell = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
+/** Tauri 壳（桌面 / Android），用于登录页服务器地址等 */
+export const isTauriShell = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
+/** 桌面壳（排除 Android）：托盘桥、DMG 更新等 */
+export const isDesktopShell =
+  isTauriShell && typeof navigator !== 'undefined' && !/Android/i.test(navigator.userAgent)
 
 let apiBase =
   (typeof localStorage !== 'undefined' ? localStorage.getItem(API_BASE_KEY) : null) ?? ENV_API_BASE
@@ -50,17 +56,22 @@ export function setDeviceCredentials(token: string | null) {
   else localStorage.removeItem(DEVICE_TOKEN_KEY)
 }
 
-/** 平台标识：桌面壳/网页端 + 操作系统，用于设备命名 */
+/** 平台标识：Tauri 壳/网页端 + 操作系统，用于设备命名 */
 export function deviceLabel() {
   if (typeof navigator === 'undefined') return '未知设备'
-  const platform = /Mac/i.test(navigator.userAgent)
+  const ua = navigator.userAgent
+  if (/Android/i.test(ua)) {
+    return `${isTauriShell ? 'Android 端' : '网页端'}（Android）`
+  }
+  const platform = /Mac/i.test(ua)
     ? 'macOS'
-    : /Win/i.test(navigator.userAgent)
+    : /Win/i.test(ua)
       ? 'Windows'
-      : /Linux/i.test(navigator.userAgent)
+      : /Linux/i.test(ua)
         ? 'Linux'
         : '未知系统'
-  return `${isDesktopShell ? '桌面端' : '网页端'}（${platform}）`
+  const shell = isDesktopShell ? '桌面端' : isTauriShell ? '客户端' : '网页端'
+  return `${shell}（${platform}）`
 }
 
 /** 已有会话但缺设备凭证时（如应用升级前登录过），静默补绑定一次 */

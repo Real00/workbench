@@ -38,11 +38,13 @@ async function removeTag() {
           <div><p class="eyebrow">Knowledge tag</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
           <Button aria-label="关闭" @click="store.tagEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
         </header>
-        <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
+        <form class="editor-form" @submit.prevent="submit">
+          <div class="editor-fields space-y-5">
           <label class="field-label">名称<Input v-model="form.name" required maxlength="40" /></label>
           <label class="field-label">解释<Textarea v-model="form.explanation" class="min-h-28" required maxlength="2000" /></label>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5">
+          </div>
+          <footer class="editor-actions">
             <Button v-if="store.editingTag" type="button" :disabled="store.saving" @click="removeTag" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button>
             <Button type="button" @click="store.tagEditorOpen = false" variant="outline"><X :size="14" />取消</Button>
             <Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存标签' }}</Button>

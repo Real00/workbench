@@ -87,7 +87,7 @@ function formatTime(value: string | null) {
 </script>
 
 <template>
-  <div class="page-wrap">
+  <div>
     <header class="page-header">
       <div>
         <p class="eyebrow">Subscription</p>
@@ -166,12 +166,13 @@ function formatTime(value: string | null) {
                   size="sm"
                   variant="outline"
                   :disabled="store.refreshing === source.id"
+                  :aria-label="store.refreshing === source.id ? '刷新中' : '刷新'"
                   @click="store.refreshSource(source.id)"
                 >
                   <RefreshCw :size="14" :class="store.refreshing === source.id && 'animate-spin'" />
-                  刷新
+                  <span class="hidden sm:inline">刷新</span>
                 </Button>
-                <Button size="sm" variant="ghost" @click="remove(source)">
+                <Button size="sm" variant="ghost" aria-label="删除" @click="remove(source)">
                   <Trash2 :size="14" />
                 </Button>
               </div>

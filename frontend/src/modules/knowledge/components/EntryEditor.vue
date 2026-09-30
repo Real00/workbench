@@ -49,7 +49,8 @@ async function removeEntry() {
           <div><p class="eyebrow">Knowledge entry</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
           <Button aria-label="关闭" @click="store.entryEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
         </header>
-        <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
+        <form class="editor-form" @submit.prevent="submit">
+          <div class="editor-fields space-y-5">
           <label class="field-label">键 / 概念<Input v-model="form.key" required maxlength="200" /></label>
           <label class="field-label">值<RichTextarea v-model="form.value" :min-height="128" :maxlength="20000" counter required /></label>
           <label class="field-label">别名<small>逗号分隔，写入正文供 grep 命中同义词</small>
@@ -70,7 +71,8 @@ async function removeEntry() {
             </div>
           </fieldset>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5">
+          </div>
+          <footer class="editor-actions">
             <Button v-if="store.editingEntry" type="button" :disabled="store.saving" @click="removeEntry" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button>
             <Button type="button" @click="store.entryEditorOpen = false" variant="outline"><X :size="14" />取消</Button>
             <Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存条目' }}</Button>

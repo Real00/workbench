@@ -55,8 +55,8 @@ const views = [
     </header>
     <div class="task-toolbar mb-4 flex flex-col gap-3 rounded-xl border border-line bg-panel p-2 md:flex-row md:items-center md:justify-between">
       <div class="segmented-tabs" role="group" aria-label="任务视图">
-        <Button v-for="item in views" :key="item.id" type="button" variant="ghost" :class="['view-tab', view === item.id && 'view-tab--active']" :aria-pressed="view === item.id" @click="view = item.id">
-          <component :is="item.icon" :size="15" />{{ item.label }}
+        <Button v-for="item in views" :key="item.id" type="button" variant="ghost" :class="['view-tab', view === item.id && 'view-tab--active']" :aria-pressed="view === item.id" :aria-label="item.label" :title="item.label" @click="view = item.id">
+          <component :is="item.icon" :size="15" /><span class="hidden sm:inline">{{ item.label }}</span>
         </Button>
       </div>
       <div class="flex min-w-0 flex-1 items-center justify-end gap-2 md:max-w-md">

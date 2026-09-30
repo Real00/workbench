@@ -82,10 +82,11 @@ async function removeProject() {
           </div>
           <Button aria-label="关闭" @click="store.projectEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
         </header>
-        <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
+        <form class="editor-form" @submit.prevent="submit">
+          <div class="editor-fields space-y-5">
           <section class="space-y-4">
             <p class="eyebrow">基本信息</p>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label class="field-label">项目名称<Input v-model="form.name" required maxlength="200" placeholder="例如：MYAI 工单平台" /></label>
               <label class="field-label">项目状态<AppSelect v-model="form.status" :options="statusOptions" /></label>
             </div>
@@ -128,7 +129,8 @@ async function removeProject() {
             </ul>
           </section>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><Button v-if="store.editingProject" type="button" :disabled="store.saving" @click="removeProject" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button><Button type="button" @click="store.projectEditorOpen = false" variant="outline"><X :size="14" />取消</Button><Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存项目' }}</Button></footer>
+          </div>
+          <footer class="editor-actions"><Button v-if="store.editingProject" type="button" :disabled="store.saving" @click="removeProject" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button><Button type="button" @click="store.projectEditorOpen = false" variant="outline"><X :size="14" />取消</Button><Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存项目' }}</Button></footer>
         </form>
       </aside>
     </div>

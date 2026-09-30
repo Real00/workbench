@@ -1,13 +1,19 @@
+#[cfg(desktop)]
 use std::path::PathBuf;
+#[cfg(desktop)]
 use std::process::Command;
 
+#[cfg(desktop)]
 use tauri::menu::{Menu, MenuItem};
+#[cfg(desktop)]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+#[cfg(desktop)]
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
-
+#[cfg(desktop)]
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 /// 显示并聚焦主窗口（全局快捷键与托盘共用）
+#[cfg(desktop)]
 fn reveal_main<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.show();
@@ -17,6 +23,7 @@ fn reveal_main<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 }
 
 /// 通知前端打开快速记录对话框（前端 shared/tauri.ts 监听）
+#[cfg(desktop)]
 fn trigger_quick_capture<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
   reveal_main(app);
   let _ = app.emit("quick-capture", ());
@@ -27,6 +34,7 @@ fn get_app_version(app: tauri::AppHandle) -> String {
   app.package_info().version.to_string()
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn download_and_open_dmg(url: String, authorization: Option<String>) -> Result<String, String> {
   if !cfg!(target_os = "macos") {
@@ -87,8 +95,8 @@ async fn download_and_open_dmg(url: String, authorization: Option<String>) -> Re
   Ok(path.display().to_string())
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+#[cfg(desktop)]
+fn build_desktop() -> tauri::Builder<tauri::Wry> {
   tauri::Builder::default()
     .plugin(tauri_plugin_global_shortcut::Builder::new().build())
     .invoke_handler(tauri::generate_handler![get_app_version, download_and_open_dmg])
@@ -100,18 +108,15 @@ pub fn run() {
             .build(),
         )?;
       }
-      #[cfg(desktop)]
-      {
-        // 全局快速记录：避开应用内 Ctrl/Cmd+Shift+J 与浏览器常见的 Cmd+Shift+J
-        app.global_shortcut().on_shortcut(
-          "CommandOrControl+Alt+J",
-          |app, _shortcut, event| {
-            if event.state == ShortcutState::Pressed {
-              trigger_quick_capture(app);
-            }
-          },
-        )?;
-      }
+      // 全局快速记录：避开应用内 Ctrl/Cmd+Shift+J 与浏览器常见的 Cmd+Shift+J
+      app.global_shortcut().on_shortcut(
+        "CommandOrControl+Alt+J",
+        |app, _shortcut, event| {
+          if event.state == ShortcutState::Pressed {
+            trigger_quick_capture(app);
+          }
+        },
+      )?;
 
       let open_item = MenuItem::with_id(app, "open", "打开工作台", true, None::<&str>)?;
       let quick_item = MenuItem::with_id(app, "quick", "快速记录", true, None::<&str>)?;
@@ -153,16 +158,46 @@ pub fn run() {
         let _ = window.hide();
       }
     })
-    .build(tauri::generate_context!())
-    .expect("error while building tauri application")
-    .run(|app_handle, event| {
-      // macOS：Dock 图标再点一次时，若窗口已隐藏则重新显示
-      if let RunEvent::Reopen {
-        has_visible_windows: false,
-        ..
-      } = event
-      {
-        reveal_main(app_handle);
+}
+
+#[cfg(mobile)]
+fn build_mobile() -> tauri::Builder<tauri::Wry> {
+  tauri::Builder::default()
+    .invoke_handler(tauri::generate_handler![get_app_version])
+    .setup(|app| {
+      if cfg!(debug_assertions) {
+        app.handle().plugin(
+          tauri_plugin_log::Builder::default()
+            .level(log::LevelFilter::Info)
+            .build(),
+        )?;
       }
-    });
+      Ok(())
+    })
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+  #[cfg(desktop)]
+  {
+    build_desktop()
+      .build(tauri::generate_context!())
+      .expect("error while building tauri application")
+      .run(|app_handle, event| {
+        // macOS：Dock 图标再点一次时，若窗口已隐藏则重新显示
+        if let RunEvent::Reopen {
+          has_visible_windows: false,
+          ..
+        } = event
+        {
+          reveal_main(app_handle);
+        }
+      });
+  }
+  #[cfg(mobile)]
+  {
+    build_mobile()
+      .run(tauri::generate_context!())
+      .expect("error while running tauri application");
+  }
 }

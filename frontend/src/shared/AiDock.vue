@@ -972,7 +972,7 @@ function copyTurn(turn: ChatTurn) {
             <div v-if="turn.token && turn.operations.length && !turn.applied" class="mt-3 flex justify-end gap-1.5">
               <Button size="sm" @click="discard(turn)" variant="outline"><Undo2 :size="12" />放弃</Button>
               <Button size="sm" :disabled="confirming" @click="confirm(turn)">
-                <Check :size="12" />{{ confirming ? '应用中…' : '确认应用 ⌘↩' }}
+                <Check :size="12" />{{ confirming ? '应用中…' : '确认应用' }}
               </Button>
             </div>
             <div v-if="turn.applied" class="success-box mt-3"><Check :size="15" />变更已应用并刷新数据</div>

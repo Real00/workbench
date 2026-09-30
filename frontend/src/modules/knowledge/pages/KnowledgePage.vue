@@ -82,11 +82,11 @@ function onDragLeave(event: DragEvent) {
         <h1>知识库</h1>
         <p>{{ store.documents.length }} 篇文档 · {{ store.entries.length }} 条条目 · {{ store.tags.length }} 个标签</p>
       </div>
-      <div class="flex gap-2">
-        <Button @click="store.openTag()" variant="outline"><Tags :size="16" />标签</Button>
-        <Button @click="store.openEntry()" variant="outline"><Plus :size="16" />条目</Button>
+      <div class="flex flex-wrap gap-2">
+        <Button @click="store.openTag()" variant="outline"><Tags :size="16" /><span class="hidden sm:inline">标签</span></Button>
+        <Button @click="store.openEntry()" variant="outline"><Plus :size="16" /><span class="hidden sm:inline">条目</span></Button>
         <Button :disabled="store.uploading" @click="pickFiles" variant="outline">
-          <Upload :size="16" />{{ store.uploading ? '上传中…' : '上传文档' }}
+          <Upload :size="16" /><span class="hidden sm:inline">{{ store.uploading ? '上传中…' : '上传文档' }}</span>
         </Button>
         <Button @click="store.openDocument()"><Plus :size="16" />文档</Button>
       </div>

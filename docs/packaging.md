@@ -1,11 +1,12 @@
 # 打包流程
 
-项目有两条独立的打包路径：
+项目有三条独立的打包路径：
 
 | 路径 | 产物 | 用途 |
 | --- | --- | --- |
 | Docker 镜像 | 单进程服务（API + 前端静态资源 + Mongo） | 服务器部署、打包验证 |
 | Tauri 桌面端 | `Workbench.app` / `.dmg`（仅前端壳） | macOS 桌面客户端 |
+| Tauri Android | debug / release APK（仅前端壳） | 安卓客户端 |
 
 ## 打包前质量检查
 
@@ -61,7 +62,7 @@ Dock / `.app` / 托盘图标来自 `frontend/src-tauri/icons/`（含 `icon.icns`
 1. 打包期默认值：构建时设置 `VITE_API_BASE_URL`（如 `VITE_API_BASE_URL=https://your-server pnpm tauri build`）；
 2. 运行时覆盖：登录页可设置服务器地址，保存在 `localStorage`（`workbench_api_base`），优先于打包期默认值。
 
-后端跨源放行无需配置：`tauri://localhost`、`http://tauri.localhost`、`https://tauri.localhost` 桌面默认来源在 `backend/shared/config.py` 中始终放行。若另用独立网页域名访问 API，才需要配置 `WORKBENCH_CORS_ORIGINS`。
+后端跨源放行无需配置：`tauri://localhost`、`http://tauri.localhost`、`https://tauri.localhost` 在 `backend/shared/config.py` 中始终放行（桌面与 Android 共用）。若另用独立网页域名访问 API，才需要配置 `WORKBENCH_CORS_ORIGINS`。
 
 ### 桌面专属功能验证
 
@@ -70,6 +71,57 @@ Dock / `.app` / 托盘图标来自 `frontend/src-tauri/icons/`（含 `icon.icns`
 - 全局快捷键 **Cmd+Alt+J** 唤起主窗口并打开速记
 - 点窗口关闭应隐藏到托盘（不退出）；托盘左键或 Dock 再点可重新打开
 - 托盘菜单：打开工作台 / 快速记录 / 退出（或 Cmd+Q）真正退出
+
+Android 壳**没有**托盘、全局快捷键、DMG 客户端更新；登录页仍可配置服务器地址。
+
+## Tauri Android
+
+### 前置条件
+
+- pnpm、Rust 工具链
+- **JDK 17**（Gradle 当前不支持 JDK 26；可用 sdkman `17.0.x` 或 Temurin 17，并设置 `JAVA_HOME`）
+- Android SDK（`ANDROID_HOME`，常见路径 `~/Library/Android/sdk`）
+- Android NDK side-by-side（`NDK_HOME=$ANDROID_HOME/ndk/<version>`，推荐 27.x）
+- Rust Android targets：
+
+```bash
+rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+```
+
+工程目录：`frontend/src-tauri/gen/android/`（已入库；若本地缺失可在 `frontend` 执行 `pnpm exec tauri android init`）。
+
+### 本机命令
+
+```bash
+cd frontend
+# 模拟器 / 真机调试
+pnpm android:dev
+# debug APK（内测）
+pnpm android:build:debug
+# release APK（未配置签名时为 unsigned）
+pnpm android:build
+```
+
+产物大致位于：
+
+```text
+frontend/src-tauri/gen/android/app/build/outputs/apk/universal/debug/
+# 或 arm64 等分架构目录；以实际 Gradle 输出为准
+```
+
+### 如何连后端
+
+与桌面相同：登录页填写 API 地址。
+
+| 环境 | 推荐地址 |
+| --- | --- |
+| Android 模拟器访问宿主机 | `http://10.0.2.2:8080` |
+| 真机访问局域网后端 | `http://<电脑局域网 IP>:8080` |
+| 云端 HTTPS | `https://your-server` |
+
+debug / release 均已允许 cleartext HTTP（`usesCleartextTraffic`），以便连本机与局域网。Android WebView Origin 为 `http://tauri.localhost`（开启 https scheme 则为 `https://tauri.localhost`），后端默认已放行。
+
+包名：`com.workbench.desktop`（debug 为 `com.workbench.desktop.debug`），与桌面 identifier 一致。
 
 ## Docker 镜像（服务端）
 
@@ -190,25 +242,27 @@ Agent 只接受协议内的请求文件，不执行客户端传入的任意命�
 
 ## CI 自动打包（GitHub Actions）
 
-流水线定义在 `.github/workflows/ci.yml`，三个任务串行（后两个依赖质量检查通过）：
+流水线定义在 `.github/workflows/ci.yml`，质量检查通过后并行构建产物：
 
 | 任务 | 运行环境 | 内容 |
 | --- | --- | --- |
 | `check` | ubuntu + mongo:8 服务容器 | 后端 mypy/pytest、前端 typecheck/test/build |
 | `docker` | ubuntu | 构建镜像并推送到 GHCR |
 | `desktop` | macOS | `pnpm tauri build`，上传 dmg；main 刷新 `desktop-latest` |
+| `android` | ubuntu | `pnpm tauri android build --debug --apk`，上传 APK；main 刷新 `android-latest` |
 
 **触发与产物**
 
-- push 到 `main`：质量检查 + 镜像推送 `ghcr.io/real00/workbench:latest` + dmg 存为 Actions 构件，并更新 GitHub 预发布 `desktop-latest`
-- push tag `v*`（如 `v0.1.0`）：同上，镜像额外打 `vX.Y.Z` 版本 tag，dmg 写入该正式 Release
+- push 到 `main`：质量检查 + 镜像推送 `ghcr.io/real00/workbench:latest` + dmg / debug APK 存为 Actions 构件，并更新预发布 `desktop-latest` / `android-latest`
+- push tag `v*`（如 `v0.1.0`）：同上，镜像额外打 `vX.Y.Z` 版本 tag，dmg 与 APK 写入该正式 Release
 - PR：只跑质量检查
-- 手动触发（workflow_dispatch）：可填 `api_base_url`，作为 `VITE_API_BASE_URL` 烧入当次桌面包
+- 手动触发（workflow_dispatch）：可填 `api_base_url`，作为 `VITE_API_BASE_URL` 烧入当次桌面 / Android 包
 
 **注意事项**
 
 - 镜像默认私有；服务器拉取需 `docker login ghcr.io`，或在 GitHub 包设置中改为 public
 - CI 构建的桌面包未做公证/签名，首次打开会被 Gatekeeper 拦截：右键 → 打开，或 `xattr -cr Workbench.app`
+- Android CI 产物为 **debug APK**（`com.workbench.desktop.debug`），便于内测；Play 上架需另配签名与 AAB
 - 后端测试依赖 Mongo，CI 用 `mongo:8` 服务容器供在 `localhost:27017`，与 compose 一致；本机无 Mongo 时约 3 个用例会失败
 - Docker 构建在 CI 中强制 `NPM_REGISTRY=https://registry.npmjs.org` 覆盖镜像内的 npmmirror 默认值（GitHub 网络访问 npmjs 更稳）
 - `ruff check .` 暂未纳入 CI 闸门：仓库存量约 79 处违规（多为 `mcp/`、`tests/` 的 E501 超长行），清理完成后建议加回

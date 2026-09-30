@@ -119,7 +119,8 @@ async function removeDocument() {
           <div><p class="eyebrow">Knowledge document</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
           <Button aria-label="关闭" @click="store.closeDocument()" variant="ghost" size="icon"><X :size="18" /></Button>
         </header>
-        <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
+        <form class="editor-form" @submit.prevent="submit">
+          <div class="editor-fields space-y-5">
           <label class="field-label">标题<Input v-model="form.title" required maxlength="200" /></label>
           <div class="field-label">
             <span class="flex items-center justify-between gap-3">正文
@@ -129,8 +130,8 @@ async function removeDocument() {
               </span>
             </span>
             <small>UTF-8 Markdown，供 Pulse grep 与阅读渲染</small>
-            <RichTextarea v-if="!bodyPreview" v-model="form.body" :min-height="360" :max-height="640" :maxlength="200000" mono toolbar />
-            <div v-else class="mt-2 min-h-[360px] rounded-lg border border-line bg-ink p-4">
+            <RichTextarea v-if="!bodyPreview" v-model="form.body" :min-height="220" :max-height="640" :maxlength="200000" mono toolbar />
+            <div v-else class="mt-2 min-h-[220px] rounded-lg border border-line bg-ink p-4">
               <MarkdownView :source="form.body" />
             </div>
           </div>
@@ -189,7 +190,8 @@ async function removeDocument() {
             </div>
           </fieldset>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5">
+          </div>
+          <footer class="editor-actions">
             <Button v-if="store.editingDocument" type="button" :disabled="store.saving" @click="removeDocument" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button>
             <Button type="button" @click="store.closeDocument()" variant="outline"><X :size="14" />取消</Button>
             <Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存文档' }}</Button>

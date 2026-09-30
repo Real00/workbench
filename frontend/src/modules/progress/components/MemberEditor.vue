@@ -140,10 +140,11 @@ async function removeMember() {
             <Button aria-label="关闭" @click="store.memberEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
           </div>
         </header>
-        <form class="space-y-5 overflow-y-auto p-5" @submit.prevent="submit">
+        <form class="editor-form" @submit.prevent="submit">
+          <div class="editor-fields space-y-5">
           <section class="space-y-4">
             <p class="eyebrow">基本信息</p>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label class="field-label">姓名<Input v-model="form.name" required maxlength="100" /></label>
               <label class="field-label">职位 / 角色<Input v-model="form.title" maxlength="100" /></label>
             </div>
@@ -199,7 +200,8 @@ async function removeMember() {
           </section>
           <p v-else class="empty-inline !py-2">保存成员后即可随时补充评价记录。</p>
           <p v-if="store.error" class="error-box">{{ store.error }}</p>
-          <footer class="flex justify-end gap-2 border-t border-line pt-5"><Button v-if="store.editingMember && !isOperator" type="button" :disabled="store.saving" @click="removeMember" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button><Button type="button" @click="store.memberEditorOpen = false" variant="outline"><X :size="14" />取消</Button><Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存成员' }}</Button></footer>
+          </div>
+          <footer class="editor-actions"><Button v-if="store.editingMember && !isOperator" type="button" :disabled="store.saving" @click="removeMember" class="mr-auto" variant="destructive"><Trash2 :size="14" />删除</Button><Button type="button" @click="store.memberEditorOpen = false" variant="outline"><X :size="14" />取消</Button><Button :disabled="store.saving"><Save :size="14" />{{ store.saving ? '保存中…' : '保存成员' }}</Button></footer>
         </form>
       </aside>
     </div>

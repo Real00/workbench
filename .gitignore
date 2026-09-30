@@ -14,5 +14,5 @@ backend/static/
 htmlcov/
 .pnpm-store/
 frontend/src-tauri/target/
-frontend/src-tauri/gen/
+frontend/src-tauri/gen/schemas/
 .zcode/

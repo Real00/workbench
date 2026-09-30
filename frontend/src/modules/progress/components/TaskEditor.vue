@@ -110,15 +110,15 @@ async function removeTask() {
             <AppSelect v-model="form.assignee_id" :options="assigneeOptions" placeholder="未分配" />
           </label>
           <label class="field-label">所属项目<AppSelect v-model="form.project_id" :options="projectOptions" placeholder="不关联项目" /></label>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="field-label">状态<AppSelect v-model="form.status" :options="statusOptions" /></label>
             <label class="field-label">优先级<AppSelect v-model="form.priority" :options="priorityOptions" /></label>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="field-label">开始日期<Input v-model="form.start_date" type="date" /></label>
             <label class="field-label">截止日期<Input v-model="form.due_date" type="date" /></label>
           </div>
-          <div class="grid grid-cols-2 gap-3"><label class="field-label">预估工时<Input v-model.number="form.estimated_hours" type="number" min="0" step=".5" /></label><label class="field-label">标签<Input v-model="tagsText" placeholder="逗号分隔" /></label></div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2"><label class="field-label">预估工时<Input v-model.number="form.estimated_hours" type="number" min="0" step=".5" /></label><label class="field-label">标签<Input v-model="tagsText" placeholder="逗号分隔" /></label></div>
           <label class="field-label">完成进度 <span class="float-right font-mono text-cyan">{{ form.progress }}%</span><input v-model.number="form.progress" type="range" min="0" max="100" class="mt-3 w-full accent-cyan" /></label>
           <section v-if="store.editingTask" class="rounded-xl border border-line bg-panel-2 p-4">
             <p class="eyebrow">进度记录</p>
