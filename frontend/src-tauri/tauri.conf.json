@@ -36,7 +36,8 @@
       "icons/icon.ico"
     ],
     "android": {
-      "debugApplicationIdSuffix": ".debug"
+      "debugApplicationIdSuffix": ".debug",
+      "autoIncrementVersionCode": true
     }
   }
 }

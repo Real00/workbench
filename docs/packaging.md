@@ -95,20 +95,27 @@ rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-andro
 
 ```bash
 cd frontend
-# 模拟器 / 真机调试
+# 模拟器 / 真机调试（包名 com.workbench.desktop.debug，与 release 并存）
 pnpm android:dev
-# debug APK（内测）
-pnpm android:build:debug
-# release APK（未配置签名时为 unsigned）
+# release APK（可覆盖安装；体积远小于 debug）
 pnpm android:build
+# 仅本地调试包
+pnpm android:build:debug
 ```
 
 产物大致位于：
 
 ```text
-frontend/src-tauri/gen/android/app/build/outputs/apk/universal/debug/
-# 或 arm64 等分架构目录；以实际 Gradle 输出为准
+frontend/src-tauri/gen/android/app/build/outputs/apk/.../release/*.apk
 ```
+
+CI 默认打 **release** APK（`Workbench-android-aarch64.apk`），包名 `com.workbench.desktop`，用仓库内 `upload.keystore` 签名；`versionCode = 1000 + github.run_number`，保证覆盖安装。
+
+若本机曾安装过 debug 包（`com.workbench.desktop.debug`），与 release **不是同一应用**，需先卸载 debug 再装 release。
+
+侧载签名密钥：`frontend/src-tauri/gen/android/app/upload.keystore`（密码 / alias 默认均为 `workbench`，可用环境变量 `ANDROID_KEYSTORE_PASSWORD` 等覆盖）。仅供内部分发，不是 Play 上架密钥。
+
+启动器图标来自 `frontend/src-tauri/app-icon.png`（`pnpm exec tauri icon src-tauri/app-icon.png` 会同步到 `icons/` 与 `gen/android`）。
 
 ### 如何连后端
 
@@ -250,7 +257,7 @@ Agent 只接受协议内的请求文件，不执行客户端传入的任意命�
 | `check` | ubuntu + mongo:8 服务容器 | 后端 mypy/pytest、前端 typecheck/test/build |
 | `docker` | ubuntu | 构建镜像并推送到 GHCR |
 | `desktop` | macOS | `pnpm tauri build`，上传 dmg；main 刷新 `desktop-latest` |
-| `android` | ubuntu | `pnpm tauri android build --debug --apk`，上传 APK；main 刷新 `android-latest` |
+| `android` | ubuntu | `pnpm tauri android build --apk`（release），上传 APK；main 刷新 `android-latest` |
 
 **触发与产物**
 
@@ -263,7 +270,7 @@ Agent 只接受协议内的请求文件，不执行客户端传入的任意命�
 
 - 镜像默认私有；服务器拉取需 `docker login ghcr.io`，或在 GitHub 包设置中改为 public
 - CI 构建的桌面包未做公证/签名，首次打开会被 Gatekeeper 拦截：右键 → 打开，或 `xattr -cr Workbench.app`
-- Android CI 产物为 **debug APK**（`com.workbench.desktop.debug`），便于内测；Play 上架需另配签名与 AAB
+- Android CI 产物为 **release APK**（`com.workbench.desktop`，已签名）；debug 仅本机 `pnpm android:build:debug`。曾装 debug 包需先卸载再装 release。
 - 后端测试依赖 Mongo，CI 用 `mongo:8` 服务容器供在 `localhost:27017`，与 compose 一致；本机无 Mongo 时约 3 个用例会失败
 - Docker 构建在 CI 中强制 `NPM_REGISTRY=https://registry.npmjs.org` 覆盖镜像内的 npmmirror 默认值（GitHub 网络访问 npmjs 更稳）
 - `ruff check .` 暂未纳入 CI 闸门：仓库存量约 79 处违规（多为 `mcp/`、`tests/` 的 E501 超长行），清理完成后建议加回

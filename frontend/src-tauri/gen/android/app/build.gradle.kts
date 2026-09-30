@@ -24,6 +24,17 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    signingConfigs {
+        create("release") {
+            val ks = file("upload.keystore")
+            if (ks.exists()) {
+                storeFile = ks
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "workbench"
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "workbench"
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: "workbench"
+            }
+        }
+    }
     buildTypes {
         getByName("debug") {
             applicationIdSuffix = ".debug"
@@ -31,7 +42,8 @@ android {
             isDebuggable = true
             isJniDebuggable = true
             isMinifyEnabled = false
-            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
+            packaging {
+                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
                 jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
@@ -40,12 +52,9 @@ android {
         getByName("release") {
             // 个人工作台常连自托管 HTTP API（局域网 IP）；允许 cleartext
             manifestPlaceholders["usesCleartextTraffic"] = "true"
-            isMinifyEnabled = true
-            proguardFiles(
-                *fileTree(".") { include("**/*.pro") }
-                    .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
-                    .toList().toTypedArray()
-            )
+            // 体积主要靠 Rust release；R8 易误伤 JNI，先关闭
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     kotlinOptions {
