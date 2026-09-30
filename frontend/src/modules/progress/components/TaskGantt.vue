@@ -115,7 +115,7 @@ watch(isNarrow, async (narrow) => {
     </template>
 
     <Teleport to="body">
-      <div v-if="fullscreen" class="fixed inset-0 z-50 flex flex-col bg-panel">
+      <div v-if="fullscreen" class="fixed inset-0 z-50 flex flex-col bg-panel" style="padding-top: var(--safe-top); padding-bottom: var(--safe-bottom)">
         <header class="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
           <h2 class="font-display text-lg text-text">甘特图</h2>
           <Button aria-label="关闭全屏甘特" variant="ghost" size="icon" @click="fullscreen = false"><X :size="18" /></Button>
