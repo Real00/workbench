@@ -41,7 +41,7 @@ async function refresh() {
     else errors.value.push(`${sources[index]!.title}：${apiError(result.reason)}`)
   })
   loading.value = false
-  refreshedAt.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  refreshedAt.value = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 onMounted(() => { void refresh(); window.addEventListener('workbench-changed', refresh) })
 onUnmounted(() => window.removeEventListener('workbench-changed', refresh))
@@ -60,11 +60,11 @@ onUnmounted(() => window.removeEventListener('workbench-changed', refresh))
           <p v-else-if="!attention.length && errors.length" class="py-1 text-xs text-muted-foreground">部分模块暂不可用，请刷新重试。</p>
           <p v-else-if="!attention.length" class="py-1 text-xs text-muted-foreground">已选模块中暂无待处理事项，<RouterLink to="/progress/tasks" class="text-cyan">去进度管理查看任务 →</RouterLink></p>
           <p v-else class="mt-2 text-xs text-muted-foreground">来自已选模块的待处理事项，点击回到来源继续操作。</p>
-          <RouterLink v-for="item in attention" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark feed-mark--attention" /><div class="min-w-0 flex-1"><p class="break-words text-sm">{{ item.title }}</p><p class="mt-1 text-xs text-muted-foreground">{{ item.moduleTitle }} · {{ item.summary }}</p></div><ArrowUpRight :size="14" /></RouterLink>
+          <RouterLink v-for="item in attention" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark feed-mark--attention" /><div class="min-w-0 flex-1"><p class="line-clamp-2 break-words text-sm">{{ item.title }}</p><p class="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">{{ item.moduleTitle }} · {{ item.summary }}</p></div><ArrowUpRight :size="14" /></RouterLink>
         </section>
         <section class="card"><div class="card-head"><div><h2><span class="section-icon"><Clock3 :size="17" /></span>最近动态</h2></div><span class="shrink-0 text-xs text-muted-foreground">每来源最多 {{ ACTIVITY_PER_SOURCE }} 条<template v-if="refreshedAt"> · 更新于 {{ refreshedAt }}</template></span></div>
           <p v-if="!loading && !activity.length" class="empty-inline">{{ selected.length ? '暂无可展示的动态。' : '选择一个模块查看动态与待处理事项。' }}</p>
-          <RouterLink v-for="item in activity" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><span class="feed-mark" /><div class="min-w-0 flex-1"><p class="line-clamp-2 break-words text-sm">{{ item.title }}</p><p class="mt-1 truncate text-xs text-muted-foreground"><time v-if="item.occurredAt" :datetime="item.occurredAt">{{ formatDay(item.occurredAt) }}</time>{{ item.occurredAt ? ' · ' : '' }}{{ item.moduleTitle }} · {{ item.summary }}</p></div></RouterLink>
+          <RouterLink v-for="item in activity" :key="`${item.moduleId}:${item.id}`" :to="item.to" class="workbench-feed"><div class="min-w-0 flex-1"><p class="line-clamp-2 break-words text-sm">{{ item.title }}</p><p class="mt-1 truncate text-xs text-muted-foreground"><time v-if="item.occurredAt" :datetime="item.occurredAt">{{ formatDay(item.occurredAt) }}</time>{{ item.occurredAt ? ' · ' : '' }}{{ item.moduleTitle }} · {{ item.summary }}</p></div></RouterLink>
         </section>
       </div>
       <div class="min-w-0 space-y-5">
@@ -79,4 +79,6 @@ onUnmounted(() => window.removeEventListener('workbench-changed', refresh))
 /* A07：快记保留输入与快捷键，但压缩为轻量入口，让最近动态在手机首屏可见 */
 .workbench-home .capture-hero { padding: 12px 16px; }
 .capture-hero :deep([data-slot='textarea']) { min-height: 4rem; margin-top: .5rem; }
+/* 静息态描边降一档：入口卡片里输入框不必与表单场景同重 */
+.capture-hero :deep([data-slot='textarea']:not(:focus-visible)) { border-color: var(--color-line); }
 </style>

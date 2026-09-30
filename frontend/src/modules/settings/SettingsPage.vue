@@ -738,7 +738,7 @@ async function testMcpConnection() {
                   </span>
                   <span class="font-mono text-[12px] text-muted-foreground">{{ tool.parameters.length ? `${tool.parameters.length} 参数` : '无参数' }}</span>
                 </header>
-                <p class="mt-1.5 text-[12px] leading-5" :class="tool.description ? 'text-text-secondary' : 'italic text-muted-foreground'">{{ tool.description || '暂无说明' }}</p>
+                <p class="mt-1.5 text-[12px] leading-5" :class="tool.description ? 'text-text-secondary' : 'text-muted-foreground'">{{ tool.description || '暂无说明' }}</p>
                 <details v-if="tool.parameters.length" class="mt-2">
                   <summary class="cursor-pointer select-none text-[12px] text-muted-foreground">参数（{{ tool.parameters.length }}，开发诊断）</summary>
                   <ul class="mt-2 space-y-1">
@@ -783,7 +783,7 @@ async function testMcpConnection() {
               </b>
               <p class="mt-1 font-mono text-[12px] text-muted-foreground">绑定 {{ formatStamp(device.created_at) }} · 最近活跃 {{ formatStamp(device.last_active_at) }}</p>
             </div>
-            <Button type="button" :disabled="unbindingId === device.id" @click="unbindDevice(device)" class="shrink-0" variant="outline"><LoaderCircle v-if="unbindingId === device.id" :size="14" class="animate-spin" /><Trash2 v-else :size="14" />解绑</Button>
+            <Button type="button" :disabled="unbindingId === device.id" @click="unbindDevice(device)" class="shrink-0" variant="destructive"><LoaderCircle v-if="unbindingId === device.id" :size="15" class="animate-spin" /><Trash2 v-else :size="15" />解绑</Button>
           </article>
         </div>
       </section>
@@ -940,7 +940,7 @@ async function testMcpConnection() {
               <div class="field-label">接入地址
                 <div class="mt-1 flex items-center gap-2">
                   <code class="min-w-0 flex-1 rounded-lg border border-line bg-ink px-3 py-2 font-mono text-[12px] text-cyan">{{ mcpUrl }}</code>
-                  <Button type="button" @click="copyConfig('url')" class="shrink-0" variant="outline"><Check v-if="copied === 'url'" :size="14" /><Copy v-else :size="14" />{{ copied === 'url' ? '已复制' : '复制' }}</Button>
+                  <Button type="button" @click="copyConfig('url')" class="shrink-0" variant="outline"><Check v-if="copied === 'url'" :size="15" /><Copy v-else :size="15" />{{ copied === 'url' ? '已复制' : '复制' }}</Button>
                 </div>
               </div>
               <div class="field-label">
@@ -979,7 +979,7 @@ async function testMcpConnection() {
             <p class="mt-2 text-[12px] leading-5 text-muted-foreground">向工作台 MCP 端点发送一次 ping（无副作用），验证端点连通性与设备凭证。</p>
             <div class="mt-3 flex flex-wrap items-center gap-2">
               <Button type="button" :disabled="!deviceCredentialsReady || mcpTesting" :title="deviceCredentialsReady ? undefined : '先完成第 1 步设备绑定'" @click="testMcpConnection" variant="outline">
-                <LoaderCircle v-if="mcpTesting" :size="14" class="animate-spin" /><PlugZap v-else :size="14" />{{ mcpTesting ? '测试中…' : '测试 MCP 连接' }}
+                <LoaderCircle v-if="mcpTesting" :size="15" class="animate-spin" /><PlugZap v-else :size="15" />{{ mcpTesting ? '测试中…' : '测试 MCP 连接' }}
               </Button>
               <span v-if="!deviceCredentialsReady" class="text-[12px] text-muted-foreground">需先完成第 1 步设备绑定</span>
             </div>

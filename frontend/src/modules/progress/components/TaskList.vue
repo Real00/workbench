@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { ArrowUpDown, ChevronRight, CircleAlert, ListFilter, Paperclip, X } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
 import ChipSelect from '../../../shared/ChipSelect.vue'
 import type { AppSelectOption } from '../../../shared/AppSelect.vue'
 import { useProgressStore } from '../store'
 import type { TaskListPrefs, TaskSortId } from '../store'
+import { statusChipClass } from '../status-palette'
 import { TASK_FILTER_NONE } from '../task-filters'
 import {
   entryKindMap,
@@ -74,20 +76,14 @@ const projectFilterOptions = computed<AppSelectOption[]>(() => [
   ...store.projects.map(project => ({ value: project.id, label: project.name })),
 ])
 
-/** 表头筛选与行内编辑做视觉区分（审计 A12）：筛选一律虚线描边，命中条件时填充高亮 */
+/** 表头筛选与行内编辑做视觉区分（审计 A12）：筛选统一 .filter-chip 语言，命中条件时填充高亮 */
 function filterTriggerClass(active: boolean) {
-  return active
-    ? 'border-dashed border-[#93b4f5] bg-[#eff6ff] font-normal text-[#1d4ed8]'
-    : 'border-dashed bg-transparent font-normal text-muted-foreground hover:text-foreground'
+  return active ? 'filter-chip filter-chip--active' : 'filter-chip'
 }
 
-/** 状态用色与文字双编码（审计 A12）：色彩只做加强，文字标签始终保留，色弱用户仍可识别 */
-const statusChipClass: Record<TaskStatus, string> = {
-  todo: 'text-text-secondary',
-  in_progress: 'border-[#b2ccf7] bg-[#eff6ff] text-[#1d4ed8]',
-  done: 'border-[#b4dfc9] bg-[#edf9f1] text-[#16794b]',
-  cancelled: 'bg-[#f2f4f7] text-muted-foreground',
-}
+/** 状态用色与文字双编码（审计 A12）：色彩只做加强，文字标签始终保留，色弱用户仍可识别。
+ *  颜色统一来自 status-palette，与日历 / 甘特同源 */
+
 
 function todayISO() {
   const now = new Date()
@@ -153,7 +149,7 @@ function taskMeta(task: Task) {
   const entry = latestEntry(task)
   return {
     entryLine: entry ? `${isBlocked(task) ? '阻塞' : entryKindMap[entry.kind]} · ${entry.content}` : '',
-    tags: task.tags.join(' / ') || '无标签',
+    tags: task.tags.join(' / '),
     resourceCount: task.resources.length,
   }
 }
@@ -205,8 +201,8 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
       <ChipSelect v-model="assigneeFilter" :options="assigneeFilterOptions" :trigger-class="filterTriggerClass(assigneeFilter !== '')" aria-label="按负责人筛选" />
       <button
         type="button"
-        :class="['inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-xs transition-colors',
-                 overdueOnly ? 'border-[#f0b6b0] bg-[#fff5f4] font-normal text-[#b42318]' : 'border-dashed bg-transparent font-normal text-muted-foreground hover:text-foreground']"
+        :class="['filter-chip inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs transition-colors', overdueOnly && 'filter-chip--active']"
+        :style="{ '--chip-accent': '#b42318' }"
         :aria-pressed="overdueOnly"
         aria-label="仅看逾期任务"
         @click="overdueOnly = !overdueOnly"
@@ -215,9 +211,9 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
       </button>
       <span class="task-filter flex items-center gap-1 text-muted-foreground">
         <ArrowUpDown :size="13" aria-hidden="true" />
-        <ChipSelect v-model="sort" :options="sortOptions" trigger-class="border-dashed bg-transparent font-normal text-muted-foreground hover:text-foreground" aria-label="排序方式" />
+        <ChipSelect v-model="sort" :options="sortOptions" :trigger-class="sort ? 'filter-chip filter-chip--active' : 'filter-chip'" aria-label="排序方式" />
       </span>
-      <button v-if="filtering" type="button" class="btn-ghost btn-ghost--sm" @click="clearFilters"><X :size="13" />清除筛选</button>
+      <Button v-if="filtering" type="button" variant="ghost" size="sm" @click="clearFilters"><X :size="15" />清除筛选</Button>
       <span class="ml-auto flex-none font-mono text-[11px] text-muted-foreground">命中 {{ displayTasks.length }} / 共 {{ store.tasks.length }} 个任务</span>
     </div>
     <!-- 桌面：完整表格（审计 A12 / A13 / A15） -->
@@ -260,7 +256,7 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
                   <small class="task-hint">
                     <span v-if="taskMeta(task).entryLine" class="task-hint__entry">{{ taskMeta(task).entryLine }}</span>
                     <span class="task-hint__meta">
-                      <span>{{ taskMeta(task).tags }}</span>
+                      <span v-if="taskMeta(task).tags">{{ taskMeta(task).tags }}</span>
                       <span v-if="taskMeta(task).resourceCount" class="inline-flex items-center gap-1"><Paperclip :size="11" aria-hidden="true" />{{ taskMeta(task).resourceCount }} 个资源</span>
                     </span>
                   </small>
@@ -291,7 +287,7 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
               </span>
             </td>
             <td class="font-mono text-[12px] text-muted-foreground">{{ task.start_date?.slice(0, 10) ?? '—' }} → {{ task.due_date?.slice(0, 10) ?? '—' }}</td>
-            <td><div class="w-28"><div class="progress-line"><i :style="{ width: `${task.progress}%` }" /></div><small class="font-mono">{{ task.progress }}%</small></div></td>
+            <td><div class="w-28"><div class="progress-line" :class="task.status === 'done' && 'progress-line--done'"><i :style="{ width: `${task.progress}%` }" /></div><small class="font-mono">{{ task.progress }}%</small></div></td>
             <td><ChevronRight :size="15" class="text-muted-foreground" aria-hidden="true" /></td>
           </tr>
         </tbody>
@@ -313,11 +309,11 @@ async function onAssigneeChange(task: Task, assigneeId: string | null | undefine
               <span :class="['inline-flex h-5 items-center whitespace-nowrap rounded-full border px-2 text-[11px]', statusChipClass[task.status]]">{{ statusMap[task.status] }}</span>
               <span v-if="isBlocked(task)" class="inline-flex h-5 items-center rounded-full border border-[#f0b6b0] bg-[#fff5f4] px-2 text-[11px] text-[#b42318]">阻塞</span>
               <span>优先级 {{ priorityMap[task.priority] }}</span>
-              <span :class="isOverdue(task) && 'font-medium text-[#b42318]'">截止 {{ task.due_date?.slice(0, 10) ?? '—' }}</span>
+              <span v-if="task.due_date" :class="isOverdue(task) && 'font-medium text-[#b42318]'">截止 {{ task.due_date.slice(0, 10) }}</span>
               <span>{{ store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配' }}</span>
             </span>
             <span class="mt-1.5 flex items-center gap-2">
-              <span class="progress-line w-20"><i :style="{ width: `${task.progress}%` }" /></span>
+              <span class="progress-line w-20" :class="task.status === 'done' && 'progress-line--done'"><i :style="{ width: `${task.progress}%` }" /></span>
               <small class="font-mono text-[11px]">{{ task.progress }}%</small>
             </span>
           </span>

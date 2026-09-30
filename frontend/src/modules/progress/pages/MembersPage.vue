@@ -83,15 +83,14 @@ async function toggleActive(member: Member) {
     <template v-else>
       <!-- 搜索 / 可分配筛选 / 负荷排序（审计 A28），键盘可直接操作 -->
       <div class="mb-4 flex flex-col gap-2 rounded-xl border border-line bg-panel p-2 md:flex-row md:items-center">
-        <label class="search-box !h-8 !min-h-8 flex-1">
+        <label class="search-box search-box--sm flex-1">
           <Search :size="15" />
           <span class="sr-only">搜索成员</span>
           <Input v-model="search" autocomplete="off" placeholder="搜索姓名、职位或技能" class="!h-full !min-h-0 border-0 bg-transparent !p-0 shadow-none focus-visible:ring-0" />
         </label>
         <button
           type="button"
-          :class="['inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-xs transition-colors',
-                   availableOnly ? 'border-[#b2ccf7] bg-[#eff6ff] font-normal text-[#1d4ed8]' : 'border-dashed bg-transparent font-normal text-muted-foreground hover:text-foreground']"
+          :class="['filter-chip inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs transition-colors', availableOnly && 'filter-chip--active']"
           :aria-pressed="availableOnly"
           aria-label="仅看可分配成员"
           @click="availableOnly = !availableOnly"
@@ -100,9 +99,9 @@ async function toggleActive(member: Member) {
         </button>
         <span class="flex items-center gap-1 text-muted-foreground md:shrink-0">
           <ArrowUpDown :size="13" aria-hidden="true" />
-          <ChipSelect v-model="sort" :options="sortOptions" trigger-class="border-dashed bg-transparent font-normal text-muted-foreground hover:text-foreground" aria-label="成员排序方式" />
+          <ChipSelect v-model="sort" :options="sortOptions" :trigger-class="sort ? 'filter-chip filter-chip--active' : 'filter-chip'" aria-label="成员排序方式" />
         </span>
-        <button v-if="filtering" type="button" class="btn-ghost btn-ghost--sm" @click="clearFilters"><X :size="13" />清除筛选</button>
+        <Button v-if="filtering" type="button" variant="ghost" size="sm" @click="clearFilters"><X :size="15" />清除筛选</Button>
         <span class="font-mono text-[11px] text-muted-foreground md:ml-auto">命中 {{ displayMembers.length }} / 共 {{ store.members.length }} 位</span>
       </div>
       <section v-if="displayMembers.length" class="entity-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -136,7 +135,7 @@ async function toggleActive(member: Member) {
           <h2 class="mt-3 font-display text-lg text-text">{{ row.member.name }}</h2>
           <p class="mt-1 text-xs text-muted-foreground">{{ row.member.title || '未设置职位' }}</p>
           <div v-if="row.member.skills.length" class="mt-3 flex flex-wrap gap-1.5">
-            <Badge v-for="skill in row.member.skills.slice(0, 4)" :key="skill" variant="secondary">{{ skill }}</Badge>
+            <Badge v-for="skill in row.member.skills.slice(0, 4)" :key="skill" variant="secondary" class="max-w-full"><span class="truncate">{{ skill }}</span></Badge>
             <Badge v-if="row.member.skills.length > 4" variant="outline">+{{ row.member.skills.length - 4 }}</Badge>
           </div>
           <p v-if="row.member.background" class="mt-3 line-clamp-2 text-[12px] leading-5 text-muted-foreground">{{ row.member.background }}</p>

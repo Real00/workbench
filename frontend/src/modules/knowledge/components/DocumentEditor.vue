@@ -157,7 +157,7 @@ async function removeDocument() {
       <aside ref="panel" class="editor-panel doc-editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div class="min-w-0"><p class="eyebrow">Knowledge document</p><h2 class="mt-1 truncate font-display text-xl text-text">{{ title }}</h2></div>
-          <Button aria-label="关闭" @click="store.closeDocument()" variant="ghost" size="icon"><X :size="18" /></Button>
+          <Button aria-label="关闭" @click="store.closeDocument()" variant="ghost" size="icon"><X :size="16" /></Button>
         </header>
         <form class="editor-form" @submit.prevent="submit">
           <div class="editor-fields space-y-5">

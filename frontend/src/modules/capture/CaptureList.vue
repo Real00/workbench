@@ -51,7 +51,7 @@ watch([archived, () => store.revision], () => load())
     <form v-if="!compact" class="mb-4 flex flex-wrap gap-2" @submit.prevent="load()"><Input v-model="query" maxlength="200" aria-label="搜索记录" placeholder="搜索原文…" class="flex-1" /><Button variant="outline">搜索</Button><label class="flex items-center gap-2 text-sm"><input v-model="archived" type="checkbox" />只看已归档</label></form>
     <p v-if="error" class="error-box" role="alert">{{ error }} <Button variant="link" class="h-auto px-0" @click="load()">重试</Button></p>
     <p v-if="loading" class="empty-inline" role="status">加载记录中…</p>
-    <p v-else-if="props.compact && !items.length && !error" class="empty-inline">{{ archived ? '没有已归档记录' : '还没有记录，写下一句话就可以开始。' }}</p>
+    <p v-else-if="props.compact && !items.length && !error" class="empty-inline">{{ archived ? '没有已归档记录' : '还没有随手记，写下一句话就可以开始。' }}</p>
     <div v-else-if="!items.length && !error" class="empty-state">
       <template v-if="query">
         <Search :size="26" /><h2>没有找到匹配的记录</h2>

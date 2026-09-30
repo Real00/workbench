@@ -8,6 +8,7 @@ import { useProgressStore } from '../store'
 import { Button } from '@/components/ui/button'
 
 import type { Task } from '../types'
+import { ganttBarPalette } from '../status-palette'
 
 const props = defineProps<{ tasks: Task[] }>()
 const datedTasks = computed(() => props.tasks.filter(task => task.start_date && task.due_date))
@@ -100,6 +101,23 @@ const statusBarClass: Record<Task['status'], string | undefined> = {
   cancelled: 'task-bar--cancelled',
 }
 
+/* 图例与条形配色同源（status-palette），桌面与全屏共用 */
+const legendEntries: { status: Task['status']; label: string }[] = [
+  { status: 'todo', label: '待处理 / 进行中' },
+  { status: 'done', label: '已完成' },
+  { status: 'cancelled', label: '已取消' },
+]
+
+/* 条形填充色经 CSS 变量下发，:deep 规则只引用变量，不再硬编码 */
+const barCssVars = {
+  '--gantt-done-fill': ganttBarPalette.done.fill,
+  '--gantt-done-stroke': ganttBarPalette.done.stroke,
+  '--gantt-done-progress': ganttBarPalette.done.progress,
+  '--gantt-cancelled-fill': ganttBarPalette.cancelled.fill,
+  '--gantt-cancelled-stroke': ganttBarPalette.cancelled.stroke,
+  '--gantt-cancelled-progress': ganttBarPalette.cancelled.progress,
+} as Record<string, string>
+
 const timelineGroups = computed(() => {
   const groups = new Map<string, Task[]>()
   for (const task of datedTasks.value) {
@@ -123,7 +141,7 @@ function moveLabelsOutside(el: HTMLElement) {
   for (const bar of Array.from(el.querySelectorAll<SVGRectElement>('.bar'))) {
     const label = bar.closest('.bar-wrapper')?.querySelector<SVGTextElement>('.bar-label')
     if (!label) continue
-    const x = (Number(bar.getAttribute('x')) || 0) + (Number(bar.getAttribute('width')) || 0) + 6
+    const x = (Number(bar.getAttribute('x')) || 0) + (Number(bar.getAttribute('width')) || 0) + 10
     label.setAttribute('x', String(x))
     label.classList.add('big')
   }
@@ -206,14 +224,14 @@ watch(isNarrow, async (narrow) => {
 </script>
 
 <template>
-  <div class="gantt-shell overflow-x-auto rounded-xl border border-line bg-panel p-4">
+  <div class="gantt-shell overflow-x-auto rounded-xl border border-line bg-panel p-4" :style="barCssVars">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p class="text-xs text-muted-foreground">{{ datedTasks.length }} 个已排期任务</p>
         <div v-if="!isNarrow && datedTasks.length" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label="甘特图状态图例">
-          <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #dbeafe; border-color: #93b4f5" />待处理 / 进行中</span>
-          <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #d9f0e3; border-color: #8fd0af" />已完成</span>
-          <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #eef1f5; border-color: #cbd5e1" />已取消</span>
+          <span v-for="entry in legendEntries" :key="entry.status" class="inline-flex items-center gap-1.5">
+            <i class="gantt-legend-swatch" :style="{ background: ganttBarPalette[entry.status].fill, borderColor: ganttBarPalette[entry.status].stroke }"><b :style="{ background: ganttBarPalette[entry.status].progress }" /></i>{{ entry.label }}
+          </span>
           <span>任务名在条形右侧 · 竖线为今天</span>
         </div>
       </div>
@@ -281,10 +299,10 @@ watch(isNarrow, async (narrow) => {
     </template>
 
     <Teleport to="body">
-      <div v-if="fullscreen" class="fixed inset-0 z-50 flex flex-col bg-panel" style="padding-top: var(--safe-top); padding-bottom: var(--safe-bottom)">
+      <div v-if="fullscreen" class="fixed inset-0 z-50 flex flex-col bg-panel" :style="[barCssVars, { paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }]">
         <header class="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
           <h2 class="font-display text-lg text-text">甘特图</h2>
-          <Button aria-label="关闭全屏甘特" variant="ghost" size="icon" @click="fullscreen = false"><X :size="18" /></Button>
+          <Button aria-label="关闭全屏甘特" variant="ghost" size="icon" @click="fullscreen = false"><X :size="16" /></Button>
         </header>
         <div class="min-h-0 flex-1 overflow-auto p-3">
           <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -301,9 +319,9 @@ watch(isNarrow, async (narrow) => {
               >{{ option.label }}</Button>
             </div>
             <Button type="button" size="sm" variant="outline" @click="scrollToToday">今天</Button>
-            <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #dbeafe; border-color: #93b4f5" />待处理 / 进行中</span>
-            <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #d9f0e3; border-color: #8fd0af" />已完成</span>
-            <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #eef1f5; border-color: #cbd5e1" />已取消</span>
+            <span v-for="entry in legendEntries" :key="entry.status" class="inline-flex items-center gap-1.5">
+              <i class="gantt-legend-swatch" :style="{ background: ganttBarPalette[entry.status].fill, borderColor: ganttBarPalette[entry.status].stroke }"><b :style="{ background: ganttBarPalette[entry.status].progress }" /></i>{{ entry.label }}
+            </span>
           </div>
           <div ref="fullscreenChart" class="gantt-shell min-w-0" aria-label="全屏任务甘特图" />
         </div>
@@ -313,32 +331,44 @@ watch(isNarrow, async (narrow) => {
 </template>
 
 <style scoped>
-/* 状态配色与图例一致：完成绿、取消灰，其余保持默认蓝 */
+/* 状态配色与图例同源（status-palette 经 barCssVars 下发）：完成绿、取消灰，其余保持默认蓝 */
 :deep(.bar-wrapper.task-bar--done .bar) {
-  fill: #d9f0e3;
-  stroke: #8fd0af;
+  fill: var(--gantt-done-fill, #d9f0e3);
+  stroke: var(--gantt-done-stroke, #8fd0af);
 }
 :deep(.bar-wrapper.task-bar--done .bar-progress) {
-  fill: #2e9c6b;
+  fill: var(--gantt-done-progress, #2e9c6b);
 }
 :deep(.bar-wrapper.task-bar--cancelled .bar) {
-  fill: #eef1f5;
-  stroke: #cbd5e1;
+  fill: var(--gantt-cancelled-fill, #eef1f5);
+  stroke: var(--gantt-cancelled-stroke, #cbd5e1);
 }
 :deep(.bar-wrapper.task-bar--cancelled .bar-progress) {
-  fill: #b7c3d3;
+  fill: var(--gantt-cancelled-progress, #b7c3d3);
 }
 :deep(.bar-wrapper.task-bar--cancelled .bar-label) {
   fill: var(--muted-foreground);
   text-decoration: line-through;
 }
+/* 条形右侧标签：略小一档的次要色，弱化「任务名 · 负责人」整串的视觉重量 */
+:deep(.bar-label.big) {
+  font-size: 13px;
+  font-weight: 500;
+  fill: var(--color-text-secondary);
+}
+/* 图例按「底色 + 进度段」表达条形语言：进度色会覆盖条身（100% 完成的条整根是进度色） */
 .gantt-legend-swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
+  display: inline-flex;
+  width: 16px;
+  height: 9px;
   flex-shrink: 0;
+  overflow: hidden;
   border: 1px solid;
   border-radius: 3px;
+}
+.gantt-legend-swatch b {
+  width: 55%;
+  height: 100%;
 }
 .unscheduled-details summary {
   list-style: none;

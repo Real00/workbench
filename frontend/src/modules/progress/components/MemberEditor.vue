@@ -137,7 +137,7 @@ async function removeMember() {
                 :class="['status-tag', store.editingMember.active ? 'status-tag--active' : 'status-tag--inactive']"
               >{{ store.editingMember.active ? '可分配' : '停用' }}</Badge>
             </template>
-            <Button aria-label="关闭" @click="store.memberEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
+            <Button aria-label="关闭" @click="store.memberEditorOpen = false" variant="ghost" size="icon"><X :size="16" /></Button>
           </div>
         </header>
         <form class="editor-form" @submit.prevent="submit">
@@ -159,7 +159,7 @@ async function removeMember() {
               <div class="skill-input">
                 <Badge v-for="(skill, index) in skills" :key="skill" variant="secondary" class="max-w-full">
                   <span class="truncate">{{ skill }}</span>
-                  <button type="button" class="rounded-sm outline-none hover:text-destructive" :aria-label="`移除技能 ${skill}`" @click="removeSkill(index)"><X :size="12" /></button>
+                  <button type="button" class="rounded-sm hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#2563eb]" :aria-label="`移除技能 ${skill}`" @click="removeSkill(index)"><X :size="12" /></button>
                 </Badge>
                 <input
                   v-model="skillDraft"

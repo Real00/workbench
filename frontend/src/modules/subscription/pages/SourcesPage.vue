@@ -2,7 +2,9 @@
 import { computed, ref } from 'vue'
 import { ChevronDown, ChevronUp, Plus, RefreshCw, Trash2, X } from '@lucide/vue'
 import AppSelect, { type AppSelectOption } from '../../../shared/AppSelect.vue'
+import { cleanText } from '../../../shared/cleanText'
 import { confirmDialog } from '../../../shared/confirm'
+import { useDialogFocus } from '../../../shared/useDialogFocus'
 import { useSubscriptionStore } from '../store'
 import type { SubscriptionSource } from '../types'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +16,8 @@ const BUILTIN_RSS_PLUGIN_ID = 'builtin-rss-atom'
 const store = useSubscriptionStore()
 const editing = ref<SubscriptionSource | null>(null)
 const creating = ref(false)
+const panel = ref<HTMLElement | null>(null)
+useDialogFocus(panel, () => creating.value || Boolean(editing.value), closeForm)
 const advancedOpen = ref(false)
 const saveError = ref('')
 const form = ref({
@@ -174,9 +178,9 @@ function refreshFeedback(source: SubscriptionSource) {
               <p
                 v-if="source.last_error"
                 class="mt-1 line-clamp-2 max-w-xs text-xs text-danger"
-                :title="source.last_error"
+                :title="cleanText(source.last_error)"
               >
-                失败原因：{{ source.last_error }}
+                失败原因：{{ cleanText(source.last_error) }}
               </p>
             </td>
             <td>{{ store.pluginMap.get(source.plugin_id)?.name ?? source.plugin_id }}</td>
@@ -200,11 +204,11 @@ function refreshFeedback(source: SubscriptionSource) {
                   :aria-label="store.refreshing === source.id ? '刷新中' : '刷新'"
                   @click="store.refreshSource(source.id)"
                 >
-                  <RefreshCw :size="14" :class="store.refreshing === source.id && 'animate-spin'" />
+                  <RefreshCw :size="15" :class="store.refreshing === source.id && 'animate-spin'" />
                   <span class="hidden sm:inline">刷新</span>
                 </Button>
-                <Button size="sm" variant="ghost" aria-label="删除" @click="remove(source)">
-                  <Trash2 :size="14" />
+                <Button size="sm" variant="destructive" aria-label="删除" @click="remove(source)">
+                  <Trash2 :size="15" />
                 </Button>
               </div>
             </td>
@@ -215,7 +219,7 @@ function refreshFeedback(source: SubscriptionSource) {
 
     <Teleport to="body">
       <div v-if="creating || editing" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="closeForm">
-        <aside class="editor-panel" role="dialog" aria-modal="true" aria-label="编辑订阅源">
+        <aside ref="panel" class="editor-panel" role="dialog" aria-modal="true" aria-label="编辑订阅源">
           <header class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
             <div class="min-w-0">
               <p class="eyebrow">Subscription source</p>
@@ -224,7 +228,7 @@ function refreshFeedback(source: SubscriptionSource) {
               </h2>
             </div>
             <Button aria-label="关闭" variant="ghost" size="icon" @click="closeForm">
-              <X :size="18" />
+              <X :size="16" />
             </Button>
           </header>
           <form class="editor-form" @submit.prevent="save">

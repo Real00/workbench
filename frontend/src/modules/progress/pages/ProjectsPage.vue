@@ -89,14 +89,14 @@ function clearFilters() {
     <template v-else>
       <!-- 搜索与排序（审计 A25）：项目变多后按名称即可定位 -->
       <div class="mb-4 flex flex-col gap-2 rounded-xl border border-line bg-panel p-2 md:flex-row md:items-center">
-        <label class="search-box !h-8 !min-h-8 flex-1">
+        <label class="search-box search-box--sm flex-1">
           <Search :size="15" />
           <span class="sr-only">搜索项目</span>
           <Input v-model="search" autocomplete="off" placeholder="搜索项目名称、描述或成员" class="!h-full !min-h-0 border-0 bg-transparent !p-0 shadow-none focus-visible:ring-0" />
         </label>
         <span class="flex items-center gap-1 text-xs text-muted-foreground md:shrink-0">
           <ArrowUpDown :size="13" aria-hidden="true" />
-          <ChipSelect v-model="sort" :options="sortOptions" trigger-class="border-dashed bg-transparent font-normal text-muted-foreground hover:text-foreground" aria-label="项目排序方式" />
+          <ChipSelect v-model="sort" :options="sortOptions" :trigger-class="sort ? 'filter-chip filter-chip--active' : 'filter-chip'" aria-label="项目排序方式" />
         </span>
         <span class="font-mono text-[11px] text-muted-foreground md:ml-auto">{{ projectCards.length }} / {{ store.projects.length }} 个项目</span>
       </div>
@@ -130,7 +130,7 @@ function clearFilters() {
         <p class="project-date"><CalendarDays :size="13" />立项 {{ formatDate(item.project.started_at) }}</p>
         <div class="project-members">
           <Users :size="14" />
-          <Badge v-for="memberId in item.project.member_ids.slice(0, 3)" :key="memberId" variant="secondary">{{ store.memberMap.get(memberId)?.name ?? '未知成员' }}</Badge>
+          <Badge v-for="memberId in item.project.member_ids.slice(0, 3)" :key="memberId" variant="secondary" class="max-w-full"><span class="truncate">{{ store.memberMap.get(memberId)?.name ?? '未知成员' }}</span></Badge>
           <span v-if="item.project.member_ids.length > 3" class="project-more-members">+{{ item.project.member_ids.length - 3 }}</span>
           <span v-if="!item.project.member_ids.length">暂未分配成员</span>
         </div>

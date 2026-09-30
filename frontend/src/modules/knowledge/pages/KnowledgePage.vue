@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
-import { BookOpen, FileText, List, Plus, Search, Tags, Upload, X } from '@lucide/vue'
+import { BookOpen, FileText, List, ListPlus, Plus, Search, Tags, Upload, X } from '@lucide/vue'
 import { filesFromDataTransfer, PULSE_ATTACHMENT_ACCEPT } from '../../../shared/pulse-session'
 import { useKnowledgeStore } from '../store'
 import { Badge } from '@/components/ui/badge'
@@ -153,8 +153,8 @@ function onDragLeave(event: DragEvent) {
         <p>{{ store.documents.length }} 篇文档 · {{ store.entries.length }} 条条目 · {{ store.tags.length }} 个标签</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <Button aria-label="管理标签" @click="store.openTag()" variant="ghost"><Tags :size="16" /><span class="hidden sm:inline">标签</span></Button>
-        <Button aria-label="新建条目" @click="store.openEntry()" variant="ghost"><Plus :size="16" /><span class="hidden sm:inline">条目</span></Button>
+        <Button aria-label="管理标签" title="管理标签" @click="store.openTag()" variant="ghost" size="icon"><Tags :size="16" /></Button>
+        <Button aria-label="新建条目" title="新建条目" @click="store.openEntry()" variant="ghost" size="icon"><ListPlus :size="16" /></Button>
         <Button aria-label="上传文档" :disabled="store.uploading" @click="pickFiles" variant="outline">
           <Upload :size="16" /><span class="hidden sm:inline">{{ store.uploading ? '上传中…' : '上传文档' }}</span>
         </Button>
@@ -170,7 +170,7 @@ function onDragLeave(event: DragEvent) {
         <Button type="button" variant="ghost" :class="['view-tab', view === 'list' && 'view-tab--active']" :aria-pressed="view === 'list'" @click="view = 'list'"><List :size="15" />列表</Button>
         <Button type="button" variant="ghost" :class="['view-tab', view === 'canvas' && 'view-tab--active']" :aria-pressed="view === 'canvas'" @click="view = 'canvas'"><FileText :size="15" />画布</Button>
       </div>
-      <label class="search-box"><Search :size="15" /><span class="sr-only">搜索</span><Input v-model="query" autocomplete="off" :placeholder="view === 'canvas' ? '搜索文档标题与正文...' : '搜索标题、正文或条目名称...'" class="h-auto min-h-0 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0" /></label>
+      <label class="search-box search-box--sm"><Search :size="15" /><span class="sr-only">搜索</span><Input v-model="query" autocomplete="off" :placeholder="view === 'canvas' ? '搜索文档标题与正文...' : '搜索标题、正文或条目名称...'" class="h-auto min-h-0 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0" /></label>
     </div>
     <KnowledgeCanvas v-if="view === 'canvas'" :documents="filteredDocuments" :searching="Boolean(needle)" />
     <template v-else>
@@ -181,7 +181,7 @@ function onDragLeave(event: DragEvent) {
       </div>
       <div v-if="tagFilter && kind !== 'tags'" class="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         正在查看标签「{{ store.tagMap.get(tagFilter)?.name ?? '未知标签' }}」的{{ kind === 'documents' ? '文档' : '条目' }}
-        <Button type="button" variant="ghost" size="sm" @click="clearFilters"><X :size="14" />清除筛选</Button>
+        <Button type="button" variant="ghost" size="sm" @click="clearFilters"><X :size="15" />清除筛选</Button>
       </div>
       <div v-if="kind === 'documents' && store.loading" class="card p-2">
         <div v-for="i in 5" :key="i" class="flex items-center gap-4 px-3 py-3">

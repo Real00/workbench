@@ -60,7 +60,7 @@ const views = [
         </Button>
       </div>
       <div class="flex min-w-0 flex-1 items-center justify-end gap-2 md:max-w-md">
-        <label class="search-box min-w-0 flex-1"><Search :size="15" /><span class="sr-only">搜索任务</span><Input v-model="filters.query" autocomplete="off" placeholder="搜索任务、负责人或项目" class="h-auto min-h-0 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0" /></label>
+        <label class="search-box search-box--sm min-w-0 flex-1"><Search :size="15" /><span class="sr-only">搜索任务</span><Input v-model="filters.query" autocomplete="off" placeholder="搜索任务、负责人或项目" class="h-auto min-h-0 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0" /></label>
         <Button v-if="filtering" type="button" variant="outline" size="sm" class="shrink-0" @click="clearFilters">清除筛选</Button>
       </div>
     </div>

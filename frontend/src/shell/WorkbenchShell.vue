@@ -127,7 +127,7 @@ function logout() {
         </div>
         <div class="lg:hidden">
           <Button class="nav-link mt-1 w-full" variant="ghost" aria-label="关闭导航" @click="mobileOpen = false">
-            <X :size="18" /><span v-if="!collapsed">关闭导航</span>
+            <X :size="16" /><span v-if="!collapsed">关闭导航</span>
           </Button>
         </div>
         <Button class="nav-link mt-1 w-full" variant="ghost" aria-label="退出登录" @click="logout">

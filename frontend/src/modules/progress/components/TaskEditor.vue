@@ -140,7 +140,7 @@ async function removeTask() {
   <Teleport to="body">
     <div v-if="store.taskEditorOpen" class="fixed inset-0 z-50 bg-slate-900/30" @click.self="requestClose()">
       <aside ref="panel" tabindex="-1" class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
-        <header class="flex items-center justify-between border-b border-line px-5 py-4"><div><p class="eyebrow">{{ store.editingTask?.id ?? 'NEW TASK' }}</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div><Button aria-label="关闭" @click="requestClose()" variant="ghost" size="icon"><X :size="18" /></Button></header>
+        <header class="flex items-center justify-between border-b border-line px-5 py-4"><div><p class="eyebrow">{{ store.editingTask?.id ?? 'NEW TASK' }}</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div><Button aria-label="关闭" @click="requestClose()" variant="ghost" size="icon"><X :size="16" /></Button></header>
         <form class="task-editor-form" @submit.prevent="submit">
           <div class="task-editor-fields space-y-5">
           <section class="space-y-5">
@@ -208,5 +208,4 @@ async function removeTask() {
 
 <style scoped>
 /* 审计 A23：独立提交成功的就地反馈 */
-.saved-flash { font-size: 12px; font-weight: 500; color: var(--color-success); }
 </style>

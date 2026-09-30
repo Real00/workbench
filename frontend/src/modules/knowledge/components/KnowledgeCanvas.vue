@@ -163,7 +163,7 @@ watch(fullscreen, async (open) => {
             </TooltipTrigger>
             <TooltipContent>把全部卡片按网格重新排列，并保存新位置</TooltipContent>
           </Tooltip>
-          <Button aria-label="关闭全屏画布" variant="ghost" size="icon" @click="fullscreen = false"><X :size="18" /></Button>
+          <Button aria-label="关闭全屏画布" variant="ghost" size="icon" @click="fullscreen = false"><X :size="16" /></Button>
         </div>
       </header>
       <VueFlow

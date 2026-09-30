@@ -49,7 +49,7 @@ async function removeTag() {
       <aside ref="panel" class="editor-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="flex items-center justify-between border-b border-line px-5 py-4">
           <div><p class="eyebrow">Knowledge tag</p><h2 class="mt-1 font-display text-xl text-text">{{ title }}</h2></div>
-          <Button aria-label="关闭" @click="store.tagEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
+          <Button aria-label="关闭" @click="store.tagEditorOpen = false" variant="ghost" size="icon"><X :size="16" /></Button>
         </header>
         <form class="editor-form" @submit.prevent="submit">
           <div class="editor-fields">

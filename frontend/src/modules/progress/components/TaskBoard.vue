@@ -137,7 +137,7 @@ function isOverdue(task: Task): boolean {
           </span>
         </header>
         <div class="mt-3 space-y-2">
-          <p v-if="!tasksIn(column).length" class="empty-inline">暂无任务</p>
+          <p v-if="!tasksIn(column).length" class="board-column__empty">{{ draggingId ? '松开移到这里' : '暂无任务，可拖入卡片' }}</p>
           <article
             v-for="task in tasksIn(column)"
             :key="task.id"
@@ -206,6 +206,21 @@ function isOverdue(task: Task): boolean {
 .board-column--drop {
   border-color: var(--color-cyan);
   border-style: dashed;
+  background: rgb(37 99 235 / .06);
+}
+/* 空列落点：虚线槽位给出可投放暗示，拖拽中切换文案 */
+.board-column__empty {
+  display: grid;
+  min-height: 76px;
+  place-items: center;
+  border: 1px dashed #d0d5dd;
+  border-radius: 10px;
+  background: rgb(255 255 255 / .45);
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.board-column--drop .board-column__empty {
+  border-color: var(--color-cyan);
   background: rgb(37 99 235 / .06);
 }
 .board-column--collapsed {

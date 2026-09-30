@@ -158,7 +158,7 @@ async function trial() {
       <div class="flex items-center gap-2">
         <label class="text-sm text-muted-foreground">脚本</label>
         <label class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-line px-2 py-1 text-sm hover:bg-panel-2">
-          <Upload :size="14" />上传 .py
+          <Upload :size="15" />上传 .py
           <input
             type="file"
             accept=".py,text/x-python,text/plain"
@@ -268,10 +268,10 @@ async function trial() {
               <Button
                 v-if="!plugin.builtin"
                 size="sm"
-                variant="ghost"
+                variant="destructive"
                 @click="remove(plugin)"
               >
-                <Trash2 :size="14" />
+                <Trash2 :size="15" />
               </Button>
             </td>
           </tr>

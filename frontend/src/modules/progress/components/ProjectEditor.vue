@@ -80,7 +80,7 @@ async function removeProject() {
             <p class="eyebrow">Project</p>
             <h2 class="mt-1 truncate font-display text-xl text-text">{{ title }}</h2>
           </div>
-          <Button aria-label="关闭" @click="store.projectEditorOpen = false" variant="ghost" size="icon"><X :size="18" /></Button>
+          <Button aria-label="关闭" @click="store.projectEditorOpen = false" variant="ghost" size="icon"><X :size="16" /></Button>
         </header>
         <form class="editor-form" @submit.prevent="submit">
           <div class="editor-fields space-y-5">

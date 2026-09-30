@@ -191,7 +191,7 @@ function openArticle(id: string) {
       <div class="min-w-0 w-full sm:min-w-48 sm:w-auto">
         <AppSelect v-model="sourceId" :options="sourceOptions" placeholder="来源" />
       </div>
-      <label class="search-box !h-8 !min-h-8 flex-1">
+      <label class="search-box search-box--sm flex-1">
         <Search :size="15" />
         <span class="sr-only">搜索</span>
         <Input

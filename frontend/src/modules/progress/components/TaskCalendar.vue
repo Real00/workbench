@@ -14,23 +14,24 @@ import { useProgressStore } from '../store'
 import { Button } from '@/components/ui/button'
 
 import { statusMap, type Task, type TaskStatus } from '../types'
+import { statusPalette } from '../status-palette'
 
 const props = defineProps<{ tasks: Task[] }>()
 const store = useProgressStore()
 const isNarrow = useMediaQuery('(max-width: 640px)')
 const mode = ref<'list' | 'month'>('list')
 
+const modeOptions = [
+  { value: 'list', label: '议程' },
+  { value: 'month', label: '月历' },
+] as const
+
 watch(isNarrow, (narrow) => {
   mode.value = narrow ? 'list' : 'month'
 }, { immediate: true })
 
-/* 状态图例与事件配色保持同一份来源 */
-const statusStyles: Record<TaskStatus, { background: string; border: string; text: string; dashed?: boolean }> = {
-  todo: { background: '#f2f4f7', border: '#cbd5e1', text: '#344054' },
-  in_progress: { background: '#eff6ff', border: '#93b4f5', text: '#1e40af' },
-  done: { background: '#e7f6ee', border: '#9fd4b8', text: '#166b45' },
-  cancelled: { background: '#fbfcfd', border: '#d0d5dd', text: '#667085', dashed: true },
-}
+/* 状态图例与事件配色保持同一份来源（status-palette，与列表 / 甘特统一） */
+const statusStyles = statusPalette
 
 interface CalendarEventProps {
   title: string
@@ -114,19 +115,27 @@ const options = computed<CalendarOptions>(() => ({
 <template>
   <div class="calendar-shell overflow-x-auto rounded-xl border border-line bg-panel p-4">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <div class="flex gap-2" role="group" aria-label="日历视图切换">
-        <Button type="button" size="sm" :variant="mode === 'list' ? 'default' : 'outline'" @click="mode = 'list'">议程</Button>
-        <Button type="button" size="sm" :variant="mode === 'month' ? 'default' : 'outline'" @click="mode = 'month'">月历</Button>
+      <div class="segmented-tabs" role="group" aria-label="日历视图切换">
+        <Button
+          v-for="option in modeOptions"
+          :key="option.value"
+          type="button"
+          variant="ghost"
+          size="sm"
+          :class="['view-tab', mode === option.value && 'view-tab--active']"
+          :aria-pressed="mode === option.value"
+          @click="mode = option.value"
+        >{{ option.label }}</Button>
       </div>
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <span>按「开始 → 截止」绘制，截止当天含在内；仅设单日期的任务显示在当天</span>
-        <span v-for="(style, status) in statusStyles" :key="status" class="inline-flex items-center gap-1.5">
-          <i
-            class="inline-block size-2.5 rounded-[3px] border"
-            :style="{ background: style.background, borderColor: style.border, borderStyle: style.dashed ? 'dashed' : 'solid' }"
-          />{{ statusMap[status] }}
-        </span>
-      </div>
+      <p class="text-xs text-muted-foreground">按「开始 → 截止」绘制，截止当天含在内；仅设单日期的任务显示在当天</p>
+    </div>
+    <div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground" aria-label="日历状态图例">
+      <span v-for="(style, status) in statusStyles" :key="status" class="inline-flex items-center gap-1.5">
+        <i
+          class="inline-block size-3 rounded-[3px] border"
+          :style="{ background: style.background, borderColor: style.border, borderStyle: style.dashed ? 'dashed' : 'solid' }"
+        />{{ statusMap[status] }}
+      </span>
     </div>
     <FullCalendar :key="mode" :options="options" />
   </div>
