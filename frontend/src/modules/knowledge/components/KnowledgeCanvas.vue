@@ -5,11 +5,12 @@ import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { Node, NodeDragEvent, NodeMouseEvent } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
+import { apiError } from '../../../shared/api/client'
 import { useKnowledgeStore } from '../store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
-import { Maximize, Maximize2, Minus, Plus, X } from '@lucide/vue'
+import { LayoutGrid, Maximize, Maximize2, Minus, Plus, X } from '@lucide/vue'
 import type { KnowledgeDocument } from '../types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -22,14 +23,78 @@ const isNarrow = useMediaQuery('(max-width: 768px)')
 const fullscreen = ref(false)
 const canDrag = computed(() => !isNarrow.value)
 
-const nodes = computed<Node[]>(() => props.documents.map(document => ({
-  id: document.id,
-  type: 'document',
-  position: { x: document.canvas_x, y: document.canvas_y },
-  data: { document },
-  connectable: false,
-  draggable: canDrag.value,
-})))
+// 卡片估尺寸，与 .knowledge-doc-node 的 280px 宽度对应，高度按常见内容估算。
+// 只用于显示层避碰，不改动文档保存的坐标。
+const NODE_WIDTH = 300
+const NODE_HEIGHT = 170
+const NODE_GAP = 20
+
+type Spot = { x: number; y: number }
+
+function spotsOverlap(a: Spot, b: Spot) {
+  return a.x < b.x + NODE_WIDTH + NODE_GAP && b.x < a.x + NODE_WIDTH + NODE_GAP
+    && a.y < b.y + NODE_HEIGHT + NODE_GAP && b.y < a.y + NODE_HEIGHT + NODE_GAP
+}
+
+function findFreeSpot(anchor: Spot, placed: Spot[]) {
+  for (let step = 1; step <= 400; step++) {
+    const candidate: Spot = {
+      x: anchor.x + (step % 20) * (NODE_WIDTH + NODE_GAP),
+      y: anchor.y + Math.floor(step / 20) * (NODE_HEIGHT + NODE_GAP),
+    }
+    if (!placed.some(spot => spotsOverlap(candidate, spot))) return candidate
+  }
+  return anchor
+}
+
+// 显示层避碰：保存的坐标不动，重叠的卡片依次向右下错开，保证每篇文档都可见、可选。
+const nodes = computed<Node[]>(() => {
+  const placed: Spot[] = []
+  return props.documents.map(document => {
+    const anchor: Spot = { x: document.canvas_x, y: document.canvas_y }
+    const position = placed.some(spot => spotsOverlap(anchor, spot)) ? findFreeSpot(anchor, placed) : anchor
+    placed.push(position)
+    return {
+      id: document.id,
+      type: 'document',
+      position,
+      data: { document },
+      connectable: false,
+      draggable: canDrag.value,
+    }
+  })
+})
+
+const hasStackedCards = computed(() => {
+  const spots = props.documents.map(document => ({ x: document.canvas_x, y: document.canvas_y }))
+  for (let i = 0; i < spots.length; i++) {
+    for (let j = i + 1; j < spots.length; j++) {
+      const a = spots[i]
+      const b = spots[j]
+      if (a && b && spotsOverlap(a, b)) return true
+    }
+  }
+  return false
+})
+
+const nodeSummary = computed(() => props.searching ? `命中 ${props.documents.length} 篇文档` : `${props.documents.length} 篇文档`)
+
+/** 整理布局：显式操作，把全部卡片按网格重排并保存位置；与“显示全部”（仅缩放视野）语义不同 */
+async function tidyLayout() {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(props.documents.length)))
+  try {
+    await Promise.all(props.documents.map((document, index) => store.moveDocument(
+      document.id,
+      80 + (index % columns) * (NODE_WIDTH + 48),
+      80 + Math.floor(index / columns) * (NODE_HEIGHT + 40),
+    )))
+  } catch (cause) {
+    store.error = apiError(cause)
+    return
+  }
+  await nextTick()
+  void resetView()
+}
 
 function tagName(id: string) {
   return store.tagMap.get(id)?.name ?? id
@@ -83,9 +148,23 @@ watch(fullscreen, async (open) => {
     </div>
 
     <div v-else class="knowledge-canvas rounded-xl border border-line bg-panel" :class="fullscreen && 'knowledge-canvas--fullscreen'">
-      <header v-if="fullscreen" class="absolute inset-x-0 top-0 z-10 flex items-center justify-between border-b border-line bg-panel/95 px-4 py-3 backdrop-blur">
-        <h2 class="font-display text-lg text-text">知识画布</h2>
-        <Button aria-label="关闭全屏画布" variant="ghost" size="icon" @click="fullscreen = false"><X :size="18" /></Button>
+      <header v-if="fullscreen" class="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-panel/95 px-4 py-3 backdrop-blur">
+        <div class="flex min-w-0 items-baseline gap-3">
+          <h2 class="font-display text-lg text-text">文档画布</h2>
+          <p class="truncate text-xs text-muted-foreground">
+            {{ nodeSummary }} · 仅文档，条目与标签请在列表视图查看
+            <span v-if="hasStackedCards" class="text-amber-600">；有卡片坐标重叠，已自动错开显示</span>
+          </p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button type="button" size="sm" variant="outline" :disabled="!documents.length || searching" @click="tidyLayout"><LayoutGrid :size="14" />整理布局</Button>
+            </TooltipTrigger>
+            <TooltipContent>把全部卡片按网格重新排列，并保存新位置</TooltipContent>
+          </Tooltip>
+          <Button aria-label="关闭全屏画布" variant="ghost" size="icon" @click="fullscreen = false"><X :size="18" /></Button>
+        </div>
       </header>
       <VueFlow
         id="knowledge-canvas"
@@ -113,6 +192,16 @@ watch(fullscreen, async (open) => {
         </template>
       </VueFlow>
       <p v-if="!documents.length" class="absolute inset-0 grid place-items-center text-sm text-muted-foreground pointer-events-none">{{ searching ? '没有匹配的文档，请调整搜索关键词。' : '创建第一篇文档后，在这里整理知识。' }}</p>
+      <div v-if="!fullscreen" class="absolute right-3 top-3 z-10 flex max-w-[calc(100%-24px)] flex-wrap items-center justify-end gap-x-2 gap-y-1 rounded-lg border border-line bg-panel/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+        <span>{{ nodeSummary }} · 仅文档，条目与标签请在列表视图查看</span>
+        <span v-if="hasStackedCards" class="text-amber-600">有卡片坐标重叠，已自动错开显示</span>
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <Button type="button" size="sm" variant="outline" :disabled="!documents.length || searching" @click="tidyLayout"><LayoutGrid :size="14" />整理布局</Button>
+          </TooltipTrigger>
+          <TooltipContent>把全部卡片按网格重新排列，并保存新位置</TooltipContent>
+        </Tooltip>
+      </div>
       <div class="canvas-controls" role="group" aria-label="画布缩放">
         <Tooltip>
           <TooltipTrigger as-child>

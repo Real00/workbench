@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { nextTick, ref, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { ChevronLeft, Command, House, LogOut, Menu } from '@lucide/vue'
+import { ChevronLeft, Command, House, LogOut, Menu, X } from '@lucide/vue'
 import { moduleNavigation } from '../app/modules'
 import AiDock from '../shared/AiDock.vue'
 import CommandPalette from '../shared/CommandPalette.vue'
@@ -15,7 +15,7 @@ import { subscribeEvents, type ChangeEvent } from '../shared/api/events'
 import { clearToken } from '../shared/api/client'
 import { setupDesktopBridge } from '../shared/tauri'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const captures = useCaptureStore()
 const progress = useProgressStore()
@@ -72,6 +72,13 @@ onUnmounted(() => {
 const router = useRouter()
 const collapsed = ref(false)
 const mobileOpen = ref(false)
+const sidebarEl = ref<HTMLElement | null>(null)
+// 手机抽屉打开时把当前项滚入可视区，长导航下也能一眼看到所在位置
+watch(mobileOpen, async open => {
+  if (!open) return
+  await nextTick()
+  sidebarEl.value?.querySelector('.router-link-active')?.scrollIntoView({ block: 'nearest' })
+})
 const assistantOpen = ref(false)
 const assistantWide = ref(false)
 const primaryNavigation = moduleNavigation.filter(group => group.id !== 'platform')
@@ -87,12 +94,12 @@ function logout() {
   <div class="min-h-screen bg-ink text-text">
     <Button :class="['mobile-menu', mobileOpen && 'mobile-menu--hidden']" variant="outline" size="icon" aria-label="打开导航" @click="mobileOpen = true"><Menu :size="19" /></Button>
     <div v-if="mobileOpen" class="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" @click="mobileOpen = false" />
-    <aside :class="['sidebar', collapsed && 'sidebar--collapsed', mobileOpen && 'sidebar--open']">
-      <RouterLink to="/" class="sidebar-brand" aria-label="个人工作台首页" :title="collapsed ? '个人工作台首页' : undefined" @click="mobileOpen = false">
+    <aside ref="sidebarEl" :class="['sidebar', collapsed && 'sidebar--collapsed', mobileOpen && 'sidebar--open']">
+      <RouterLink to="/" class="sidebar-brand" aria-label="工作台首页" :title="collapsed ? '工作台首页' : undefined" @click="mobileOpen = false">
         <img v-if="collapsed" src="/work-mark.png" class="sidebar-brand__mark" alt="" />
         <img v-else src="/work-wordmark.png" class="sidebar-brand__wordmark" alt="" />
       </RouterLink>
-      <Button class="nav-link m-2" variant="ghost" aria-label="快速记录" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true; mobileOpen = false"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></Button>
+      <Button class="nav-link m-2" variant="ghost" aria-label="随手记" title="随手记 · Ctrl / ⌘ + Shift + J" @click="captures.quickOpen = true; mobileOpen = false"><span aria-hidden="true">＋</span><span v-if="!collapsed">随手记</span></Button>
       <Button class="nav-link mx-2 mb-1 lg:hidden" variant="ghost" aria-label="打开命令面板" @click="paletteOpen = true; mobileOpen = false">
         <Command :size="18" /><span v-if="!collapsed">命令面板</span>
       </Button>
@@ -111,9 +118,18 @@ function logout() {
         <template v-for="group in platformNavigation" :key="group.id">
           <RouterLink v-for="item in group.items" :key="item.to" :to="item.to" :aria-label="item.label" :title="collapsed ? item.label : undefined" class="nav-link" @click="mobileOpen = false"><component :is="item.icon" :size="18" /><span v-if="!collapsed">{{ item.label }}</span></RouterLink>
         </template>
-        <Button class="nav-link hidden w-full lg:flex" variant="ghost" :aria-label="collapsed ? '展开侧栏' : '收起侧栏'" @click="collapsed = !collapsed">
-          <ChevronLeft :class="collapsed && 'rotate-180'" :size="18" /><span v-if="!collapsed">收起侧栏</span>
-        </Button>
+        <!-- 手机上「收起侧栏」是桌面操作：.nav-link 的 display:flex 会盖过工具类，
+             必须用普通元素承载 hidden/lg:block 才能真正按断点切换 -->
+        <div class="hidden lg:block">
+          <Button class="nav-link w-full" variant="ghost" :aria-label="collapsed ? '展开侧栏' : '收起侧栏'" @click="collapsed = !collapsed">
+            <ChevronLeft :class="collapsed && 'rotate-180'" :size="18" /><span v-if="!collapsed">收起侧栏</span>
+          </Button>
+        </div>
+        <div class="lg:hidden">
+          <Button class="nav-link mt-1 w-full" variant="ghost" aria-label="关闭导航" @click="mobileOpen = false">
+            <X :size="18" /><span v-if="!collapsed">关闭导航</span>
+          </Button>
+        </div>
         <Button class="nav-link mt-1 w-full" variant="ghost" aria-label="退出登录" @click="logout">
           <LogOut :size="18" /><span v-if="!collapsed">退出登录</span>
         </Button>
@@ -125,7 +141,8 @@ function logout() {
       <Dialog :open="captures.quickOpen" @update:open="captures.quickOpen = $event">
         <DialogContent class="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>快速记录</DialogTitle>
+            <DialogTitle>随手记</DialogTitle>
+            <DialogDescription>快速记一条，保存到「随手记」列表。</DialogDescription>
           </DialogHeader>
           <CaptureComposer v-if="captures.quickOpen" autofocus />
         </DialogContent>

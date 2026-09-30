@@ -91,14 +91,6 @@ async function removeProject() {
               <label class="field-label">项目状态<AppSelect v-model="form.status" :options="statusOptions" /></label>
             </div>
             <label class="field-label">立项时间<Input v-model="form.started_at" type="date" /></label>
-            <div class="field-label">封面色
-              <small>用于项目卡片顶部的封面横幅，也可以在下方自定义</small>
-              <span class="mt-2 flex flex-wrap items-center gap-2">
-                <button v-for="color in coverPresets" :key="color" type="button" :class="['cover-swatch', { 'cover-swatch--active': form.cover_color === color }]" :style="{ backgroundColor: color }" :aria-label="`封面色 ${color}`" @click="form.cover_color = color" />
-                <input v-model="form.cover_color" type="color" class="h-8 w-10 cursor-pointer rounded border border-line bg-transparent p-1" aria-label="自定义封面色" />
-                <Input v-model="form.cover_color" maxlength="7" placeholder="#36d9e9" class="!mt-0 w-28 font-mono" />
-              </span>
-            </div>
             <label class="field-label">项目描述
               <small>这个项目做什么、当前处于什么阶段</small>
               <RichTextarea v-model="form.description" :min-height="104" :maxlength="5000" counter placeholder="例如：工单系统二期，目标是打通 MYAI 与 IT 审批流，当前处于联调阶段。" />
@@ -117,6 +109,18 @@ async function removeProject() {
               </Button>
             </div>
             <p v-if="!store.members.length" class="empty-inline !py-2">还没有团队成员，先到成员管理中添加。</p>
+          </section>
+          <!-- 外观是次级设置（审计 A25）：核心信息与成员收集完再调封面 -->
+          <section class="space-y-3 border-t border-line pt-5">
+            <p class="eyebrow">外观</p>
+            <div class="field-label">封面色
+              <small>用于项目卡片顶部的封面横幅，也可以在下方自定义</small>
+              <span class="mt-2 flex flex-wrap items-center gap-2">
+                <button v-for="color in coverPresets" :key="color" type="button" :class="['cover-swatch', { 'cover-swatch--active': form.cover_color === color }]" :style="{ backgroundColor: color }" :aria-label="`封面色 ${color}`" @click="form.cover_color = color" />
+                <input v-model="form.cover_color" type="color" class="h-8 w-10 cursor-pointer rounded border border-line bg-transparent p-1" aria-label="自定义封面色" />
+                <Input v-model="form.cover_color" maxlength="7" placeholder="#36d9e9" class="!mt-0 w-28 font-mono" />
+              </span>
+            </div>
           </section>
           <section v-if="store.editingProject" class="space-y-2 border-t border-line pt-5">
             <p class="eyebrow">关联任务</p>

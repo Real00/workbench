@@ -19,6 +19,7 @@ import {
   type PulseAttachmentMeta,
 } from './pulse-session'
 import { IME_ENTER_GUARD_MS, isImeKeyEvent } from './ime'
+import { moduleNavigation } from '../app/modules'
 import { useKnowledgeStore } from '../modules/knowledge/store'
 import { useProgressStore } from '../modules/progress/store'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +39,7 @@ import {
   type Priority,
   type ProgressEntryKind,
   type ProjectStatus,
+  type Task,
   type TaskStatus,
 } from '../modules/progress/types'
 
@@ -51,6 +53,8 @@ interface ChatTurn {
   token: string | null
   error: string
   applied: boolean
+  /** 用户已放弃该轮待写入变更：保留预览但明确「未写入」 */
+  discarded: boolean
   instruction: string
   attachments: PulseAttachmentMeta[]
   completed: boolean
@@ -113,26 +117,83 @@ const TYPE_LABELS: Record<MentionType, string> = {
   task: '任务', member: '成员', project: '项目', document: '知识', tool: '工具',
 }
 const MENTION_RE = /@(任务|成员|项目|知识|工具):「([^」]+)」/g
+/** 候选按类型排序展示；每类先截取前几条，避免单一类型把 12 个席位占满 */
+const MENTION_TYPE_ORDER: MentionType[] = ['task', 'member', 'project', 'document', 'tool']
+const MENTION_POOL_PER_TYPE = 6
+const MENTION_MAX_CANDIDATES = 12
 
 const mentionQuery = ref<string | null>(null)
 const mentionIndex = ref(0)
 const toolRegistry = ref<{ name: string; description: string }[]>([])
 
-const allCandidates = computed<MentionCandidate[]>(() => [
-  ...progress.tasks.map(task => ({ type: 'task' as const, id: task.id, label: task.title, hint: statusMap[task.status] })),
-  ...progress.members.map(member => ({ type: 'member' as const, id: member.id, label: member.name, hint: member.title || undefined })),
-  ...progress.projects.map(project => ({ type: 'project' as const, id: project.id, label: project.name })),
-  ...knowledge.documents.map(document => ({ type: 'document' as const, id: document.id, label: document.title })),
-  ...toolRegistry.value.map(tool => ({ type: 'tool' as const, id: null, label: tool.name, hint: tool.description })),
-])
+function mentionTaskRank(task: Task) {
+  return task.status === 'in_progress' ? 2 : task.status === 'todo' ? 1 : 0
+}
+
+const allCandidates = computed<MentionCandidate[]>(() => {
+  const projectNameOf = (id: string | null) => (id ? progress.projects.find(project => project.id === id)?.name : '') ?? ''
+  const memberNameOf = (id: string | null) => (id ? progress.memberMap.get(id)?.name : '') ?? ''
+  const tasks = [...progress.tasks]
+    .sort((left, right) => mentionTaskRank(right) - mentionTaskRank(left) || right.updated_at.localeCompare(left.updated_at))
+    .map(task => ({
+      type: 'task' as const,
+      id: task.id,
+      label: task.title,
+      hint: [statusMap[task.status], projectNameOf(task.project_id), memberNameOf(task.assignee_id)].filter(Boolean).join(' · '),
+    }))
+  const documents = [...knowledge.documents]
+    .sort((left, right) => (right.updated_at ?? '').localeCompare(left.updated_at ?? ''))
+    .map(document => ({
+      type: 'document' as const,
+      id: document.id,
+      label: document.title,
+      hint: document.updated_at ? `更新于 ${document.updated_at.slice(0, 10)}` : '知识文档',
+    }))
+  return [
+    ...tasks,
+    ...progress.members.map(member => ({ type: 'member' as const, id: member.id, label: member.name, hint: member.title || undefined })),
+    ...progress.projects.map(project => ({ type: 'project' as const, id: project.id, label: project.name, hint: projectStatusMap[project.status] })),
+    ...documents,
+    ...toolRegistry.value.map(tool => ({ type: 'tool' as const, id: null, label: tool.name, hint: tool.description })),
+  ]
+})
 
 const mentionCandidates = computed<MentionCandidate[]>(() => {
   if (mentionQuery.value === null) return []
   const query = mentionQuery.value.trim().toLowerCase()
-  const filtered = query
+  const pool = query
     ? allCandidates.value.filter(candidate => candidate.label.toLowerCase().includes(query))
     : allCandidates.value
-  return filtered.slice(0, 12)
+  const perType = new Map<MentionType, number>()
+  const capped: MentionCandidate[] = []
+  for (const candidate of pool) {
+    const count = perType.get(candidate.type) ?? 0
+    if (count >= MENTION_POOL_PER_TYPE) continue
+    perType.set(candidate.type, count + 1)
+    capped.push(candidate)
+  }
+  // 当前页正在编辑的对象置顶；其余按类型分节（类型内保持上面的活跃/最近顺序）
+  const contextIds = new Set<string>()
+  if (progress.editingTask) contextIds.add(progress.editingTask.id)
+  if (knowledge.editingDocument) contextIds.add(knowledge.editingDocument.id)
+  const contextFirst = (candidate: MentionCandidate) => (candidate.id && contextIds.has(candidate.id) ? 0 : 1)
+  const typeOrder = (candidate: MentionCandidate) => MENTION_TYPE_ORDER.indexOf(candidate.type)
+  return [...capped]
+    .sort((left, right) => contextFirst(left) - contextFirst(right) || typeOrder(left) - typeOrder(right))
+    .slice(0, MENTION_MAX_CANDIDATES)
+})
+
+/** 渲染用分组：startIndex 让键盘高亮索引与扁平候选列表保持一致 */
+const mentionGroups = computed(() => {
+  const groups: { type: MentionType; label: string; startIndex: number; items: MentionCandidate[] }[] = []
+  let index = 0
+  for (const candidate of mentionCandidates.value) {
+    const last = groups[groups.length - 1]
+    if (last && last.type === candidate.type) last.items.push(candidate)
+    else groups.push({ type: candidate.type, label: TYPE_LABELS[candidate.type], startIndex: index, items: [candidate] })
+    index += 1
+  }
+  return groups
 })
 
 async function ensureToolRegistry() {
@@ -200,22 +261,45 @@ const contextChips = computed(() => {
   return chips
 })
 
+/** 当前所在页面，让用户知道助手能看到哪些上下文（与侧栏命名一致） */
+const currentPageLabel = computed(() => {
+  const path = route.path
+  const matches = moduleNavigation
+    .flatMap(group => group.items.map(item => ({ label: item.label, to: item.to })))
+    .filter(item => (item.to === '/' ? path === '/' : path.startsWith(item.to)))
+    .sort((left, right) => right.to.length - left.to.length)
+  return matches[0]?.label ?? null
+})
+
 const quickTemplates = computed<string[]>(() => {
   const path = route.path
   const extras = pendingAttachments.value.length ? ['把附件存进知识库'] : []
+  const task = progress.editingTask
+  const document_ = knowledge.editingDocument
+  const taskRef = task ? `@任务:「${task.title}」` : ''
+  const docRef = document_ ? `@知识:「${document_.title}」` : ''
   if (path.startsWith('/progress/members')) {
-    return [...extras, '给「」记一条亮点评价：', '把「」的技能更新为：', '新建成员：']
+    const who = progress.editingMember ? `@成员:「${progress.editingMember.name}」` : '「姓名」'
+    return [...extras, `给${who}记一条亮点评价：今天…`, `把${who}的技能更新为：`, '新建成员：姓名、职位…']
   }
   if (path.startsWith('/progress/projects')) {
-    return [...extras, '立项新项目「」：', '把项目「」状态改为：', '给项目「」补充背景：']
+    return [...extras, '立项新项目「名称」：一句话背景…', '把项目「名称」的状态改为：进行中', '给项目「名称」补充背景：…']
   }
   if (path.startsWith('/progress/tasks')) {
-    return [...extras, '新建任务：', '在当前任务记录进度：', '把当前任务指派给：']
+    return [...extras,
+      taskRef ? `在${taskRef}记录一条进展：今天完成了…` : '新建任务：标题…，负责人与截止…',
+      taskRef ? `把${taskRef}的状态改为：` : '分析一个想法：…，帮我拆解成任务',
+      '检索知识库：…',
+    ]
   }
   if (path.startsWith('/knowledge')) {
-    return [...extras, '在知识库新建条目：', '检索知识库：', '新建知识文档：']
+    return [...extras,
+      docRef ? `总结${docRef}的要点` : '检索知识库：…',
+      '在知识库新建条目：名称…，内容…',
+      '新建知识文档：标题…',
+    ]
   }
-  return [...extras, '新建任务：', '分析一个想法：', '检索知识库：']
+  return [...extras, '新建任务：标题…，负责人与截止…', '分析一个想法：…，帮我拆解成任务', '检索知识库：…']
 })
 
 const canSend = computed(() => (
@@ -230,7 +314,7 @@ const copiedTurnId = ref<number | null>(null)
 let copiedTimer: number | null = null
 
 const pendingTurn = computed(
-  () => [...turns.value].reverse().find(turn => turn.token && turn.operations.length && !turn.applied) ?? null,
+  () => [...turns.value].reverse().find(turn => turn.token && turn.operations.length && !turn.applied && !turn.discarded) ?? null,
 )
 
 function applyTemplate(template: string) {
@@ -346,6 +430,7 @@ function restoreTurn(item: unknown): ChatTurn | null {
     token: typeof turn.token === 'string' ? turn.token : null,
     error: typeof turn.error === 'string' ? turn.error : '',
     applied: Boolean(turn.applied),
+    discarded: Boolean(turn.discarded),
     instruction: typeof turn.instruction === 'string' ? turn.instruction : turn.text,
     attachments: Array.isArray(turn.attachments) ? turn.attachments.filter(isPulseAttachmentMeta) : [],
     completed: Boolean(turn.completed),
@@ -387,8 +472,15 @@ const labels: Record<string, string> = {
   title: '标题', description: '描述', status: '状态', priority: '优先级', assignee_id: '负责人',
   start_date: '开始日期', due_date: '截止日期', progress: '进度', estimated_hours: '预估工时', tags: '标签',
   project_id: '所属项目',
-  name: '姓名', skills: '技能', background: '项目背景',
-  key: '键', value: '值', aliases: '别名', explanation: '解释', body: '正文',
+  name: '姓名', skills: '技能', background: '项目背景', active: '可分配', color: '头像色',
+  key: '名称', value: '内容', aliases: '别名', explanation: '解释', body: '正文',
+  tag_ids: '标签', entry_ids: '关联条目', document_ids: '关联文档', member_ids: '成员',
+}
+
+function fieldLabel(operation: AiOperation, field: string) {
+  // 「name」在成员/标签变更中含义不同
+  if (field === 'name' && (operation.op === 'create_tag' || operation.op === 'update_tag')) return '标签名'
+  return labels[field] ?? field
 }
 const toolLabels: Record<string, string> = {
   list_tasks: '查看任务',
@@ -408,6 +500,7 @@ const toolLabels: Record<string, string> = {
   list_tags: '查看标签',
   list_entries: '查看条目',
   create_tag: '排队创建标签',
+  update_tag: '排队更新标签',
   create_entry: '排队创建条目',
   update_entry: '排队更新条目',
   create_document: '排队创建文档',
@@ -417,12 +510,23 @@ const toolLabels: Record<string, string> = {
   link_entry: '排队关联条目',
 }
 
+function idListText(value: unknown, resolve: (id: string) => string | undefined) {
+  if (!Array.isArray(value)) return String(value)
+  if (!value.length) return '—'
+  return value.map(id => resolve(String(id)) ?? id).join('、')
+}
+
 function display(field: string, value: unknown) {
   if (value === null || value === undefined || value === '') return '—'
   if (field === 'project_id') return progress.projects.find(project => project.id === String(value))?.name ?? String(value)
   if (field === 'assignee_id') return progress.memberMap.get(String(value))?.name ?? String(value)
   if (field === 'status') return statusMap[value as TaskStatus] ?? String(value)
   if (field === 'priority') return priorityMap[value as Priority] ?? String(value)
+  if (field === 'document_ids') return idListText(value, id => knowledge.documents.find(item => item.id === id)?.title)
+  if (field === 'entry_ids') return idListText(value, id => knowledge.entryMap.get(id)?.key)
+  if (field === 'tag_ids') return idListText(value, id => knowledge.tagMap.get(id)?.name)
+  if (field === 'member_ids') return idListText(value, id => progress.memberMap.get(id)?.name)
+  if (typeof value === 'boolean') return value ? '是' : '否'
   if (Array.isArray(value)) return value.join(', ')
   return String(value)
 }
@@ -439,6 +543,18 @@ function projectName(id: string) {
   return progress.projects.find(project => project.id === id)?.name ?? '项目'
 }
 
+function entryKey(id: string) {
+  return knowledge.entryMap.get(id)?.key ?? '知识条目'
+}
+
+function documentTitle(id: string) {
+  return knowledge.documents.find(item => item.id === id)?.title ?? '知识文档'
+}
+
+function tagName(id: string, changes: Record<string, unknown>) {
+  return knowledge.tagMap.get(id)?.name ?? String(changes.name ?? '标签')
+}
+
 function operationLabel(operation: AiOperation) {
   if (operation.op === 'create_task') return `创建「${String(operation.changes.title ?? '新任务')}」`
   if (operation.op === 'add_entry') {
@@ -452,16 +568,18 @@ function operationLabel(operation: AiOperation) {
   if (operation.op === 'create_member') return `新增成员「${String(operation.changes.name ?? '未命名')}」`
   if (operation.op === 'update_member') return `更新成员「${memberName(operation.member_id)}」`
   if (operation.op === 'create_tag') return `创建标签「${String(operation.changes.name ?? '标签')}」`
+  if (operation.op === 'update_tag') return `更新标签「${tagName(operation.tag_id, operation.changes)}」`
   if (operation.op === 'create_entry') return `创建条目「${String(operation.changes.key ?? '条目')}」`
-  if (operation.op === 'update_entry') return '更新知识条目'
+  if (operation.op === 'update_entry') return `更新条目「${entryKey(operation.entry_id)}」`
   if (operation.op === 'create_document') return `创建文档「${String(operation.changes.title ?? '文档')}」`
   if (operation.op === 'create_document_from_attachment') {
     return `把「${operation.filename}」存为知识文档「${String(operation.changes.title ?? '文档')}」`
   }
-  if (operation.op === 'update_document') return '更新知识文档'
-  if (operation.op === 'link_entry') return '把条目挂到文档'
+  if (operation.op === 'update_document') return `更新文档「${documentTitle(operation.document_id)}」`
+  if (operation.op === 'link_entry') return `把条目「${entryKey(operation.entry_id)}」关联到文档「${documentTitle(operation.document_id)}」`
   if (operation.op === 'update_task') return `更新「${taskTitle(operation.task_id)}」`
-  return operation.op
+  // 穷尽所有已知操作后的兜底；新增操作类型时显示原始 op，便于发现遗漏
+  return (operation as { op: string }).op
 }
 
 function operationChanges(operation: AiOperation) {
@@ -679,11 +797,11 @@ async function runTurn(text: string, attachments: PulseAttachmentMeta[] = [], re
   error.value = ''
   turns.value.push({
     id: ++seq, role: 'user', text, thinking: '', tools: [], operations: [], token: null, error: '',
-    applied: false, instruction: text, attachments, completed: false,
+    applied: false, discarded: false, instruction: text, attachments, completed: false,
   })
   turns.value.push({
     id: ++seq, role: 'assistant', text: '', thinking: '', tools: [], operations: [], token: null, error: '',
-    applied: false, instruction: text, attachments: [], completed: false,
+    applied: false, discarded: false, instruction: text, attachments: [], completed: false,
   })
   const assistant = turns.value[turns.value.length - 1]!
   await scrollBottom()
@@ -746,7 +864,7 @@ function stop() {
 }
 
 async function confirm(turn: ChatTurn) {
-  if (!turn.token) return
+  if (!turn.token || turn.discarded) return
   confirming.value = true
   error.value = ''
   try {
@@ -777,6 +895,7 @@ async function confirm(turn: ChatTurn) {
 function discard(turn: ChatTurn) {
   turn.token = null
   turn.operations = []
+  turn.discarded = true
 }
 
 function isRawView(id: number) {
@@ -832,7 +951,14 @@ function copyTurn(turn: ChatTurn) {
         <Button aria-label="收起助手" @click="open = false" variant="ghost" size="icon"><X :size="16" /></Button>
       </header>
       <div ref="scroller" class="ai-transcript">
-        <p v-if="!turns.length" class="empty-inline !py-8">可以分析想法、检索知识或操作已接入的模块。只想保存原文时，使用「随手记」。</p>
+        <div v-if="!turns.length" class="rounded-xl border border-line bg-panel-2/50 p-3 text-xs leading-relaxed text-muted-foreground">
+          <p>可以分析想法、检索知识或操作已接入的模块；写入类变更会先排队，经你确认后才生效。只想保存原文时，用「随手记」。</p>
+          <p v-if="currentPageLabel || contextChips.length" class="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span>当前上下文：</span>
+            <Badge v-if="currentPageLabel" variant="outline">页面 · {{ currentPageLabel }}</Badge>
+            <Badge v-for="chip in contextChips" :key="chip" variant="secondary">{{ chip }}</Badge>
+          </p>
+        </div>
         <article v-for="turn in turns" :key="turn.id" :class="['ai-turn', `ai-turn--${turn.role}`, editingUserTurnId === turn.id && 'ai-turn--editing']">
           <div v-if="turn.role === 'user'" class="ai-user">
             <textarea
@@ -964,18 +1090,19 @@ function copyTurn(turn: ChatTurn) {
                   </span>
                 </p>
                 <p v-for="[field, after] in operationChanges(operation)" :key="field" class="mt-2 text-[12px] text-muted-foreground">
-                  {{ labels[field] ?? field }}
+                  {{ fieldLabel(operation, field) }}
                   <span class="ml-1 text-text">{{ display(field, after) }}</span>
                 </p>
               </article>
             </div>
             <div v-if="turn.token && turn.operations.length && !turn.applied" class="mt-3 flex justify-end gap-1.5">
-              <Button size="sm" @click="discard(turn)" variant="outline"><Undo2 :size="12" />放弃</Button>
+              <Button size="sm" :disabled="confirming" @click="discard(turn)" variant="outline"><Undo2 :size="12" />放弃</Button>
               <Button size="sm" :disabled="confirming" @click="confirm(turn)">
                 <Check :size="12" />{{ confirming ? '应用中…' : '确认应用' }}
               </Button>
             </div>
             <div v-if="turn.applied" class="success-box mt-3"><Check :size="15" />变更已应用并刷新数据</div>
+            <p v-else-if="turn.discarded" class="mt-3 text-xs text-muted-foreground">已放弃，未写入</p>
             <p v-if="turn.error" class="error-box mt-3" role="alert">{{ turn.error }}</p>
           </template>
         </article>
@@ -1010,20 +1137,23 @@ function copyTurn(turn: ChatTurn) {
         </div>
         <div v-if="mentionQuery !== null && !mentionCandidates.length" class="ai-mention-empty">没有匹配的「{{ mentionQuery }}」，可直接继续输入或按 Esc 关闭</div>
         <div v-else-if="mentionQuery !== null" class="ai-mention-list" role="listbox" aria-label="引用候选">
-          <button
-            v-for="(candidate, index) in mentionCandidates"
-            :key="`${candidate.type}-${candidate.id ?? candidate.label}`"
-            type="button"
-            role="option"
-            :aria-selected="index === mentionIndex"
-            :class="['ai-mention-item', index === mentionIndex && 'ai-mention-item--active']"
-            @mousedown.prevent="selectMention(candidate)"
-            @mousemove="mentionIndex = index"
-          >
-            <Badge variant="outline">{{ TYPE_LABELS[candidate.type] }}</Badge>
-            <b>{{ candidate.label }}</b>
-            <small v-if="candidate.hint">{{ candidate.hint }}</small>
-          </button>
+          <div v-for="group in mentionGroups" :key="group.type" role="group" :aria-label="group.label">
+            <p role="presentation" class="px-2 pb-0.5 pt-1.5 text-[11px] font-medium text-muted-foreground">{{ group.label }}</p>
+            <button
+              v-for="(candidate, i) in group.items"
+              :key="`${candidate.type}-${candidate.id ?? candidate.label}`"
+              type="button"
+              role="option"
+              :aria-selected="group.startIndex + i === mentionIndex"
+              :class="['ai-mention-item', group.startIndex + i === mentionIndex && 'ai-mention-item--active']"
+              :title="[candidate.label, candidate.hint].filter(Boolean).join(' · ')"
+              @mousedown.prevent="selectMention(candidate)"
+              @mousemove="mentionIndex = group.startIndex + i"
+            >
+              <b>{{ candidate.label }}</b>
+              <small v-if="candidate.hint">{{ candidate.hint }}</small>
+            </button>
+          </div>
         </div>
         <div v-if="pendingAttachments.length || uploading" class="ai-attach-chips ai-attach-chips--composer">
           <span v-for="file in pendingAttachments" :key="file.id" class="ai-attach-chip">

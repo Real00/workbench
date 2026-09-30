@@ -58,7 +58,7 @@ export function buildCommands(deps: CommandDeps): CommandItem[] {
 
   items.push(
     { id: 'action:new-task', kind: 'action', label: '新建任务', hint: '命令', default: true, run: deps.createTask },
-    { id: 'action:quick-capture', kind: 'action', label: '快速记录', hint: '命令 · Ctrl/⌘+Shift+J', default: true, run: deps.quickCapture },
+    { id: 'action:quick-capture', kind: 'action', label: '随手记', hint: '命令 · Ctrl/⌘+Shift+J', keywords: ['快速记录'], default: true, run: deps.quickCapture },
     { id: 'action:ask-ai', kind: 'action', label: '打开 AI 助手', hint: '命令 · Ctrl/⌘+I', default: true, run: deps.askAi },
   )
   for (const nav of deps.navItems) {

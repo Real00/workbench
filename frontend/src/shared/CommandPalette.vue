@@ -18,6 +18,8 @@ const knowledge = useKnowledgeStore()
 const captures = useCaptureStore()
 const router = useRouter()
 const recentCaptures = ref<Capture[]>([])
+// 打开时可能仍在加载任务/知识/随手记数据，列表据此区分「加载中」与「确实无命中」
+const preparing = ref(false)
 
 const commands = computed(() => buildCommands({
   router,
@@ -41,11 +43,13 @@ const commands = computed(() => buildCommands({
 
 watch(() => props.open, async open => {
   if (!open) return
+  preparing.value = true
   await Promise.allSettled([
     !progress.initialized ? progress.initialize() : Promise.resolve(),
     !knowledge.initialized ? knowledge.initialize() : Promise.resolve(),
     captureApi.list('', false, 0).then(list => { recentCaptures.value = list.slice(0, 50) }).catch(() => {}),
   ])
+  preparing.value = false
 })
 
 function execute(item?: CommandItem) {
@@ -63,10 +67,16 @@ function onOpenChange(open: boolean) {
   <CommandDialog
     :open="open"
     title="命令面板"
-    description="搜索任务、文档、速记，或执行命令"
+    description="搜索任务、文档、随手记，或执行命令"
+    class="sm:max-w-[600px]"
     @update:open="onOpenChange"
   >
-    <CommandInput placeholder="搜索任务、文档、速记，或执行命令…" />
-    <CommandPaletteList :commands="commands" @execute="execute" />
+    <CommandInput placeholder="搜索任务、文档、随手记，或执行命令…" />
+    <CommandPaletteList :commands="commands" :loading="preparing" @execute="execute" />
+    <div class="hidden items-center justify-end gap-4 border-t border-line px-3 py-2 text-[11px] text-muted-foreground sm:flex">
+      <span class="flex items-center gap-1"><kbd class="rounded border border-line bg-panel-2 px-1 font-mono text-[10px] text-text">↑↓</kbd>选择</span>
+      <span class="flex items-center gap-1"><kbd class="rounded border border-line bg-panel-2 px-1 font-mono text-[10px] text-text">Enter</kbd>打开</span>
+      <span class="flex items-center gap-1"><kbd class="rounded border border-line bg-panel-2 px-1 font-mono text-[10px] text-text">Esc</kbd>关闭</span>
+    </div>
   </CommandDialog>
 </template>

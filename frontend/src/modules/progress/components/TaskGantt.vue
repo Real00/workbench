@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import Gantt from 'frappe-gantt'
+import type { GanttOptions, GanttTask } from 'frappe-gantt'
 import { Maximize2, X } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import { Button } from '@/components/ui/button'
@@ -10,11 +11,94 @@ import type { Task } from '../types'
 
 const props = defineProps<{ tasks: Task[] }>()
 const datedTasks = computed(() => props.tasks.filter(task => task.start_date && task.due_date))
+const unscheduledTasks = computed(() => props.tasks.filter(task => !task.start_date || !task.due_date))
 const store = useProgressStore()
 const chart = ref<HTMLElement>()
 const fullscreenChart = ref<HTMLElement>()
 const isNarrow = useMediaQuery('(max-width: 768px)')
 const fullscreen = ref(false)
+
+interface GanttTaskWithClass extends GanttTask {
+  custom_class?: string
+}
+
+type LowerText = string | ((date: Date, prev: Date | null, lang?: string) => string)
+
+interface GanttViewModeOption {
+  name: 'Day' | 'Week' | 'Month'
+  padding: string
+  step: string
+  column_width?: number
+  date_format?: string
+  lower_text: LowerText
+  upper_text: (date: Date, prev: Date | null, lang?: string) => string
+  thick_line?: (date: Date) => boolean
+  upper_text_frequency?: number
+  snap_at?: string
+}
+
+interface GanttOptionsExtended extends GanttOptions {
+  view_modes?: GanttViewModeOption[]
+  infinite_padding?: boolean
+}
+
+/* 压缩图表两侧留白：范围贴合任务日期，只保留少量前后缓冲 */
+const viewModes: GanttViewModeOption[] = [
+  {
+    name: 'Week',
+    padding: '10d',
+    step: '7d',
+    column_width: 140,
+    date_format: 'YYYY-MM-DD',
+    lower_text: (date) => {
+      const end = new Date(date)
+      end.setDate(end.getDate() + 6)
+      return `${date.getMonth() + 1}/${date.getDate()} - ${end.getMonth() + 1}/${end.getDate()}`
+    },
+    upper_text: (date, prev) => (!prev || date.getMonth() !== prev.getMonth() ? `${date.getFullYear()}年${date.getMonth() + 1}月` : ''),
+    thick_line: (date) => date.getDate() >= 1 && date.getDate() <= 7,
+    upper_text_frequency: 4,
+  },
+  {
+    name: 'Day',
+    padding: '6d',
+    step: '1d',
+    column_width: 45,
+    date_format: 'YYYY-MM-DD',
+    lower_text: (date, prev) => (!prev || date.getDate() !== prev.getDate() ? String(date.getDate()) : ''),
+    upper_text: (date, prev) => (!prev || date.getMonth() !== prev.getMonth() ? `${date.getFullYear()}年${date.getMonth() + 1}月` : ''),
+    thick_line: (date) => date.getDay() === 1,
+  },
+  {
+    name: 'Month',
+    padding: '1m',
+    step: '1m',
+    column_width: 120,
+    date_format: 'YYYY-MM',
+    lower_text: (date) => `${date.getFullYear()}年${date.getMonth() + 1}月`,
+    upper_text: (date, prev) => (!prev || date.getFullYear() !== prev.getFullYear() ? String(date.getFullYear()) : ''),
+    thick_line: (date) => date.getMonth() % 3 === 0,
+    snap_at: '7d',
+  },
+]
+
+/* view_modes 传入后首个元素即初始视图，因此 Week 排在最前 */
+const viewMode = ref<'Day' | 'Week' | 'Month'>('Week')
+const viewModeOptions = [
+  { value: 'Day', label: '日' },
+  { value: 'Week', label: '周' },
+  { value: 'Month', label: '月' },
+] as const
+
+type GanttInstance = InstanceType<typeof Gantt> & { scroll_current?: () => void }
+const chartInstances = new Map<'chart' | 'fullscreen', GanttInstance>()
+
+const statusBarClass: Record<Task['status'], string | undefined> = {
+  todo: undefined,
+  in_progress: undefined,
+  done: 'task-bar--done',
+  cancelled: 'task-bar--cancelled',
+}
 
 const timelineGroups = computed(() => {
   const groups = new Map<string, Task[]>()
@@ -29,60 +113,142 @@ const timelineGroups = computed(() => {
     .map(([date, items]) => ({ date, items }))
 })
 
-function renderGantt(el: HTMLElement | undefined) {
+function missingDateLabel(task: Task): string {
+  if (!task.start_date && !task.due_date) return '缺开始与截止日期'
+  return task.start_date ? '缺截止日期' : '缺开始日期'
+}
+
+/* 统一标签规则：任务名固定展示在条形右侧，深色文字保证可读 */
+function moveLabelsOutside(el: HTMLElement) {
+  for (const bar of Array.from(el.querySelectorAll<SVGRectElement>('.bar'))) {
+    const label = bar.closest('.bar-wrapper')?.querySelector<SVGTextElement>('.bar-label')
+    if (!label) continue
+    const x = (Number(bar.getAttribute('x')) || 0) + (Number(bar.getAttribute('width')) || 0) + 6
+    label.setAttribute('x', String(x))
+    label.classList.add('big')
+  }
+}
+
+function renderGantt(el: HTMLElement | undefined, slot: 'chart' | 'fullscreen') {
   if (!el) return
   const dated = datedTasks.value
   el.innerHTML = ''
+  chartInstances.delete(slot)
   if (!dated.length) return
-  new Gantt(el, dated.map((task) => ({
+  const items: GanttTaskWithClass[] = dated.map((task) => ({
     id: task.id,
     name: `${task.title} · ${store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配'}`,
     start: task.start_date!.slice(0, 10),
     end: task.due_date!.slice(0, 10),
     progress: task.progress,
     dependencies: '',
-  })), {
-    view_mode: 'Week',
+    custom_class: statusBarClass[task.status],
+  }))
+  const options: GanttOptionsExtended = {
+    view_mode: viewMode.value,
+    // 库在传入自定义 view_modes 时强制以 view_modes[0] 为初始视图（setup_options 覆盖 view_mode），
+    // 因此把当前所选尺度排到首位，重建实例后仍保持用户选择
+    view_modes: viewMode.value === 'Week'
+      ? viewModes
+      : [viewModes.find(mode => mode.name === viewMode.value)!, ...viewModes.filter(mode => mode.name !== viewMode.value)],
     language: 'zh',
     readonly: true,
     scroll_to: 'start',
+    infinite_padding: false,
     today_button: false,
     popup: false,
     bar_height: 36,
     on_click: (item: { id: string }) => store.openTask(store.tasks.find((task) => task.id === item.id)),
-  })
+  }
+  chartInstances.set(slot, new Gantt(el, items, options))
+  requestAnimationFrame(() => moveLabelsOutside(el))
+}
+
+function rerenderCharts() {
+  if (!isNarrow.value) renderGantt(chart.value, 'chart')
+  if (fullscreen.value) renderGantt(fullscreenChart.value, 'fullscreen')
+}
+
+async function setViewMode(mode: 'Day' | 'Week' | 'Month') {
+  if (viewMode.value === mode) return
+  viewMode.value = mode
+  await nextTick()
+  rerenderCharts()
+}
+
+function scrollToToday() {
+  for (const instance of chartInstances.values()) {
+    try {
+      instance.scroll_current?.()
+    } catch {
+      // 今天不在图表范围内时忽略
+    }
+  }
 }
 
 watch(datedTasks, async () => {
   await nextTick()
-  if (!isNarrow.value) renderGantt(chart.value)
-  if (fullscreen.value) renderGantt(fullscreenChart.value)
+  rerenderCharts()
 }, { immediate: true, deep: true })
 
 watch(fullscreen, async (open) => {
   if (!open) return
   await nextTick()
-  renderGantt(fullscreenChart.value)
+  renderGantt(fullscreenChart.value, 'fullscreen')
 })
 
 watch(isNarrow, async (narrow) => {
   if (narrow) return
   fullscreen.value = false
   await nextTick()
-  renderGantt(chart.value)
+  rerenderCharts()
 })
 </script>
 
 <template>
   <div class="gantt-shell overflow-x-auto rounded-xl border border-line bg-panel p-4">
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-      <p v-if="datedTasks.length" class="text-xs text-muted-foreground">
-        {{ datedTasks.length }} 个已排期任务
-        <span v-if="tasks.length > datedTasks.length"> · {{ tasks.length - datedTasks.length }} 个任务尚未设置完整日期</span>
-      </p>
-      <Button v-if="isNarrow && datedTasks.length" type="button" size="sm" variant="outline" @click="fullscreen = true">
-        <Maximize2 :size="14" />全屏甘特
-      </Button>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p class="text-xs text-muted-foreground">{{ datedTasks.length }} 个已排期任务</p>
+        <div v-if="!isNarrow && datedTasks.length" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label="甘特图状态图例">
+          <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #dbeafe; border-color: #93b4f5" />待处理 / 进行中</span>
+          <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #d9f0e3; border-color: #8fd0af" />已完成</span>
+          <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #eef1f5; border-color: #cbd5e1" />已取消</span>
+          <span>任务名在条形右侧 · 竖线为今天</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <template v-if="!isNarrow && datedTasks.length">
+          <div class="segmented-tabs" role="group" aria-label="甘特图时间尺度">
+            <Button
+              v-for="option in viewModeOptions"
+              :key="option.value"
+              type="button"
+              variant="ghost"
+              size="sm"
+              :class="['view-tab', viewMode === option.value && 'view-tab--active']"
+              :aria-pressed="viewMode === option.value"
+              @click="setViewMode(option.value)"
+            >{{ option.label }}</Button>
+          </div>
+          <Button type="button" size="sm" variant="outline" @click="scrollToToday">今天</Button>
+        </template>
+        <Button v-if="isNarrow && datedTasks.length" type="button" size="sm" variant="outline" @click="fullscreen = true">
+          <Maximize2 :size="14" />全屏甘特
+        </Button>
+        <details v-if="unscheduledTasks.length" class="unscheduled-details relative">
+          <summary>有 {{ unscheduledTasks.length }} 个任务未设置完整日期，点击补全</summary>
+          <div class="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-line bg-panel p-2 shadow-lg">
+            <div v-for="task in unscheduledTasks" :key="task.id" class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-panel-2">
+              <span class="min-w-0">
+                <b class="block truncate text-[13px] text-text">{{ task.title }}</b>
+                <small class="block text-xs text-muted-foreground">{{ missingDateLabel(task) }}</small>
+              </span>
+              <Button type="button" size="sm" variant="outline" class="shrink-0" @click="store.openTask(task)">补全日期</Button>
+            </div>
+          </div>
+        </details>
+      </div>
     </div>
 
     <template v-if="isNarrow">
@@ -111,7 +277,7 @@ watch(isNarrow, async (narrow) => {
     </template>
     <template v-else>
       <div ref="chart" class="min-w-0" aria-label="任务甘特图" />
-      <p v-if="!datedTasks.length" class="empty-inline">暂无同时设置开始与截止日期的任务</p>
+      <p v-if="!datedTasks.length" class="empty-inline">暂无同时设置开始与截止日期的任务，可点击右上角列表补全日期</p>
     </template>
 
     <Teleport to="body">
@@ -121,9 +287,69 @@ watch(isNarrow, async (narrow) => {
           <Button aria-label="关闭全屏甘特" variant="ghost" size="icon" @click="fullscreen = false"><X :size="18" /></Button>
         </header>
         <div class="min-h-0 flex-1 overflow-auto p-3">
-          <div ref="fullscreenChart" class="min-w-0" aria-label="全屏任务甘特图" />
+          <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <div class="segmented-tabs" role="group" aria-label="全屏甘特时间尺度">
+              <Button
+                v-for="option in viewModeOptions"
+                :key="option.value"
+                type="button"
+                variant="ghost"
+                size="sm"
+                :class="['view-tab', viewMode === option.value && 'view-tab--active']"
+                :aria-pressed="viewMode === option.value"
+                @click="setViewMode(option.value)"
+              >{{ option.label }}</Button>
+            </div>
+            <Button type="button" size="sm" variant="outline" @click="scrollToToday">今天</Button>
+            <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #dbeafe; border-color: #93b4f5" />待处理 / 进行中</span>
+            <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #d9f0e3; border-color: #8fd0af" />已完成</span>
+            <span class="inline-flex items-center gap-1.5"><i class="gantt-legend-swatch" style="background: #eef1f5; border-color: #cbd5e1" />已取消</span>
+          </div>
+          <div ref="fullscreenChart" class="gantt-shell min-w-0" aria-label="全屏任务甘特图" />
         </div>
       </div>
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+/* 状态配色与图例一致：完成绿、取消灰，其余保持默认蓝 */
+:deep(.bar-wrapper.task-bar--done .bar) {
+  fill: #d9f0e3;
+  stroke: #8fd0af;
+}
+:deep(.bar-wrapper.task-bar--done .bar-progress) {
+  fill: #2e9c6b;
+}
+:deep(.bar-wrapper.task-bar--cancelled .bar) {
+  fill: #eef1f5;
+  stroke: #cbd5e1;
+}
+:deep(.bar-wrapper.task-bar--cancelled .bar-progress) {
+  fill: #b7c3d3;
+}
+:deep(.bar-wrapper.task-bar--cancelled .bar-label) {
+  fill: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.gantt-legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border: 1px solid;
+  border-radius: 3px;
+}
+.unscheduled-details summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.unscheduled-details summary::-webkit-details-marker {
+  display: none;
+}
+.unscheduled-details summary:hover {
+  color: var(--color-cyan);
+}
+</style>

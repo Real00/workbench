@@ -47,7 +47,7 @@ export const useCaptureStore = defineStore('capture', () => {
     try {
       await api.post('/captures', { id: draftId.value, content })
       if (draft.value === content) draft.value = ''
-      message.value = '已记录'; revision.value++
+      message.value = '已保存到随手记'; revision.value++
     } catch (cause) { error.value = `保存失败，内容已保留：${apiError(cause)}` }
     finally { saving.value = false }
   }

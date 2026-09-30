@@ -43,7 +43,17 @@ async function onFile(event: Event) {
   const file = input.files?.[0]
   input.value = ''
   if (!file || !store.editingTask) return
-  await store.uploadTaskResource(store.editingTask.id, file)
+  const ok = await store.uploadTaskResource(store.editingTask.id, file)
+  if (ok) flashSaved()
+}
+
+/** 资源与记录一样是独立提交：成功就地反馈，且不算主表单的未保存改动（审计 A23） */
+const savedFlash = ref(false)
+let flashTimer: ReturnType<typeof setTimeout> | undefined
+function flashSaved() {
+  savedFlash.value = true
+  clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
 }
 
 async function addLink() {
@@ -55,6 +65,7 @@ async function addLink() {
   if (ok) {
     linkName.value = ''
     linkUrl.value = ''
+    flashSaved()
   }
 }
 
@@ -77,17 +88,18 @@ async function openResource(resource: TaskResource) {
 
 <template>
   <section class="rounded-xl border border-line bg-panel-2 p-4">
-    <p class="eyebrow">相关资源</p>
-    <p class="mt-1 text-[12px] text-muted-foreground">图片、文档或外链。单文件不超过 20MB。</p>
-    <div class="mt-3 flex flex-wrap gap-2">
+    <p class="eyebrow">资源</p>
+    <p class="mt-1 text-[12px] text-muted-foreground">图片、文档或外链，单文件不超过 20MB。上传与保存链接都是立即写入，不受底部「取消」影响。</p>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
       <input ref="fileInput" class="sr-only" type="file" :accept="resourceAccept" @change="onFile" />
-      <Button type="button" :disabled="store.saving" @click="fileInput?.click()" variant="outline"><Upload :size="14" />上传文件</Button>
+      <Button type="button" :disabled="store.saving" @click="fileInput?.click()" variant="outline"><Upload :size="14" />上传并保存</Button>
+      <span v-if="savedFlash" class="saved-flash" role="status">已保存</span>
     </div>
     <div class="mt-3 grid gap-2">
       <label class="field-label">外链名称<Input v-model="linkName" maxlength="200" placeholder="可选" /></label>
       <label class="field-label">链接地址<Input v-model="linkUrl" maxlength="2000" placeholder="https://" /></label>
     </div>
-    <Button type="button" :disabled="store.saving || !linkUrl.trim()" @click="addLink" class="mt-3" variant="outline"><Link2 :size="14" />添加链接</Button>
+    <Button type="button" :disabled="store.saving || !linkUrl.trim()" @click="addLink" class="mt-3" variant="outline"><Link2 :size="14" />保存链接</Button>
     <ul v-if="resources.length" class="mt-4 grid gap-2">
       <li v-for="resource in resources" :key="resource.id" class="resource-item">
         <button type="button" class="resource-main" @click="openResource(resource)">
@@ -108,3 +120,8 @@ async function openResource(resource: TaskResource) {
     <p v-else class="empty-inline !py-4">还没有相关资源</p>
   </section>
 </template>
+
+<style scoped>
+/* 审计 A23：独立提交成功的就地反馈 */
+.saved-flash { font-size: 12px; font-weight: 500; color: var(--color-success); }
+</style>

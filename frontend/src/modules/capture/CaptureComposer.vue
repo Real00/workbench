@@ -28,7 +28,7 @@ onMounted(() => {
       placeholder="一个想法、一段资讯、一个待研究的问题……先记下来。"
       @keydown="onComposerKeydown"
     />
-    <div class="mt-3 flex items-center justify-between gap-3"><p class="text-xs text-muted-foreground">无需分类 · ⌘ / Ctrl + Enter 保存</p><Button :disabled="store.saving || !store.draft.trim()">{{ store.saving ? '保存中…' : '记下来' }}</Button></div>
+    <div class="mt-3 flex items-center justify-between gap-3"><p class="text-xs text-muted-foreground">无需分类 · ⌘ / Ctrl + Enter 保存</p><Button :disabled="store.saving || !store.draft.trim()">{{ store.saving ? '保存中…' : '保存' }}</Button></div>
     <p v-if="store.error" class="error-box mt-3" role="alert">{{ store.error }}</p><p v-if="store.message" class="mt-3 text-sm text-cyan" role="status">{{ store.message }}</p>
   </form>
 </template>

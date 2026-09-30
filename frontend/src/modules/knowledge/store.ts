@@ -99,8 +99,10 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
         ? await knowledgeApi.updateDocument(editingDocument.value.id, payload)
         : await knowledgeApi.createDocument(payload)
       if (file) await knowledgeApi.importDocument(saved.id, file, false)
-      closeDocument()
       await initialize()
+      // 编辑既有文档：保存后留在抽屉并回到阅读态（取重载后的最新数据，含刚导入的原文件信息）；新建文档：保存后关闭
+      if (editingDocument.value) editingDocument.value = documents.value.find(item => item.id === saved.id) ?? saved
+      else closeDocument()
     })
   }
 

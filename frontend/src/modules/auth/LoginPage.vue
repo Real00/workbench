@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Globe, LockKeyhole, UserRound } from '@lucide/vue'
+import { ArrowRight, Eye, EyeOff, Globe, LockKeyhole, UserRound } from '@lucide/vue'
 import { api, apiError, DEFAULT_TAURI_API_BASE, deviceLabel, ensureDeviceId, getApiBase, isTauriShell, setApiBase, setDeviceCredentials, setToken } from '../../shared/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,7 @@ const router = useRouter()
 const route = useRoute()
 const username = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const remember = ref(isTauriShell)
 const loading = ref(false)
 const error = ref('')
@@ -47,6 +48,12 @@ async function login() {
       <div class="login-brand">
         <img src="/work-wordmark.png" class="login-brand__wordmark" alt="WORK · 个人工作台" />
       </div>
+      <ul class="login-modules relative" aria-label="工作台包含的模块">
+        <li>进度管理<span>任务、项目与成员节奏</span></li>
+        <li>知识库<span>文档、条目与标签沉淀</span></li>
+        <li>订阅<span>远程源定时解析为文章</span></li>
+        <li>随手记<span>想法、资讯与上下文</span></li>
+      </ul>
       <div class="relative max-w-xl">
         <p class="eyebrow">Personal workspace</p>
         <h1 class="mt-5 font-display text-6xl font-semibold leading-[.98] text-text">汇聚日常工作<br><span class="text-cyan">专注每次行动。</span></h1>
@@ -60,7 +67,7 @@ async function login() {
           <img src="/work-wordmark.png" class="login-brand__wordmark max-w-[180px]" alt="WORK · 个人工作台" />
         </div>
         <p class="eyebrow">Workspace access</p>
-        <h2 class="mt-3 font-display text-3xl font-semibold text-text">进入控制台</h2>
+        <h2 class="mt-3 font-display text-3xl font-semibold text-text">进入工作台</h2>
         <p class="mt-2 text-sm text-muted-foreground">使用组织账号继续</p>
         <label class="field-label mt-8">用户名
           <span class="relative mt-2 block">
@@ -77,15 +84,19 @@ async function login() {
         <label class="field-label mt-4">密码
           <span class="relative mt-2 block">
             <LockKeyhole :size="16" class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2" />
-            <Input v-model="password" class="!mt-0 pl-8" type="password" autocomplete="current-password" placeholder="输入密码" required />
+            <Input v-model="password" class="!mt-0 pr-10 pl-8" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" placeholder="输入密码" required />
+            <button type="button" class="password-toggle" :aria-label="showPassword ? '隐藏密码' : '显示密码'" :aria-pressed="showPassword" :title="showPassword ? '隐藏密码' : '显示密码'" @click="showPassword = !showPassword">
+              <EyeOff v-if="showPassword" :size="15" /><Eye v-else :size="15" />
+            </button>
           </span>
         </label>
-        <div class="mt-4 flex items-center justify-between text-xs">
+        <div class="mt-4 text-xs">
           <label class="flex items-center gap-2 text-muted-foreground"><input v-model="remember" type="checkbox" class="accent-cyan" /> 保持登录</label>
+          <p class="mt-1.5 text-[12px] leading-5 text-muted-foreground">勾选后记住此设备，下次打开无需重新登录；退出请用侧栏「退出登录」。</p>
         </div>
         <p v-if="error" class="error-box mt-4">{{ error }}</p>
         <Button type="submit" :disabled="loading" class="mt-7 w-full">{{ loading ? '登录中…' : '进入工作台' }} <ArrowRight :size="16" /></Button>
-        <p class="mt-6 text-center text-[12px] text-muted-foreground">访问令牌仅用于工作台 API 鉴权</p>
+        <p class="mt-6 text-center text-[12px] text-muted-foreground">没有账号？联系管理员开通后再登录</p>
       </form>
     </section>
   </main>

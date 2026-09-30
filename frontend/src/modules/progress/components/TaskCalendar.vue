@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
-import FullCalendar from '@fullcalendar/vue3'
+import FullCalendar, { type CalendarOptions } from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/vue3/daygrid'
 import listPlugin from '@fullcalendar/vue3/list'
 import interactionPlugin from '@fullcalendar/vue3/interaction'
@@ -13,7 +13,7 @@ import '@fullcalendar/vue3/themes/classic/palette.css'
 import { useProgressStore } from '../store'
 import { Button } from '@/components/ui/button'
 
-import type { Task } from '../types'
+import { statusMap, type Task, type TaskStatus } from '../types'
 
 const props = defineProps<{ tasks: Task[] }>()
 const store = useProgressStore()
@@ -24,9 +24,45 @@ watch(isNarrow, (narrow) => {
   mode.value = narrow ? 'list' : 'month'
 }, { immediate: true })
 
-const options = computed(() => ({
+/* 状态图例与事件配色保持同一份来源 */
+const statusStyles: Record<TaskStatus, { background: string; border: string; text: string; dashed?: boolean }> = {
+  todo: { background: '#f2f4f7', border: '#cbd5e1', text: '#344054' },
+  in_progress: { background: '#eff6ff', border: '#93b4f5', text: '#1e40af' },
+  done: { background: '#e7f6ee', border: '#9fd4b8', text: '#166b45' },
+  cancelled: { background: '#fbfcfd', border: '#d0d5dd', text: '#667085', dashed: true },
+}
+
+interface CalendarEventProps {
+  title: string
+  assignee: string
+  status: TaskStatus
+  range: string
+}
+
+/* FullCalendar 的 end 为独占语义，截止日期需 +1 天才包含当天，与甘特图口径一致 */
+function inclusiveEndDate(date: string | null | undefined): string | undefined {
+  if (!date) return undefined
+  const [year, month, day] = date.slice(0, 10).split('-').map(Number)
+  const next = new Date(year!, (month ?? 1) - 1, (day ?? 1) + 1)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`
+}
+
+function rangeLabel(task: Task): string {
+  if (task.start_date && task.due_date) return `开始 ${task.start_date.slice(0, 10)} · 截止 ${task.due_date.slice(0, 10)}`
+  if (task.due_date) return `截止 ${task.due_date.slice(0, 10)} · 未设开始`
+  return `开始 ${task.start_date!.slice(0, 10)} · 未设截止`
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (ch) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] ?? ch
+  ))
+}
+
+const options = computed<CalendarOptions>(() => ({
   plugins: [classicThemePlugin, dayGridPlugin, listPlugin, interactionPlugin],
-  initialView: mode.value === 'list' ? 'listWeek' : 'dayGridMonth',
+  initialView: mode.value === 'list' ? 'listMonth' : 'dayGridMonth',
   locale: zhCn,
   colorScheme: 'light',
   height: 'auto',
@@ -36,23 +72,69 @@ const options = computed(() => ({
     center: 'title',
     right: '',
   },
-  buttonText: { today: '今天', listWeek: '本周', dayGridMonth: '月' },
-  events: props.tasks.filter(task => task.start_date || task.due_date).map((task) => ({
-    id: task.id,
-    title: `${task.title} · ${store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配'}`,
-    start: (task.start_date ?? task.due_date)?.slice(0, 10),
-    end: task.due_date?.slice(0, 10),
-  })),
+  buttonText: { today: '今天', listMonth: '议程', dayGridMonth: '月历' },
+  events: props.tasks.filter(task => task.start_date || task.due_date).map((task) => {
+    const style = statusStyles[task.status]
+    const assignee = store.memberMap.get(task.assignee_id ?? '')?.name ?? '未分配'
+    return {
+      id: task.id,
+      title: `${task.title} · ${assignee}`,
+      start: (task.start_date ?? task.due_date)?.slice(0, 10),
+      end: inclusiveEndDate(task.due_date),
+      backgroundColor: style.background,
+      borderColor: style.border,
+      textColor: style.text,
+      classNames: [`task-event--${task.status}`],
+      extendedProps: {
+        title: task.title,
+        assignee,
+        status: task.status,
+        range: rangeLabel(task),
+      } satisfies CalendarEventProps,
+    }
+  }),
+  eventDidMount: ({ el, event }) => {
+    const summary = event.extendedProps as CalendarEventProps
+    el.title = `${summary.title}\n负责人：${summary.assignee}\n${summary.range}\n状态：${statusMap[summary.status]}`
+  },
+  /* 议程（list）视图的标题不着事件底色，改用状态文字色并给完成/取消加删除线 */
+  eventContent: ({ event, view }) => {
+    if (!view.type.startsWith('list')) return undefined
+    const summary = event.extendedProps as CalendarEventProps
+    const style = statusStyles[summary.status]
+    const strike = summary.status === 'done' || summary.status === 'cancelled'
+    return {
+      html: `<span style="color:${style.text};${strike ? 'text-decoration:line-through;' : ''}">${escapeHtml(event.title)}</span>`,
+    }
+  },
   eventClick: ({ event }: { event: { id: string } }) => store.openTask(store.tasks.find((task) => task.id === event.id)),
 }))
 </script>
 
 <template>
   <div class="calendar-shell overflow-x-auto rounded-xl border border-line bg-panel p-4">
-    <div v-if="isNarrow" class="mb-3 flex gap-2">
-      <Button type="button" size="sm" :variant="mode === 'list' ? 'default' : 'outline'" @click="mode = 'list'">近期列表</Button>
-      <Button type="button" size="sm" :variant="mode === 'month' ? 'default' : 'outline'" @click="mode = 'month'">月视图</Button>
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div class="flex gap-2" role="group" aria-label="日历视图切换">
+        <Button type="button" size="sm" :variant="mode === 'list' ? 'default' : 'outline'" @click="mode = 'list'">议程</Button>
+        <Button type="button" size="sm" :variant="mode === 'month' ? 'default' : 'outline'" @click="mode = 'month'">月历</Button>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span>按「开始 → 截止」绘制，截止当天含在内；仅设单日期的任务显示在当天</span>
+        <span v-for="(style, status) in statusStyles" :key="status" class="inline-flex items-center gap-1.5">
+          <i
+            class="inline-block size-2.5 rounded-[3px] border"
+            :style="{ background: style.background, borderColor: style.border, borderStyle: style.dashed ? 'dashed' : 'solid' }"
+          />{{ statusMap[status] }}
+        </span>
+      </div>
     </div>
     <FullCalendar :key="mode" :options="options" />
   </div>
 </template>
+
+<style scoped>
+/* 已取消：虚线边框区分待处理（月历块事件）；议程标题样式由 eventContent 控制 */
+:deep(.task-event--cancelled) {
+  border-style: dashed;
+}
+</style>

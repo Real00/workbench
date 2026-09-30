@@ -122,6 +122,11 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .sidebar--collapsed .sidebar-brand { justify-content: center; padding: 0; }
 .login-brand { position: relative; display: flex; align-items: center; }
 .login-brand__wordmark { display: block; width: 220px; height: auto; mix-blend-mode: multiply; }
+.login-modules { display: grid; max-width: 360px; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.login-modules li { display: flex; align-items: baseline; gap: 10px; font-size: 14px; font-weight: 600; color: var(--color-text); }
+.login-modules li span { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+.password-toggle { position: absolute; top: 50%; right: 6px; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 6px; transform: translateY(-50%); color: var(--muted-foreground); }
+.password-toggle:hover { background: var(--color-panel-2); color: var(--color-text); }
 .main-content { min-height: 100vh; padding-left: 236px; transition: padding .2s; }
 .main-content--wide { padding-left: 64px; }
 .mobile-menu {
@@ -530,6 +535,12 @@ html { color-scheme: light; }
   justify-content: flex-start;
   font-weight: 400;
   color: inherit;
+}
+/* 设置页分类导航（A49）：手机上按内容宽度横向滚动，桌面（lg）恢复纵向全宽。
+   只作用于设置页 .settings-nav 容器，不改动侧栏对 .nav-link width:100% 的依赖。 */
+.settings-nav [data-slot="button"].nav-link { width: auto; }
+@media (min-width: 64rem) {
+  .settings-nav [data-slot="button"].nav-link { width: 100%; }
 }
 .nav-group { margin-top: 18px; }
 .nav-group-label { padding: 0 12px 6px; font-size: 12px; color: var(--muted-foreground); }
