@@ -1,0 +1,1216 @@
+[
+  {
+    "id": "page-01",
+    "title": "应用壳与导航",
+    "route": "全部登录后页面",
+    "keep": "侧栏已有模块分组、当前项高亮、折叠入口和命令面板；统一蓝白色板可继续使用。",
+    "shots": [
+      {
+        "file": "02-home-desktop",
+        "caption": "桌面：左侧模块导航与底部平台入口。看左上 WORK 标识、页面标题及分组层级。"
+      },
+      {
+        "file": "43-mobile-navigation",
+        "caption": "手机：导航展开时，底部固定区占据高度，订阅分组需要继续滚动。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "品牌与导航命名不统一",
+        "observation": "WORK 标识、个人工作台定位、工作台首页、平台设置入口与系统设置标题使用多组名称；登录文案又提组织账号。",
+        "impact": "首次使用者需要额外判断这些名称是否指向同一产品和同一设置区。",
+        "proposal": "统一产品名、页面名和导航名；明确“个人工作台，可由管理员提供账号”的定位。",
+        "acceptance": "侧栏、登录、标题、帮助中，同一对象保持同一名称；导航名与落地页标题对应。",
+        "id": "A01"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "手机导航保留了桌面操作",
+        "observation": "手机抽屉仍显示“收起侧栏”，底部平台区挤压业务导航空间。",
+        "impact": "小屏用户需多次滚动寻找底部业务模块，关闭入口的语义也不直观。",
+        "proposal": "手机使用明确的“关闭导航”，减少底部非必要操作，保证当前项进入可见区域。",
+        "acceptance": "390px 宽下所有入口可达；当前页可识别；选择菜单后导航正确关闭。",
+        "id": "A02"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "浮动助手覆盖部分末端内容",
+        "observation": "手机首页和知识列表末端可看到 Pulse 浮钮叠在内容区域。",
+        "impact": "阅读或点击靠近右下角的内容时需要调整滚动位置。",
+        "proposal": "为浮钮预留底部安全空间，考虑滚动时收紧入口尺寸；保持全平台只有一个 Pulse。",
+        "acceptance": "最后一条内容和页内操作能完全滚到浮钮上方，浏览器底部安全区不遮挡。",
+        "id": "A03"
+      }
+    ],
+    "limits": "",
+    "refs": "frontend/src/shell/；frontend/src/style.css"
+  },
+  {
+    "id": "page-02",
+    "title": "登录页",
+    "route": "/login",
+    "keep": "空表单的必填校验已生效，用户名获得焦点；手机布局可用。",
+    "shots": [
+      {
+        "file": "48-login-desktop",
+        "caption": "桌面：左右分栏留白较大，左侧宣传文字贴近底部，右侧表单独立。"
+      },
+      {
+        "file": "47-mobile-login",
+        "caption": "手机：单列登录表单基本成立；观察密码栏、保持登录和技术说明。"
+      },
+      {
+        "file": "49-login-required",
+        "caption": "点击空表单登录后：出现原生“请填写此字段”提示，校验不是缺失项。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "缺少账号获取与登录帮助",
+        "observation": "页面只有用户名、密码和登录按钮，没有解释组织账号如何获得；密码不可切换可见。",
+        "impact": "新用户或输错密码的用户缺少下一步路径。",
+        "proposal": "提供“联系管理员获取账号”与可用的登录帮助；加密码显示切换，不强制增加开放注册。",
+        "acceptance": "帮助入口可到达有效说明；密码切换不清空输入，控件有可访问名称。",
+        "id": "A04"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "技术说明代替用户说明",
+        "observation": "“访问令牌仅用于 API 鉴权”等文案要求用户理解实现；“保持登录”未解释设备用途。",
+        "impact": "用户无法据此决定公共设备是否适合保持登录。",
+        "proposal": "改为登录状态、设备绑定与退出的具体说明；桌面缩小无信息的大块留白，连接品牌介绍与表单。",
+        "acceptance": "用户能理解保持登录的持续性与退出方法；1440px 与390px 下主操作都清晰。",
+        "id": "A05"
+      }
+    ],
+    "limits": "只检查表单和必填状态。使用关闭前端免登录的独立页面，后端仍为开发模式；未验证真实认证、错误密码、过期令牌、网络失联或桌面壳服务器登录。",
+    "refs": "frontend/src/modules/auth/"
+  },
+  {
+    "id": "page-03",
+    "title": "工作台首页",
+    "route": "/",
+    "keep": "内嵌随手记与模块入口有实际价值；关注和动态分区形成了聚合基础。",
+    "shots": [
+      {
+        "file": "02-home-desktop",
+        "caption": "桌面：大尺寸快记区、零待处理卡片和最近动态。最近动态前几项都是订阅内容。"
+      },
+      {
+        "file": "42-mobile-home",
+        "caption": "手机：快记与关注区占据首屏，最近动态靠近屏幕底部，时间列压缩正文宽度。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "动态长标题压过工作信息",
+        "observation": "订阅动态长标题占多行，前五条主要来自订阅源；任务、项目与知识变动不易看到。",
+        "impact": "首页变成文章流，削弱“今天做什么”和“刚发生什么”的作用。",
+        "proposal": "任务与关注优先，订阅按来源限额或折叠为摘要；动态标题最多两行，时间放次级元信息。",
+        "acceptance": "同时存在任务变更和订阅刷新时，工作变更仍在首屏可见；长文章不撑高整条。",
+        "id": "A06"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "空态与快记比例过重",
+        "observation": "零待处理区仍占大面积，快记占据顶部；手机到最近动态前需要读过多个大区块。",
+        "impact": "日常回访者需要滚动才能看到变化。",
+        "proposal": "零待处理改为紧凑状态，快记保留输入和快捷键但缩短辅助说明；显示聚合更新时间与统计口径。",
+        "acceptance": "390px 首屏能看到最近工作入口；空态有下一步但不会比有数据状态更占空间。",
+        "id": "A07"
+      }
+    ],
+    "limits": "",
+    "refs": "frontend/src/modules/home/WorkbenchHome.vue；各模块 workbench 投影"
+  },
+  {
+    "id": "page-04",
+    "title": "随手记与搜索",
+    "route": "/captures",
+    "keep": "输入框与首页复用，支持快捷提交；无搜索结果的文案能正确区分无记录。",
+    "shots": [
+      {
+        "file": "03-captures",
+        "caption": "当前账号没有随手记：只有输入区、搜索区和简短空态。"
+      },
+      {
+        "file": "54-capture-no-results",
+        "caption": "搜索无命中：文案为“没有找到匹配的记录”，但没有就近清空筛选操作。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "搜索恢复路径不够直接",
+        "observation": "无结果状态没有“清空搜索”按钮，“已归档”选项没有说明是包含归档还是只看归档。",
+        "impact": "用户需要手动清空输入，难以理解当前检索范围。",
+        "proposal": "显示当前筛选并提供一键重置；把归档选项写成明确的范围描述。",
+        "acceptance": "搜索无结果时一键回到全部记录；归档范围与实际结果一致。",
+        "id": "A08"
+      },
+      {
+        "priority": "P3",
+        "evidence": "体验建议",
+        "title": "空态缺少轻量使用引导",
+        "observation": "大屏宽输入区下只有一行空态，没有示例或可操作的首次记录引导。",
+        "impact": "首次使用者不易建立“快速捕获、以后整理”的习惯。",
+        "proposal": "给出一条真实用途示例，聚焦输入；避免用装饰或复杂分类填满空白。",
+        "acceptance": "没有记录时主操作明确；已有记录后引导自动让位给列表。",
+        "id": "A09"
+      }
+    ],
+    "limits": "当前为0条记录，未实测记录卡、置顶、归档、转交 Pulse 和保存结果，不能据此判断这些流程有缺陷。",
+    "refs": "frontend/src/modules/capture/CapturePage.vue"
+  },
+  {
+    "id": "page-05",
+    "title": "进度总览",
+    "route": "/progress",
+    "keep": "关键数字、进行中任务、风险和操作记录已分区，结构可保留。",
+    "shots": [
+      {
+        "file": "04-progress",
+        "caption": "本次4项任务全部完成。顶部平均100%，进行中任务区域为空，风险和记录较稀疏。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "指标标题与统计口径混杂",
+        "observation": "“进行中的任务”区域展示“全部任务平均完成度100%”；顶部又有相同数值，没有周期与样本说明。",
+        "impact": "用户会把已完成任务的100%当作当前执行中的负荷或健康程度。",
+        "proposal": "把全部任务和进行中任务分开统计；展示样本数与日期范围，卡片支持下钻到对应筛选。",
+        "acceptance": "完成4项、进行中0项时，各指标无矛盾；点击数字进入相同口径的任务集合。",
+        "id": "A10"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "零任务和风险区缺少解释",
+        "observation": "没有进行中任务时大面积空白；风险区没有说明判断依据，操作记录时间和新鲜度弱。",
+        "impact": "用户难判断是真的无风险还是没有计算对象。",
+        "proposal": "零进行中给“查看已完成/创建任务”；风险注明延期或资源条件，记录补清晰时间。",
+        "acceptance": "无任务时显示“暂无统计对象”；有风险时能追到任务与规则，最近刷新时间可识别。",
+        "id": "A11"
+      }
+    ],
+    "limits": "",
+    "refs": "frontend/src/modules/progress/pages/DashboardPage.vue"
+  },
+  {
+    "id": "page-06",
+    "title": "任务列表",
+    "route": "/progress/tasks · 列表",
+    "keep": "列表支持行内状态选择和详细编辑，多个视图共享同一批任务。",
+    "shots": [
+      {
+        "file": "05-task-list",
+        "caption": "桌面：表头筛选、行内标签、长描述和资源数字同屏。"
+      },
+      {
+        "file": "06-task-chip",
+        "caption": "行内状态选择展开：已有快捷修改能力；本次未选择和提交。"
+      },
+      {
+        "file": "39-mobile-tasks",
+        "caption": "手机：任务名占主要宽度，只能看到部分状态，其他字段需要横向滚动。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "筛选与行内编辑长得相似",
+        "observation": "表头筛选和行内状态、优先级都采用近似的描边胶囊，已完成与其他状态色彩区分弱。",
+        "impact": "用户容易混淆筛选范围与修改单条任务，扫描状态速度慢。",
+        "proposal": "表头采用独立筛选工具栏与命中数；行内编辑保留但加强可编辑提示；状态用色与文字双编码。",
+        "acceptance": "筛选后有清晰当前条件；修改单条不会让人误以为改变整个列表；色弱用户仍能识别。",
+        "id": "A12"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "行内信息缺少轻重顺序",
+        "observation": "短ID、无标签、资源裸数字与说明同时展示；长说明使行高不一，右侧箭头缺少动作说明。",
+        "impact": "核心的任务、状态、负责人和日期被次要信息稀释。",
+        "proposal": "主行保持任务名和关键元信息，描述限制行数；ID移到详情，资源用图标和数量，操作加提示。",
+        "acceptance": "长说明不撑高全部列表；资源数量有语义；键盘可识别“打开任务详情”。",
+        "id": "A13"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "手机只得到桌面表的切片",
+        "observation": "390px下需横滚才能看到负责人、日期和进度。",
+        "impact": "用户无法同屏判断一项任务是否需要处理。",
+        "proposal": "手机使用同数据的紧凑卡片投影，首屏卡片包含名称、状态、截止与负责人；时间轴仍可横滚。",
+        "acceptance": "390px无需横滚即可辨识任务与首要状态，仍能进入全部字段编辑。",
+        "id": "A14"
+      },
+      {
+        "priority": "P3",
+        "evidence": "体验建议",
+        "title": "列表规模化操作有限",
+        "observation": "当前界面没有明显排序、批量操作或保存视图入口。",
+        "impact": "任务增多后反复筛选、逐项修改的成本上升。",
+        "proposal": "先增加排序与筛选持久化；有批量需求时再加入选择和操作反馈。",
+        "acceptance": "刷新或返回保留约定的筛选；排序口径清楚，批量失败能对应具体对象。",
+        "id": "A15"
+      }
+    ],
+    "limits": "已展开行内选择，未提交修改；保存反馈、失败回滚与撤销需后续验证。",
+    "refs": "frontend/src/modules/progress/components/TaskList.vue"
+  },
+  {
+    "id": "page-07",
+    "title": "任务看板",
+    "route": "/progress/tasks · 看板",
+    "keep": "四个阶段和卡片内快捷修改已存在，不必推倒重做。",
+    "shots": [
+      {
+        "file": "08-task-board",
+        "caption": "四列同宽，当前所有4项都在完成列，其余三列大片空白；卡片内下拉控件较多。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "卡片更像表单而非任务摘要",
+        "observation": "多个选择控件主导卡片，资源只显示“1”等数字，截止和项目不突出。",
+        "impact": "看板难以快速识别谁在做、什么时候到期、卡在哪里。",
+        "proposal": "卡片先展示任务名、负责人、截止、项目和资源图标；常用状态保留，其余编辑移到详情。",
+        "acceptance": "不打开详情也能读出关键任务信息，点击资源数字的含义明确。",
+        "id": "A16"
+      },
+      {
+        "priority": "P2",
+        "evidence": "源码确认",
+        "title": "缺少看板拖动流程",
+        "observation": "当前实现为卡片点击和状态选择，没有拖拽跨列行为；空列占据固定宽度。",
+        "impact": "习惯看板的用户会尝试拖动却得不到反馈，窄屏空列进一步增加滚动。",
+        "proposal": "若支持拖动，提供目标列反馈、失败回滚与键盘等效操作；保留状态选择，并允许收起空列。",
+        "acceptance": "鼠标拖动和键盘选择能达成同一结果；错误时回到原状态；空列始终可重新展开。",
+        "id": "A17"
+      }
+    ],
+    "limits": "未验证卡片内部组合控件的键盘事件冒泡，需列入交互回归。",
+    "refs": "frontend/src/modules/progress/components/TaskBoard.vue"
+  },
+  {
+    "id": "page-08",
+    "title": "任务日历",
+    "route": "/progress/tasks · 日历",
+    "keep": "月份切换、今天跳转和今日高亮已有；只读日历符合现有设计边界。",
+    "shots": [
+      {
+        "file": "09-task-calendar",
+        "caption": "月历：已完成事件仍是浅蓝，长任务名截断，顶部有上月/今天/下月操作。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "日期事件缺少语义图例",
+        "observation": "事件视觉接近，已完成状态不明显；长名称截断，用户难判断展示的是开始、截止还是持续区间。",
+        "impact": "把完成任务误认为待处理日程，或误读任务的截止。",
+        "proposal": "给出日期规则和状态图例；标题摘要可查看完整名称，详情明确起止日期与状态。",
+        "acceptance": "已完成与进行中可辨；缺少开始/截止的任务有明确展示规则。",
+        "id": "A18"
+      },
+      {
+        "priority": "P3",
+        "evidence": "体验建议",
+        "title": "单月网格不适合所有小屏任务",
+        "observation": "六行月历占据较大高度，密集或窄屏日程缺少议程视图。",
+        "impact": "在手机上找近期截止项需要反复扫格子。",
+        "proposal": "增加按日期的议程视图，视需要提供周视图；保留只读行为和编辑入口。",
+        "acceptance": "390px可直接查看近期截止任务，月历和议程数据口径一致。",
+        "id": "A19"
+      }
+    ],
+    "limits": "没有改期、点击保存或手机真实触摸操作测试。",
+    "refs": "frontend/src/modules/progress/components/TaskCalendar.vue"
+  },
+  {
+    "id": "page-09",
+    "title": "任务甘特",
+    "route": "/progress/tasks · 甘特",
+    "keep": "已排期/未排期数量和日期完整性提示明确；今日线已经存在。",
+    "shots": [
+      {
+        "file": "10-task-gantt",
+        "caption": "甘特：3项已排期、1项未完整设置日期；蓝色任务条和左右较大空闲区。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "默认时间范围与任务状态不够清晰",
+        "observation": "完成100%的条仍统一蓝色，短条文字在外侧，长条文字在内部；默认跨度有较多无数据空间。",
+        "impact": "时间占用、完成状态和文字归属不易同时看清。",
+        "proposal": "增加状态图例与一致标签规则，提供适配任务范围及日/周/月尺度，必要时加今天定位。",
+        "acceptance": "短任务与长任务名称归属明确；完成状态可读；适配范围不裁剪任务。",
+        "id": "A20"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "未排期提示缺少处理入口",
+        "observation": "顶部说明1项日期不完整，但没有直接补排期的任务入口。",
+        "impact": "用户知道存在问题却仍需返回列表查找。",
+        "proposal": "让未排期数量打开对应清单或编辑入口；无日期/单日期规则与日历一致。",
+        "acceptance": "点击未排期可以定位对象并补全日期；返回后图表自动反映。",
+        "id": "A21"
+      }
+    ],
+    "limits": "SVG的键盘可操作性需补测，不能凭截图断言任务点击不能打开编辑。",
+    "refs": "frontend/src/modules/progress/components/TaskGantt.vue"
+  },
+  {
+    "id": "page-10",
+    "title": "任务编辑抽屉",
+    "route": "/progress/tasks → 新建/编辑",
+    "keep": "右侧抽屉、固定底部动作、Esc和焦点管理已有；危险删除有对象名、影响说明和默认取消。",
+    "shots": [
+      {
+        "file": "07-task-editor",
+        "caption": "已有任务：基本字段、进度记录和资源位于同一长抽屉内，底部保存/取消固定。"
+      },
+      {
+        "file": "40-mobile-task-draft",
+        "caption": "复现步骤1：新建任务，输入“界面审计草稿（未保存）”，尚未保存。"
+      },
+      {
+        "file": "41-mobile-task-reopen",
+        "caption": "复现步骤2：点X关闭，再新建；标题为空，期间没有放弃确认。"
+      },
+      {
+        "file": "55-delete-confirmation",
+        "caption": "删除确认：明确任务名及连带数据、不可恢复；本次取消，未执行删除。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P1",
+        "evidence": "已复现",
+        "title": "关闭后未保存草稿直接丢失",
+        "observation": "新建任务填写标题→X关闭→重新新建，输入全部丢失，未出现确认。源码中X、遮罩、取消及Esc均直接closeTask。",
+        "impact": "一次误关闭就可能丢掉长描述和排期，是付费工作工具的基础容错问题。",
+        "proposal": "统一dirty检测；提供继续编辑/放弃修改，或本地草稿恢复。所有关闭路径复用同一策略，仍保持侧栏抽屉。",
+        "acceptance": "输入标题/描述/排期后分别使用X、遮罩、取消、Esc：均能恢复或确认放弃；无改动关闭不打扰。",
+        "id": "A22"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面与源码",
+        "title": "长表单与独立提交混在一起",
+        "observation": "进度记录和资源有独立提交逻辑，外层又有“保存任务/取消”；主要字段和历史记录在同一滚动区。",
+        "impact": "用户可能认为取消会撤销已经提交的记录或资源，也难定位本次要改的字段。",
+        "proposal": "分为基本信息、执行与记录、资源；独立提交区标“立即保存”，提交成功就地反馈；取消只针对待保存字段。",
+        "acceptance": "添加记录后的保存状态明确；取消主表单不会被解释成撤销已写入记录；字段错误可定位。",
+        "id": "A23"
+      }
+    ],
+    "limits": "独立记录/资源写入来自源码检查，本次未执行；其它抽屉的草稿风险需逐一回归，不在此宣称全部已复现。",
+    "refs": "frontend/src/modules/progress/components/TaskEditor.vue:19,90,144；TaskResources.vue"
+  },
+  {
+    "id": "page-11",
+    "title": "项目管理",
+    "route": "/progress/projects",
+    "keep": "项目卡片已有任务完成率与成员信息，零任务用“—”比直接显示0%更合理。",
+    "shots": [
+      {
+        "file": "11-projects",
+        "caption": "项目卡片：项目“进行中”和任务100%并列，零任务卡仍有进度轨道。"
+      },
+      {
+        "file": "12-project-editor",
+        "caption": "新建项目抽屉：封面颜色、描述与成员平铺选择。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "项目阶段与任务完成率容易混读",
+        "observation": "“进行中”项目可同时显示100%，零任务显示—但轨道像零进度。",
+        "impact": "用户会怀疑数字与状态矛盾，实际是不同口径没有说明。",
+        "proposal": "明确标“项目阶段”和“已完成任务/总任务”；无任务隐藏进度条并解释尚未统计。",
+        "acceptance": "进行中且全部现有任务完成的项目，两种指标各自含义清晰；无任务不暗示落后。",
+        "id": "A24"
+      },
+      {
+        "priority": "P2",
+        "evidence": "体验建议",
+        "title": "项目查找与配置优先级不足",
+        "observation": "当前卡片无搜索/排序入口，描述截断；创建时封面颜色占据较靠前位置，成员选择是平铺。",
+        "impact": "项目数量增加后查找困难，创建时被外观设置分散注意。",
+        "proposal": "先收集名称、描述与成员；外观设为次级；加入搜索和最近更新排序，多成员时可搜索。",
+        "acceptance": "20个项目可按名称找到；核心创建字段先可见；颜色选中有明确反馈。",
+        "id": "A25"
+      }
+    ],
+    "limits": "未创建项目、未选择自定义色；不把初始颜色控件的显示差异认定为保存错误。",
+    "refs": "frontend/src/modules/progress/pages/ProjectsPage.vue；components/ProjectEditor.vue"
+  },
+  {
+    "id": "page-12",
+    "title": "成员管理",
+    "route": "/progress/members",
+    "keep": "头像、技能、可分配状态和负荷已集中展示，保留个性化表达有价值。",
+    "shots": [
+      {
+        "file": "13-members",
+        "caption": "成员卡：大面积像素头像；无进行中任务仍显示平均进度0%，下方汇总也为0%。"
+      },
+      {
+        "file": "14-member-editor",
+        "caption": "新建成员：名称、技能、背景说明、颜色和可分配配置。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面与源码",
+        "title": "无统计对象被显示为0%",
+        "observation": "没有未完成任务的成员仍显示平均进度0%；实现用缺省0渲染，汇总也重复0%。",
+        "impact": "空闲成员看起来像任务完全没推进，与总览100%造成信任落差。",
+        "proposal": "按实际样本数显示“暂无进行中任务/空闲”，平均值用—；区分已完成集合与当前任务集合。",
+        "acceptance": "无进行中任务时不出现误导的0%；有任务时数值及样本说明一致。",
+        "id": "A26"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "头像强于工作量，状态控件弱",
+        "observation": "像素头像占卡片主要面积，“可分配”看似普通标签；剩余工时用0d但无换算说明。",
+        "impact": "浏览重点偏向形象，用户不容易发现标签可修改或理解负荷单位。",
+        "proposal": "提供紧凑卡片；强化工作量、工时单位与可分配开关语义，保留像素头像但缩小。",
+        "acceptance": "状态修改控件可被识别并有结果反馈；说明1工作日按8小时估算，与后端口径一致。",
+        "id": "A27"
+      },
+      {
+        "priority": "P3",
+        "evidence": "体验建议",
+        "title": "缺少按技能与负荷找人",
+        "observation": "当前成员列表无搜索、技能筛选和负荷排序。",
+        "impact": "成员增多后分配任务要逐卡查看。",
+        "proposal": "加入名称/技能搜索和负荷排序，技能输入仍保留回车/逗号帮助。",
+        "acceptance": "20名成员能快速找到匹配技能和可分配者；键盘操作完整。",
+        "id": "A28"
+      }
+    ],
+    "limits": "当前已有成员评价未实测，不据新增表单推断评价流程不可用。",
+    "refs": "frontend/src/modules/progress/pages/MembersPage.vue:67-74"
+  },
+  {
+    "id": "page-13",
+    "title": "知识库文档列表",
+    "route": "/knowledge · 列表/文档",
+    "keep": "文档、条目、标签和画布共享入口，已有上传与手动创建能力。",
+    "shots": [
+      {
+        "file": "15-knowledge-documents",
+        "caption": "桌面：文档表只有标题、标签与条目数；顶部同时显示四个创建/管理动作。"
+      },
+      {
+        "file": "44-mobile-knowledge",
+        "caption": "手机：部分顶部按钮只剩图标，表格信息被挤压，条目数在屏外。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P1",
+        "evidence": "已复现",
+        "title": "手机纯图标按钮缺少可访问名称",
+        "observation": "窄屏隐藏按钮文字后，标签、条目、上传三个按钮在可访问树中均没有名称。",
+        "impact": "屏幕阅读器用户只能听到“按钮”，无法辨识核心创建动作。",
+        "proposal": "给图标按钮独立aria-label，必要时加Tooltip；文字隐藏不得删除名称。",
+        "acceptance": "390px可访问树分别读出“管理标签/新建条目/上传文档”；键盘焦点可见。",
+        "id": "A29"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "文档辨识信息太少，操作过于并列",
+        "observation": "表中缺摘要和更新时间，条目全为0仍占列；双层视图与类型导航叠加四个动作。",
+        "impact": "用户难判断内容与新旧，也不易决定创建文档还是条目。",
+        "proposal": "文档主行给摘要、更新和来源；突出新建文档/上传，条目与标签收为次级；手机用紧凑列表。",
+        "acceptance": "同名/长标题文档可靠摘要与时间区分；手机不横滚也能查找与打开。",
+        "id": "A30"
+      }
+    ],
+    "limits": "",
+    "refs": "frontend/src/modules/knowledge/pages/KnowledgePage.vue"
+  },
+  {
+    "id": "page-14",
+    "title": "文档编辑与阅读",
+    "route": "/knowledge → 文档抽屉",
+    "keep": "现有正文工具栏、预览和导入覆盖确认应保留；编辑器仍遵守右侧抽屉规范。",
+    "shots": [
+      {
+        "file": "16-document-editor",
+        "caption": "点文档进入编辑：正文与外层均可滚动，技术提示占据阅读空间。"
+      },
+      {
+        "file": "17-document-preview",
+        "caption": "切换预览：内容仍在窄抽屉；样本文本提到图1、图2，但此正文里看不到对应图片。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "默认进入编辑，阅读空间不足",
+        "observation": "点开文档直接进入编辑，约560px抽屉内同时放元信息、正文和选择项，内外双滚。",
+        "impact": "长期阅读与快速查阅成本高，也更容易误触修改。",
+        "proposal": "默认阅读态，明确编辑按钮；抽屉可加宽/切阅读宽度，保持侧栏模式；正文主滚动统一。",
+        "acceptance": "打开文档先能连续阅读；进入编辑后可保存并回到原阅读位置；键盘和Esc仍可用。",
+        "id": "A31"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "实现术语暴露给日常用户",
+        "observation": "“UTF-8 Markdown，供 Pulse grep 与阅读渲染”“raw/归档”等文案出现在主流程。",
+        "impact": "用户要理解检索和存储实现才能判断操作含义。",
+        "proposal": "主文案说明“正文会用于搜索与AI引用”“保留原文件”；高级格式规则折叠到帮助。",
+        "acceptance": "不理解grep或目录结构的用户也能理解正文和原文件的关系。",
+        "id": "A32"
+      },
+      {
+        "priority": "P2",
+        "evidence": "体验建议",
+        "title": "导入保真与关联选择需要明确",
+        "observation": "当前样本文本包含图引用但无图；关联条目和标签用平铺选择，规模大时会拉长表单。",
+        "impact": "用户可能把没有图片的导入内容误认为完整原件。",
+        "proposal": "显示原文件入口和支持的导入格式/限制；导入后给内容预览；关联项支持搜索与已选摘要。",
+        "acceptance": "带图片文档的导入结果明确说明保留范围；50个关联项仍可查找，不必滚遍表单。",
+        "id": "A33"
+      }
+    ],
+    "limits": "未重新导入该样本，不能证明缺图由导入程序造成；预览原文缺少Markdown标题也不能认定渲染失效。覆盖确认已有。",
+    "refs": "frontend/src/modules/knowledge/components/DocumentEditor.vue"
+  },
+  {
+    "id": "page-15",
+    "title": "知识条目",
+    "route": "/knowledge · 列表/条目",
+    "keep": "条目具有结构化键值、别名与文档关联，适合检索和引用。",
+    "shots": [
+      {
+        "file": "18-knowledge-entries",
+        "caption": "条目表：长值占较多宽度，键、值和关联信息并列。"
+      },
+      {
+        "file": "19-entry-editor",
+        "caption": "条目编辑：键/值、别名、挂到文档等字段，别名说明出现grep。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "字段表达过于技术化",
+        "observation": "“键/值”“挂到文档”和“供grep命中”面向实现，缺少知识条目的具体例子。",
+        "impact": "普通用户不易判断什么信息应该成为条目。",
+        "proposal": "用“名称/内容/关联文档/其他称呼”作为主标签，保留高级字段说明；给一条真实示例。",
+        "acceptance": "首次使用者能创建一项知识条目并理解其关联与检索效果。",
+        "id": "A34"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "长内容和出处不易扫描",
+        "observation": "长值直接放表格，缺少紧凑摘要与出处层级；编辑关联仍为平铺勾选。",
+        "impact": "条目多时难比较内容与可信来源。",
+        "proposal": "内容摘要可展开，关联文档数与出处可点击；关联选择增加搜索。",
+        "acceptance": "长值不导致整表过宽；用户能从条目跳到关联原文。",
+        "id": "A35"
+      }
+    ],
+    "limits": "",
+    "refs": "frontend/src/modules/knowledge/components/EntryEditor.vue；pages/KnowledgePage.vue"
+  },
+  {
+    "id": "page-16",
+    "title": "知识标签",
+    "route": "/knowledge · 列表/标签",
+    "keep": "标签的检索用途有说明，命名和描述配置简单。",
+    "shots": [
+      {
+        "file": "20-knowledge-tags",
+        "caption": "标签表：名称与描述可读，但不显示使用数量或关联内容入口。"
+      },
+      {
+        "file": "21-tag-editor",
+        "caption": "只有少量字段的标签编辑仍占完整侧栏高度。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "标签有管理页却缺少使用反馈",
+        "observation": "标签表没有使用次数、所关联内容或直接筛选入口。",
+        "impact": "用户无法判断标签是否有用、是否重复。",
+        "proposal": "增加关联文档/条目数量和查看内容入口；有重名需求时再提供合并预览。",
+        "acceptance": "点击标签能看到完整关联集合；合并前能查看影响对象。",
+        "id": "A36"
+      },
+      {
+        "priority": "P3",
+        "evidence": "体验建议",
+        "title": "短表单缺少空间与影响层级",
+        "observation": "少数字段的大抽屉显得空，保存标签时没有使用范围说明。",
+        "impact": "视觉完成度偏低，用户也不知道改名会影响哪些内容。",
+        "proposal": "保留侧栏编辑器，收紧内容宽度，补关联摘要；不要为此另造居中弹窗。",
+        "acceptance": "短表单主动作接近内容；编辑已有标签能读到影响范围。",
+        "id": "A37"
+      }
+    ],
+    "limits": "",
+    "refs": "frontend/src/modules/knowledge/components/TagEditor.vue"
+  },
+  {
+    "id": "page-17",
+    "title": "知识画布",
+    "route": "/knowledge · 画布",
+    "keep": "拖动、缩放和显示全部节点入口已有；空间布局适合个人整理。 手机已有列表回退和全屏画布入口，避免强迫用户在小屏拖动。",
+    "shots": [
+      {
+        "file": "22-knowledge-canvas",
+        "caption": "初始画布：顶部统计3篇文档，画面只辨识到2张卡片。"
+      },
+      {
+        "file": "50-canvas-fit",
+        "caption": "点击“显示全部节点”后：仍只有2张可辨卡片，一篇完全被另一篇遮住。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P1",
+        "evidence": "已复现",
+        "title": "完全重叠使一篇文档不可见",
+        "observation": "Agent Studio平台资料与litellm文档的卡片位置和尺寸相同（x700.5/y563.695，280×106）；显示全部只适配范围，未解除遮挡。",
+        "impact": "用户会以为资料缺失，且无法直接选择被盖住的文档。",
+        "proposal": "新节点做避碰布局；提供“整理布局”及重叠/节点数量提示；保留用户保存的位置，显式整理才重排。",
+        "acceptance": "当前3篇都能辨识和选择；相同坐标输入不导致文档静默消失；适配范围与整理布局语义不同。",
+        "id": "A38"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面与源码",
+        "title": "空间画布的用途与搜索范围不明确",
+        "observation": "源码edges为空，这是空间摆放而非关系连线；切画布后内容类型入口消失，搜索仍提条目键。",
+        "impact": "用户可能期待条目或关系也进入画布，却无法理解当前范围。",
+        "proposal": "明确“文档画布”及当前节点数，搜索提示与对象范围一致；关系能力作为后续产品选择。",
+        "acceptance": "切换视图后用户知道哪些对象可见；搜索结果数与可见节点吻合。",
+        "id": "A39"
+      }
+    ],
+    "limits": "重叠针对当前数据已证实，不宣称所有新文档必重叠；未拖动节点，因为会保存业务位置。",
+    "refs": "frontend/src/modules/knowledge/components/KnowledgeCanvas.vue"
+  },
+  {
+    "id": "page-18",
+    "title": "订阅源管理",
+    "route": "/subscription",
+    "keep": "源状态、刷新频率、手动刷新和插件选择都有基础实现。",
+    "shots": [
+      {
+        "file": "23-subscription-sources",
+        "caption": "源表：正常标签、60分钟频率和上次刷新时间，缺少下次拉取与解析结果。"
+      },
+      {
+        "file": "24-source-editor",
+        "caption": "新建源：展开全宽内联表单，名称、URL、插件和频率均需用户填写。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "源健康状态不可解释",
+        "observation": "“正常”标签缺少依据，只有上次刷新，没有下次拉取、最近解析篇数或失败详情层级。",
+        "impact": "用户难判断源正在工作、暂时无新文章还是解析失败。",
+        "proposal": "显示最近成功/失败、新增篇数、下次计划；错误可展开且给重试。",
+        "acceptance": "源状态可追溯到最近一次结果；空结果与失败明确区分。",
+        "id": "A40"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "创建流程要求用户先懂技术",
+        "observation": "用户需理解RSS、插件和频率；URL无具体例子，创建内联表单挤开列表，与其它模块抽屉不同。",
+        "impact": "非开发者难从“我要订阅这个网站”完成配置。",
+        "proposal": "RSS作为默认路径，示例和格式说明就近展示；支持解析预览，插件放高级区；统一侧栏编辑模式。",
+        "acceptance": "普通RSS只填必要信息即可；保存前能看到预期源名和文章样例；表单失败保留输入。",
+        "id": "A41"
+      }
+    ],
+    "limits": "未保存源、未手动刷新或执行外部连接测试；定时拉取由既有服务自行运行。",
+    "refs": "frontend/src/modules/subscription/pages/SourcesPage.vue"
+  },
+  {
+    "id": "page-19",
+    "title": "订阅插件管理",
+    "route": "/subscription/plugins",
+    "keep": "内置解析器可见，编辑已有插件时有试跑区；开发者自定义能力应保留。",
+    "shots": [
+      {
+        "file": "25-subscription-plugins",
+        "caption": "插件列表：Python继承、子进程解析与规范路径等技术说明在主页面。"
+      },
+      {
+        "file": "26-plugin-editor",
+        "caption": "新建插件：脚本在普通多行输入中，新建状态尚无已有插件的试跑区。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "开发者功能与日常订阅混在同级",
+        "observation": "技术说明占主区域，规范路径只是文本，普通订阅用户缺少“何时需要插件”的说明。",
+        "impact": "增加不必要的理解成本，开发者又难直接打开规范。",
+        "proposal": "明确标为高级/开发者功能；规范提供可点击文档，保留RSS常规路径指引。",
+        "acceptance": "普通用户知道RSS通常不需编写插件；开发者可直接访问可用规范。",
+        "id": "A42"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面与源码",
+        "title": "新建脚本必须先保存才能试跑",
+        "observation": "试跑区受editing条件控制；新建时普通Textarea没有行号、语法定位或示例输出。",
+        "impact": "脚本错误发现偏晚，排错成本高。",
+        "proposal": "新建前支持无保存验证/预览；给示例、行号和具体错误位置，避免混淆试跑与持久化。",
+        "acceptance": "新脚本保存前可以校验；错误定位到行和原因；试跑结果说明是否产生业务数据。",
+        "id": "A43"
+      }
+    ],
+    "limits": "未执行脚本或试跑，不能断言解析器运行失败。",
+    "refs": "frontend/src/modules/subscription/pages/PluginsPage.vue:142"
+  },
+  {
+    "id": "page-20",
+    "title": "文章列表",
+    "route": "/subscription/articles",
+    "keep": "源筛选、搜索和阅读入口已有，可以在现有订阅模块内完善。",
+    "shots": [
+      {
+        "file": "27-articles",
+        "caption": "文章表：长标题多行加粗，来源重复，时间与作者信息密集。"
+      },
+      {
+        "file": "53-articles-no-results",
+        "caption": "输入不存在的搜索词：仍提示“暂无文章”，并引导新建订阅源/刷新。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P1",
+        "evidence": "界面与源码",
+        "title": "固定50条且没有后续浏览入口",
+        "observation": "loadArticles始终请求limit:50，页面无分页、加载更多或总量。当前实际显示前50条，后端已支持offset/limit。",
+        "impact": "当命中超过50条时，后续文章无法通过列表正常浏览；用户也不知道结果被截断。",
+        "proposal": "接入分页或加载更多，显示命中数与加载范围，搜索和源筛选使用相同分页规则。",
+        "acceptance": "使用60条以上样本：第51条可到达，无重复漏项；筛选重置页码；加载失败可重试。",
+        "id": "A44"
+      },
+      {
+        "priority": "P2",
+        "evidence": "已复现",
+        "title": "无搜索结果被当成从未订阅",
+        "observation": "搜索无命中时仍引导建订阅源和等待定时任务，没有清空搜索。",
+        "impact": "把搜索问题误解释成配置缺失，可能让用户重复建源。",
+        "proposal": "区分无数据、无命中、加载失败；无命中显示当前条件和清空筛选。",
+        "acceptance": "已有文章但搜索无结果时出现“未找到匹配文章”；清空后恢复原列表。",
+        "id": "A45"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "阅读列表被长标题与重复信息挤满",
+        "observation": "长内容样式的标题占2至3行，作者和来源重复；界面说明“解析入库”技术感较强。",
+        "impact": "浏览密度不稳定，难快速挑选要读的内容。",
+        "proposal": "采用标题、短摘要、来源与时间的阅读层级；可选未读/收藏需求后续验证，先收紧重复信息。",
+        "acceptance": "长标题不吞掉元信息；发布日期与抓取时间缺失回退有清晰规则。",
+        "id": "A46"
+      }
+    ],
+    "limits": "不能据同秒时间断言数据造假；需核验源发布日期缺失时的回退。超过50条不可达来自确定的请求和界面实现，非声称已数出当前数据库总量。",
+    "refs": "frontend/src/modules/subscription/store.ts:121；pages/ArticlesPage.vue；backend/subscription/routes.py:117"
+  },
+  {
+    "id": "page-21",
+    "title": "文章阅读详情",
+    "route": "/subscription/articles/:id",
+    "keep": "已有正文最大宽度与原文入口，适合继续优化阅读体验。",
+    "shots": [
+      {
+        "file": "28-article-detail",
+        "caption": "短文章详情：标题和正文重复，暴露html格式标签，返回入口在顶部。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "元信息与阅读动作层级不成熟",
+        "observation": "content_format标签直接显示html，标题与短正文重复，缺少清晰阅读进度或下一篇路径。",
+        "impact": "实现格式占据注意力，连续阅读需要反复返回列表。",
+        "proposal": "隐藏内部格式，整理作者/来源/发布日期/抓取时间；给下一篇和返回原位置，可按需求加保存到知识入口。",
+        "acceptance": "用户能快速判断来源与时间；下一篇范围与原筛选一致，原文入口语义明确。",
+        "id": "A47"
+      },
+      {
+        "priority": "P2",
+        "evidence": "源码确认",
+        "title": "返回列表没有保存检索上下文",
+        "observation": "返回固定跳转文章列表，列表源筛选与query是本地ref，没有路由或缓存恢复。",
+        "impact": "从阅读回列表可能丢失搜索范围与滚动位置，打断连续阅读。",
+        "proposal": "用路由query保存筛选与页码，保留滚动位置，详情返回原集合。",
+        "acceptance": "筛选某来源并翻页→打开详情→返回：筛选、页码与位置均恢复。",
+        "id": "A48"
+      }
+    ],
+    "limits": "未点击原文外链；未验证长文图片、表格、视频及恶意HTML处理，本报告不做安全结论。",
+    "refs": "frontend/src/modules/subscription/pages/ArticleDetailPage.vue；ArticlesPage.vue"
+  },
+  {
+    "id": "page-22",
+    "title": "设置导航与手机布局",
+    "route": "/settings · 公共分类",
+    "keep": "设置按模型、工具、设备、MCP、更新划分，桌面分类层级清楚。",
+    "shots": [
+      {
+        "file": "45-mobile-settings",
+        "caption": "390px：分类条只完整显示“模型连接”，其他类别藏在横向滚动内。"
+      },
+      {
+        "file": "52-mobile-settings-update",
+        "caption": "横向滚到“版本更新”后：单项仍几乎占满整条，并非只有第一个类别文本过长。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P1",
+        "evidence": "已复现",
+        "title": "手机分类被桌面全宽样式撑开",
+        "observation": "分类容器clientWidth341px、scrollWidth1561px；5个按钮各301px。通用.nav-link的width:100%覆盖了手机横向布局预期。",
+        "impact": "用户不容易发现设置还有四个分类，需长距离横滑才能切换。",
+        "proposal": "移动端分类采用内容宽度，桌面纵向导航才100%；或者小屏用带当前分类的选择菜单。",
+        "acceptance": "390px至少露出相邻类别或明确全部分类入口；无超长单项横滚；1440px仍为完整纵向分类。",
+        "id": "A49"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面与源码",
+        "title": "分类状态与页说明没有跟随内容",
+        "observation": "顶部“后端加密保存模型连接信息”用于所有类别；当前类别保存在本地状态，刷新默认回模型连接。",
+        "impact": "设备/更新页面的说明失配，链接与刷新不能定位特定设置。",
+        "proposal": "副标题按类别切换，用query或子路由保存当前类别。",
+        "acceptance": "刷新和分享链接可以回到同一类别；页面说明与内容相符。",
+        "id": "A50"
+      }
+    ],
+    "limits": "",
+    "refs": "frontend/src/style.css:527；frontend/src/modules/settings/SettingsPage.vue"
+  },
+  {
+    "id": "page-23",
+    "title": "模型连接与Jev设置",
+    "route": "/settings · 模型连接",
+    "keep": "密钥默认掩码、留空保留说明、厂商预设、连接测试和保存状态已有。",
+    "shots": [
+      {
+        "file": "29-settings-model",
+        "caption": "桌面：主模型和可选Jev参数同页，基础字段与长协议说明并列。"
+      },
+      {
+        "file": "45-mobile-settings",
+        "caption": "手机：协议帮助多段，已保存Key区域与Pulse浮钮接近屏底，保存动作在更下方。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "基础配置与高级配置混成一张长表",
+        "observation": "主模型、协议、密钥和Jev放在同页，英文ENCRYPTED及技术说明较密集，主操作在首屏外。",
+        "impact": "新用户难区分必须填写与可选加速配置。",
+        "proposal": "先展示必填连接信息；Jev和协议细则放高级区；状态改“已加密保存”，保存动作可就近识别。",
+        "acceptance": "首次配置只需看基础区即可完成；高级配置关闭时不造成缺失必填项。",
+        "id": "A51"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面与源码",
+        "title": "密钥操作需要更清晰语义",
+        "observation": "已保存Key展示与替换输入分离；查看/隐藏按钮在手机隐藏文字，且源码没有独立aria-label，窄屏缺少可访问名称。",
+        "impact": "用户可能不确定输入空值是否删除，以及每个图标的动作。",
+        "proposal": "明确“已配置/替换/留空保留”；所有查看、清空等图标提供独立名称，查看敏感值必须是明确动作。",
+        "acceptance": "可访问树能说明每个Key动作；不揭露密钥也能判断配置状态，保存规则可理解。",
+        "id": "A52"
+      }
+    ],
+    "limits": "未查看明文Key、未输入真实凭证、未测试连接、未保存；加载/错误和服务器不可达需后续验证。",
+    "refs": "frontend/src/modules/settings/SettingsPage.vue"
+  },
+  {
+    "id": "page-24",
+    "title": "AI工具参数设置",
+    "route": "/settings · AI工具",
+    "keep": "平台和模块工具集中可查，模块说明可折叠，有利于开发诊断。",
+    "shots": [
+      {
+        "file": "30-settings-tools",
+        "caption": "工具参数长列表：本次进度12、知识11、订阅6、平台1，共30个工具，参数大量展开。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "30个工具全量参数不易检索",
+        "observation": "工具参数占长页，缺搜索、模块筛选和读/写区分；部分订阅说明显示—。",
+        "impact": "用户难找到具体工具，也难判断哪些工具会产生修改。",
+        "proposal": "增加名称/中文描述搜索、模块过滤、读/写标识；参数schema默认折叠，保留开发诊断入口。",
+        "acceptance": "可迅速定位一个工具；修改类工具的确认语义明确；缺描述不以—充当业务说明。",
+        "id": "A53"
+      }
+    ],
+    "limits": "未调用任何工具，不能根据参数展示判断实际工具执行正确性。",
+    "refs": "frontend/src/modules/settings/SettingsPage.vue；backend各模块ai_tools.py"
+  },
+  {
+    "id": "page-25",
+    "title": "绑定设备",
+    "route": "/settings · 设备（绑定设备）",
+    "keep": "已有刷新入口，设备绑定能力与MCP认证可以关联解释。",
+    "shots": [
+      {
+        "file": "31-settings-devices",
+        "caption": "当前开发免登录会话：设备列表为空，只有简短空态和刷新。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "空态没有解释绑定条件与下一步",
+        "observation": "当前无设备，界面没解释是否因未启用保持登录、开发免登录或当前会话未绑定。",
+        "impact": "用户可能以为功能坏了，不知道怎样获得可用设备凭证。",
+        "proposal": "按环境说明“当前未绑定”；给保持登录的操作说明，并在设备存在时标明当前设备与撤销后果。",
+        "acceptance": "空态能指导正确绑定；有设备时名称、最近活动与当前标记可读；撤销影响明确。",
+        "id": "A54"
+      }
+    ],
+    "limits": "空列表由开发环境决定，不属于生产功能故障；未实测设备卡、绑定、吊销和生产会话。",
+    "refs": "frontend/src/modules/settings/SettingsPage.vue"
+  },
+  {
+    "id": "page-26",
+    "title": "MCP接入",
+    "route": "/settings · MCP",
+    "keep": "认证示例和立即写入说明已有，正确区别于Pulse确认流。",
+    "shots": [
+      {
+        "file": "32-settings-mcp",
+        "caption": "未绑定设备时显示认证教程、curl/JSON示例和复制配置入口；令牌为占位符。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "教程缺少按步骤的完成反馈",
+        "observation": "两种认证方法和长配置同时展示，用户需手动找到设备字段，帮助名称与绑定设备页不完全一致。",
+        "impact": "用户知道配置文本，却不知自己完成到哪一步。",
+        "proposal": "按客户端选择→绑定设备→生成配置→验证连接分步呈现；立即写入说明放在连接动作附近。",
+        "acceptance": "无设备时明确指向绑定设备；连接验证结果可读；用户能区分MCP立即写与Pulse待确认。",
+        "id": "A55"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "未满足前置条件时复制动作仍显可用",
+        "observation": "无绑定凭证状态仍有复制客户端配置按钮，本次没有点击。",
+        "impact": "用户可能复制占位配置后到外部客户端才发现前置条件未完成。",
+        "proposal": "禁用并说明原因，或明确标“复制模板”，提供生成有效配置路径。",
+        "acceptance": "未绑定时不会让用户把模板误当可直接连接配置；完成绑定后再生成。",
+        "id": "A56"
+      }
+    ],
+    "limits": "未复制或配置外部客户端、未创建凭证；本地5173的/mcp可由代理转发，不能凭端口判定URL错误。",
+    "refs": "frontend/src/modules/settings/SettingsPage.vue"
+  },
+  {
+    "id": "page-27",
+    "title": "版本更新",
+    "route": "/settings · 版本更新",
+    "keep": "已有检查、确认和升级进度相关实现；环境能力被展示。",
+    "shots": [
+      {
+        "file": "33-settings-update",
+        "caption": "开发环境版本unknown，不支持更新；提示使用红色错误样式，“更新到最新”仍是蓝色按钮。"
+      },
+      {
+        "file": "52-mobile-settings-update",
+        "caption": "手机：同样状态，并能看到类别宽度问题。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面与源码",
+        "title": "能力不可用却仍强调更新动作",
+        "observation": "环境不支持更新是合理限制，但红色错误框像故障；按钮禁用条件未检查update_enabled。",
+        "impact": "用户可能以为安装损坏，或点击一项不可能完成的操作。",
+        "proposal": "能力不可用用中性说明；禁用更新并给部署帮助；可检查版本的动作与执行升级区分。",
+        "acceptance": "不支持更新时执行按钮禁用且原因可见；支持环境的真实升级流程再独立验收。",
+        "id": "A57"
+      }
+    ],
+    "limits": "未检查外部更新或执行升级，生产下载、回退、进度与错误恢复均未验证；不把已有回退/确认说成缺失。",
+    "refs": "frontend/src/modules/settings/SettingsPage.vue"
+  },
+  {
+    "id": "page-28",
+    "title": "命令面板",
+    "route": "平台入口 / 快捷键",
+    "keep": "跨模块搜索与Esc退出已有，能够缩短路径。",
+    "shots": [
+      {
+        "file": "34-command-palette",
+        "caption": "默认命令面板：宽度约384px，结果按模块分组。"
+      },
+      {
+        "file": "35-command-empty",
+        "caption": "无结果状态：只有未找到提示，缺少重置和搜索范围帮助。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "结果宽度与键盘帮助不足",
+        "observation": "长标题容易截断，底部没有明确↑↓、Enter、Esc操作提示。",
+        "impact": "跨模块同名或长标题对象难区分，新用户难发现高效键盘操作。",
+        "proposal": "桌面适度增至560至640px；补模块/对象摘要与键盘帮助，手机保持安全宽度。",
+        "acceptance": "长结果可辨识，键盘导航与提示一致；关闭后焦点回入口。",
+        "id": "A58"
+      },
+      {
+        "priority": "P3",
+        "evidence": "界面观察",
+        "title": "无结果缺少恢复与范围说明",
+        "observation": "无结果只提示没有匹配对象，没有清空入口或解释搜哪些内容。",
+        "impact": "用户难判断拼写错误、对象未加载还是不在搜索范围。",
+        "proposal": "保留输入并给清空，展示模块范围；异步数据获取需要可见加载状态。",
+        "acceptance": "无结果可一键重试；加载与确实无命中不同。",
+        "id": "A59"
+      }
+    ],
+    "limits": "Esc已使用成功；未完整覆盖方向键、Enter和异步加载，不宣称现有键盘功能失效。",
+    "refs": "frontend/src/shared/CommandPalette.vue；CommandPaletteList.vue"
+  },
+  {
+    "id": "page-29",
+    "title": "快速记录弹窗",
+    "route": "平台随手记快捷入口",
+    "keep": "弹窗提供快速输入、快捷保存帮助和退出操作，符合捕获需求。",
+    "shots": [
+      {
+        "file": "36-quick-capture",
+        "caption": "快速记录弹窗：快速记录、随手记、记下来多种命名同时出现。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P3",
+        "evidence": "界面观察",
+        "title": "同一功能多种命名与辅助文案",
+        "observation": "入口和弹窗对快速记录使用不同名称，强调说明多于记录本身。",
+        "impact": "用户难建立入口与完整随手记模块的对应关系。",
+        "proposal": "统一“随手记/快速记录”的主次；突出输入、快捷键与保存后去向。",
+        "acceptance": "从首页、侧栏、快捷键进入，均识别同一记录对象；保存成功反馈可见。",
+        "id": "A60"
+      }
+    ],
+    "limits": "未保存记录或验证保存成功退出；草稿关闭保护需按任务抽屉策略补测。",
+    "refs": "frontend/src/modules/capture/；frontend/src/shared/"
+  },
+  {
+    "id": "page-30",
+    "title": "Pulse助手与对象提及",
+    "route": "平台Pulse浮层",
+    "keep": "全平台统一一个助手，标题说明写入前需确认；手机全屏布局成立。",
+    "shots": [
+      {
+        "file": "37-pulse",
+        "caption": "桌面空对话：大量留白，快捷建议主要是短前缀。"
+      },
+      {
+        "file": "38-pulse-mention",
+        "caption": "输入@：候选混合多个对象类型，长标题需要区分来源与上下文。"
+      },
+      {
+        "file": "46-mobile-pulse",
+        "caption": "手机：全屏助手，输入区在底部；本次没有调起真实手机软键盘。"
+      }
+    ],
+    "issues": [
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "空对话没有建立当前页上下文",
+        "observation": "快捷建议仅“新建任务：”等短前缀，当前页面上下文与能做什么没有具体展示。",
+        "impact": "用户不知道需要提供多少信息，以及助手是否知道自己正在看的对象。",
+        "proposal": "给可编辑的完整示例，明确当前页/当前对象上下文和确认写入规则；避免另造模块AI。",
+        "acceptance": "示例点击后形成可理解的请求草稿；用户能看到上下文对象而非让模型猜ID。",
+        "id": "A61"
+      },
+      {
+        "priority": "P2",
+        "evidence": "界面观察",
+        "title": "提及候选缺分类与消歧",
+        "observation": "@候选按类型混排，长名称没有足够的项目/文档来源辅助信息。",
+        "impact": "用户可能选错同名对象，增加AI操作对象误解。",
+        "proposal": "按类型分组或过滤，显示项目/标签/对象类型；优先最近与当前页对象。",
+        "acceptance": "同名任务和文档可辨；键盘可选择且输入中保留明确对象标识。",
+        "id": "A62"
+      },
+      {
+        "priority": "P2",
+        "evidence": "待验证",
+        "title": "AI执行和移动输入仍需完整验收",
+        "observation": "本次只看空对话、提及与布局，没有发送AI请求；真实软键盘、安全区、取消和工具确认未测。",
+        "impact": "仅凭静态助手无法证明可收费的执行体验稳定。",
+        "proposal": "补测流式等待/取消/网络错误/写入预览/拒绝/部分失败；在真机测键盘遮挡与输入恢复。",
+        "acceptance": "写入前对象与字段可审阅；拒绝不写入；失败保留输入；390px真实键盘下输入及发送可达。",
+        "id": "A63"
+      }
+    ],
+    "limits": "没有发送AI请求、未产生待确认写入；输出、模型性能和工具结果不在本次已验证结论中。",
+    "refs": "frontend/src/shared/pulse-session.ts；frontend/src/shared/AiDock.vue；backend/pulse/"
+  }
+]
