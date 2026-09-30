@@ -8,3 +8,10 @@
 **/node_modules
 frontend/dist
 backend/static
+
+**/.mypy_cache
+**/.env
+**/.env.*
+frontend/src-tauri/target
+frontend/src-tauri/gen/android/.gradle
+frontend/src-tauri/gen/android/app/build

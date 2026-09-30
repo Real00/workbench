@@ -5,15 +5,9 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from app import create_app
 from shared.config import Settings
+from shared.web_keys import SECURITY
 from system.application import SystemApplicationService
-from system.domain import (
-    UpdateControlStore,
-    UpdateRequest,
-    desktop_update_available,
-    sha_matches,
-    sign_update_request,
-    verify_update_request,
-)
+from system.domain import desktop_update_available, sha_matches
 from system.ports import DesktopReleaseInfo
 from tests.fakes import (
     MemoryAISettingsRepository,
@@ -25,6 +19,8 @@ from tests.fakes import (
     MemoryUserRepository,
     knowledge_overrides,
 )
+from updater.protocol import RUNTIME, Release, architecture
+from updater.store import UpdateStore
 
 
 class FakeGithub:
@@ -72,14 +68,6 @@ class FakeGithub:
         return self.dmg, "application/octet-stream"
 
 
-def test_hmac_roundtrip() -> None:
-    request = UpdateRequest.create("secret-token")
-    assert verify_update_request("secret-token", request)
-    assert not verify_update_request("wrong", request)
-    expected = sign_update_request("secret-token", request.id, request.requested_at)
-    assert expected == request.signature
-
-
 def test_sha_matches_prefix() -> None:
     assert sha_matches("abcdef1234567890", "abcdef123456")
     assert sha_matches("abcdef123456", "abcdef1234567890")
@@ -94,56 +82,43 @@ def test_desktop_update_available() -> None:
     assert desktop_update_available("0.1.0", "unknown") is False
 
 
-def test_control_store_write_and_status(tmp_path: Path) -> None:
-    store = UpdateControlStore(tmp_path, "tok")
-    request = UpdateRequest.create("tok")
-    store.write_request(request)
-    assert (tmp_path / "request.json").is_file()
-    status = store.read_status()
-    assert status.state == "queued"
-    assert status.id == request.id
+class FakeReleases:
+    def latest(self) -> Release:
+        return Release("b" * 40, "2026-09-30", RUNTIME, architecture(), "f" * 64, 100)
 
 
-def test_apply_requires_agent() -> None:
-    settings = Settings(git_sha="deadbeef", update_control_dir=None, update_agent_token="")
-    service = SystemApplicationService(settings, FakeGithub())
-    assert service.version()["agent_configured"] is False
-    with pytest.raises(ValueError, match="未配置更新通道"):
+def test_apply_requires_supervisor() -> None:
+    service = SystemApplicationService(Settings(), FakeGithub())
+    assert service.version()["update_enabled"] is False
+    with pytest.raises(ValueError, match="内置更新器未运行"):
         service.apply_update()
 
 
 @pytest.mark.asyncio
-async def test_check_update_compares_sha() -> None:
-    settings = Settings(
-        git_sha="aaaaaaaaaaaaaaaa",
-        update_github_repo="real00/workbench",
-        update_github_ref="main",
-        update_github_token="ghp_test",
+async def test_check_update_uses_published_bundle() -> None:
+    service = SystemApplicationService(
+        Settings(git_sha="a" * 40),
+        FakeGithub(),
+        release_client=FakeReleases(),
     )
-    github = FakeGithub(sha="bbbbbbbbbbbbbbbb")
-    service = SystemApplicationService(settings, github)
     result = await service.check_update()
     assert result["update_available"] is True
-    assert result["latest_sha_short"] == "bbbbbbbbbbbb"
-    assert github.calls == [("real00/workbench", "main", "ghp_test")]
-
-    settings_same = Settings(git_sha="bbbbbbbbbbbbbbbb")
-    same = await SystemApplicationService(
-        settings_same, FakeGithub(sha="bbbbbbbbbbbbbbbb")
-    ).check_update()
-    assert same["update_available"] is False
+    assert result["latest_sha"] == "b" * 40
+    service.settings.git_sha = "b" * 40
+    assert (await service.check_update())["update_available"] is False
 
 
 @pytest.mark.asyncio
 async def test_system_routes_admin_only(tmp_path: Path) -> None:
-    store = UpdateControlStore(tmp_path / "control", "shared-secret")
+    store = UpdateStore(tmp_path / "releases")
     settings = Settings(
         admin_password="password123",
         git_sha="1111111111111111",
         built_at="2026-03-28T00:00:00Z",
-        update_control_dir=tmp_path / "control",
-        update_agent_token="shared-secret",
+        release_root=tmp_path / "releases",
     )
+    store.root.mkdir()
+    (store.root / "heartbeat").touch()
     app = create_app(
         settings,
         user_repository=MemoryUserRepository(),
@@ -154,7 +129,7 @@ async def test_system_routes_admin_only(tmp_path: Path) -> None:
         ai_repository=MemoryAISettingsRepository(),
         resource_storage=MemoryResourceStorage(),
         github_commits=FakeGithub(sha="2222222222222222"),
-        update_control_store=store,
+        release_client=FakeReleases(),
         **knowledge_overrides(),
     )
     client = TestClient(TestServer(app))
@@ -162,6 +137,14 @@ async def test_system_routes_admin_only(tmp_path: Path) -> None:
     try:
         denied = await client.get("/api/v1/system/version")
         assert denied.status == 401
+
+        user_token = app[SECURITY].issue_access_token("reader", "user")
+        forbidden = await client.post(
+            "/api/v1/system/updates/apply",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert forbidden.status == 403
+        assert not (store.root / "state.json").exists()
 
         login = await client.post(
             "/api/v1/auth/login",
@@ -175,7 +158,7 @@ async def test_system_routes_admin_only(tmp_path: Path) -> None:
         assert version.status == 200
         body = await version.json()
         assert body["git_sha_short"] == "111111111111"
-        assert body["agent_configured"] is True
+        assert body["update_enabled"] is True
 
         check = await client.post("/api/v1/system/updates/check", headers=headers)
         assert check.status == 200
@@ -185,7 +168,7 @@ async def test_system_routes_admin_only(tmp_path: Path) -> None:
         assert apply.status == 200
         applied = await apply.json()
         assert applied["accepted"] is True
-        assert (tmp_path / "control" / "request.json").is_file()
+        assert (tmp_path / "releases" / "state.json").is_file()
 
         status = await client.get("/api/v1/system/updates/status", headers=headers)
         assert status.status == 200
@@ -204,7 +187,9 @@ async def test_system_routes_admin_only(tmp_path: Path) -> None:
 
         dmg = await client.get("/api/v1/system/desktop/dmg", headers=headers)
         assert dmg.status == 200
-        assert dmg.headers.get("Content-Disposition", "").endswith('filename="Workbench-macos-aarch64.dmg"')
+        assert dmg.headers.get("Content-Disposition", "").endswith(
+            'filename="Workbench-macos-aarch64.dmg"'
+        )
         assert await dmg.read() == b"dmg-bytes-placeholder-xxxx"
     finally:
         await client.close()

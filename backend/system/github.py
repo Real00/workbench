@@ -16,7 +16,9 @@ class GithubCommitClient:
     def __init__(self, *, base_url: str = "https://api.github.com") -> None:
         self.base_url = base_url.rstrip("/")
 
-    def _headers(self, token: str, *, accept: str = "application/vnd.github+json") -> dict[str, str]:
+    def _headers(
+        self, token: str, *, accept: str = "application/vnd.github+json"
+    ) -> dict[str, str]:
         headers = {
             "Accept": accept,
             "X-GitHub-Api-Version": "2022-11-28",
@@ -53,13 +55,6 @@ class GithubCommitClient:
             raise ValueError("检查更新超时（无法在时限内访问 GitHub），请稍后重试") from exc
         except ClientError as exc:
             raise ValueError(f"无法连接 GitHub：{exc}") from exc
-
-    async def latest_sha(self, repo: str, ref: str, token: str) -> str:
-        data = await self._get_json(f"{self.base_url}/repos/{repo}/commits/{ref}", token)
-        sha = data.get("sha") if isinstance(data, dict) else None
-        if not isinstance(sha, str) or not sha:
-            raise ValueError("GitHub 返回的提交信息不完整")
-        return sha
 
     def _parse_release(self, data: dict[str, Any]) -> DesktopReleaseInfo:
         raw_assets = data.get("assets")
@@ -141,7 +136,8 @@ class GithubCommitClient:
                         text = await resp.text()
                         if "rate limit" in text.lower():
                             raise ValueError(
-                                "下载 DMG 触发 GitHub 速率限制；请配置 WORKBENCH_UPDATE_GITHUB_TOKEN"
+                                "下载 DMG 触发 GitHub 速率限制；"
+                                "请配置 WORKBENCH_UPDATE_GITHUB_TOKEN"
                             )
                         raise ValueError(
                             "下载 DMG 被拒绝；请检查 WORKBENCH_UPDATE_GITHUB_TOKEN 权限"

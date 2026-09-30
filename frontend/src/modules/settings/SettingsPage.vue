@@ -19,9 +19,9 @@ interface SystemVersion {
   git_sha: string
   git_sha_short: string
   built_at: string
-  agent_configured: boolean
+  update_enabled: boolean
   github_repo: string
-  github_ref: string
+  release_tag: string
 }
 interface UpdateCheck {
   current_sha: string
@@ -30,9 +30,9 @@ interface UpdateCheck {
   latest_sha_short: string
   update_available: boolean
   github_repo: string
-  github_ref: string
+  release_tag: string
 }
-type UpdateState = 'idle' | 'queued' | 'pulling' | 'restarting' | 'running' | 'succeeded' | 'failed'
+type UpdateState = 'idle' | 'queued' | 'downloading' | 'preparing' | 'restarting' | 'verifying' | 'succeeded' | 'failed'
 interface UpdateStatus {
   id: string
   state: UpdateState
@@ -40,7 +40,7 @@ interface UpdateStatus {
   finished_at: string | null
   phase?: string
 }
-type UpdateStepId = 'submit' | 'queued' | 'pulling' | 'restarting' | 'verify'
+type UpdateStepId = 'submit' | 'queued' | 'downloading' | 'preparing' | 'restarting' | 'verify'
 interface UpdateStep {
   id: UpdateStepId
   label: string
@@ -103,9 +103,10 @@ let updateElapsedTimer: number | undefined
 
 const UPDATE_STEPS: UpdateStep[] = [
   { id: 'submit', label: '提交更新请求' },
-  { id: 'queued', label: '等待 Update Agent' },
-  { id: 'pulling', label: '拉取最新镜像' },
-  { id: 'restarting', label: '重启应用容器' },
+  { id: 'queued', label: '等待开始' },
+  { id: 'downloading', label: '下载版本包' },
+  { id: 'preparing', label: '校验并准备依赖' },
+  { id: 'restarting', label: '重启服务' },
   { id: 'verify', label: '确认新版本' },
 ]
 
@@ -153,9 +154,9 @@ function formatElapsed(seconds: number) {
 function failedStepFromStatus(status: UpdateStatus | null): UpdateStepId {
   if (!status) return 'submit'
   const phase = status.phase || status.state || 'queued'
-  if (phase === 'pulling' || phase === 'running') return 'pulling'
+  if (phase === 'downloading' || phase === 'preparing') return phase
   if (phase === 'restarting') return 'restarting'
-  if (phase === 'verify' || phase === 'succeeded') return 'verify'
+  if (phase === 'verify' || phase === 'verifying' || phase === 'succeeded') return 'verify'
   if (phase === 'submit') return 'submit'
   return 'queued'
 }
@@ -344,6 +345,20 @@ async function loadVersion() {
   try {
     const { data } = await api.get<SystemVersion>('/system/version')
     versionInfo.value = data
+    if (!applyingUpdate.value) {
+      const status = (await api.get<UpdateStatus>('/system/updates/status')).data
+      if (status.id && !['idle', 'succeeded', 'failed'].includes(status.state)) {
+        updateRequestId.value = status.id
+        updateStatus.value = status
+        applyingUpdate.value = true
+        updateStartedAt.value = Date.now()
+        startUpdatePolling()
+      } else if (status.state === 'failed') {
+        updateStatus.value = status
+        updatePhase.value = 'failed'
+        versionError.value = status.message
+      }
+    }
   } catch (cause) { versionError.value = apiError(cause) }
   finally { versionLoading.value = false }
 }
@@ -365,15 +380,16 @@ async function checkForUpdate() {
 async function applyUpdate() {
   versionError.value = ''
   updateMessage.value = ''
-  if (!versionInfo.value?.agent_configured) {
+  if (!versionInfo.value?.update_enabled) {
     versionError.value =
-      '未配置更新通道：请在服务器 .env 设置 WORKBENCH_UPDATE_AGENT_TOKEN，挂载 update-control，并启动宿主机 Update Agent（见 docs/packaging.md）'
+      '当前环境不支持在线更新，请使用支持自更新的 Docker 镜像部署'
     return
   }
   const ok = await confirmDialog({
     title: '更新到最新版本？',
-    message: '将通过宿主机 Update Agent 拉取 GHCR 镜像并重启服务，期间会短暂不可用。',
+    message: '将下载新版并准备依赖，然后重启服务。重启期间会短暂不可用；新版启动失败将自动回退。',
     confirmText: '开始更新',
+    danger: false,
   })
   if (!ok) return
   applyingUpdate.value = true
@@ -389,7 +405,6 @@ async function applyUpdate() {
       updateElapsedSec.value = Math.floor((Date.now() - updateStartedAt.value) / 1000)
     }
   }, 1000)
-  const previousSha = versionInfo.value?.git_sha
   try {
     const { data } = await api.post<{ accepted: boolean; request_id: string; message: string }>('/system/updates/apply')
     updateRequestId.value = data.request_id
@@ -401,8 +416,8 @@ async function applyUpdate() {
       finished_at: null,
       phase: 'queued',
     }
-    updateMessage.value = data.message || '更新请求已提交，等待 Agent 处理'
-    startUpdatePolling(previousSha)
+    updateMessage.value = data.message || '更新请求已提交，等待开始'
+    startUpdatePolling()
   } catch (cause) {
     versionError.value = apiError(cause)
     updatePhase.value = 'failed'
@@ -410,12 +425,12 @@ async function applyUpdate() {
     stopUpdateTimers()
   }
 }
-async function pollUpdateOnce(previousSha: string | undefined) {
+async function pollUpdateOnce() {
   try {
     const statusRes = await api.get<UpdateStatus>('/system/updates/status')
     // 忽略上一轮残留状态，只认当前 request
     if (updateRequestId.value && statusRes.data.id && statusRes.data.id !== updateRequestId.value) {
-      updateMessage.value = '等待 Update Agent 接手当前请求…'
+      updateMessage.value = '等待当前更新开始…'
       return 'continue' as const
     }
     updateStatus.value = statusRes.data
@@ -429,34 +444,37 @@ async function pollUpdateOnce(previousSha: string | undefined) {
     }
     if (statusRes.data.state === 'queued') {
       updatePhase.value = 'queued'
-      updateMessage.value = statusRes.data.message || '等待宿主机 Update Agent 处理'
-    } else if (statusRes.data.state === 'pulling' || statusRes.data.state === 'running') {
-      updatePhase.value = 'pulling'
-      updateMessage.value = statusRes.data.message || '正在拉取最新镜像…'
+      updateMessage.value = statusRes.data.message || '等待更新开始'
+    } else if (statusRes.data.state === 'downloading' || statusRes.data.state === 'preparing') {
+      updatePhase.value = statusRes.data.state
+      updateMessage.value = statusRes.data.message || '正在下载并准备新版…'
     } else if (statusRes.data.state === 'restarting') {
       updatePhase.value = 'restarting'
-      updateMessage.value = statusRes.data.message || '正在重启应用容器…'
-    } else if (statusRes.data.state === 'succeeded') {
+      updateMessage.value = statusRes.data.message || '正在重启服务…'
+    } else if (statusRes.data.state === 'succeeded' || statusRes.data.state === 'verifying') {
       updatePhase.value = 'verify'
-      updateMessage.value = statusRes.data.message || '容器已重启，正在确认新版本…'
+      updateMessage.value = statusRes.data.message || '服务已重启，正在确认新版本…'
     }
 
     const versionRes = await api.get<SystemVersion>('/system/version')
     versionInfo.value = versionRes.data
-    if (previousSha && versionRes.data.git_sha !== previousSha && versionRes.data.git_sha !== 'unknown') {
-      updateMessage.value = `更新完成：${versionRes.data.git_sha_short}，请刷新页面加载新前端`
+    if (statusRes.data.state === 'succeeded' && versionRes.data.git_sha !== 'unknown') {
+      updateMessage.value = desktopShell
+        ? `服务器已更新至 ${versionRes.data.git_sha_short}，客户端界面请单独更新`
+        : `更新完成：${versionRes.data.git_sha_short}，正在刷新页面…`
       updateCheck.value = null
       updatePhase.value = 'done'
+      if (!desktopShell) window.setTimeout(() => window.location.reload(), 1500)
       applyingUpdate.value = false
       stopUpdateTimers()
       return 'stop' as const
     }
     if (statusRes.data.state === 'succeeded') {
-      updateMessage.value = '容器已重启，正在确认新版本…'
+      updateMessage.value = '服务已重启，正在确认新版本…'
     }
   } catch {
     // 重启期间 API 短暂不可用是预期行为
-    if (updatePhase.value === 'restarting' || updatePhase.value === 'verify' || updatePhase.value === 'pulling') {
+    if (updatePhase.value === 'restarting' || updatePhase.value === 'verify' || updatePhase.value === 'downloading' || updatePhase.value === 'preparing') {
       updatePhase.value = 'verify'
       updateMessage.value = '服务重启中，正在等待恢复…'
     } else {
@@ -465,7 +483,7 @@ async function pollUpdateOnce(previousSha: string | undefined) {
   }
   return 'continue' as const
 }
-function startUpdatePolling(previousSha: string | undefined) {
+function startUpdatePolling() {
   stopUpdateTimers()
   updateElapsedTimer = window.setInterval(() => {
     if (updateStartedAt.value) {
@@ -479,10 +497,10 @@ function startUpdatePolling(previousSha: string | undefined) {
     inFlight = true
     try {
       attempts += 1
-      const result = await pollUpdateOnce(previousSha)
+      const result = await pollUpdateOnce()
       if (result === 'stop') return
-      if (attempts >= 90) {
-        versionError.value = '等待超时：若页面仍可打开请手动刷新确认版本；若长期停在「等待 Agent」，请检查宿主机 workbench-update-agent 是否在运行'
+      if (attempts >= 600) {
+        versionError.value = '等待超时：后台更新可能仍在继续，请稍后刷新查看结果，或检查容器日志'
         updatePhase.value = 'failed'
         applyingUpdate.value = false
         stopUpdateTimers()
@@ -675,7 +693,7 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
             <div>
               <p class="eyebrow">Release channel</p>
               <h2>服务器更新</h2>
-              <p class="mt-2 text-xs text-muted-foreground">通过宿主机 Update Agent 拉取 GHCR 镜像并重启。更新的是服务器，不会替换本机桌面客户端。</p>
+              <p class="mt-2 text-xs text-muted-foreground">在线下载新版、准备依赖并重启，启动失败自动回退。服务器更新后，桌面客户端仍需单独更新。</p>
             </div>
             <Package :size="17" class="text-cyan" />
           </div>
@@ -690,18 +708,18 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
               <div class="rounded-lg border border-line bg-panel-2 p-3">
                 <p class="text-[12px] text-muted-foreground">更新通道</p>
                 <p class="mt-1 text-sm text-text">
-                  <Badge :variant="versionInfo?.agent_configured ? 'secondary' : 'outline'">
-                    {{ versionInfo?.agent_configured ? 'Agent 已配置' : '未配置 Agent' }}
+                  <Badge :variant="versionInfo?.update_enabled ? 'secondary' : 'outline'">
+                    {{ versionInfo?.update_enabled ? '在线更新可用' : '在线更新不可用' }}
                   </Badge>
                 </p>
-                <p class="mt-1 font-mono text-[12px] text-muted-foreground">{{ versionInfo?.github_repo || '—' }}@{{ versionInfo?.github_ref || '—' }}</p>
+                <p class="mt-1 font-mono text-[12px] text-muted-foreground">{{ versionInfo?.github_repo || '—' }}@{{ versionInfo?.release_tag || '—' }}</p>
               </div>
             </div>
-            <p v-if="!versionInfo?.agent_configured" class="error-box" role="status">
-              更新通道未就绪：只能查看版本与检查更新。请挂载 update-control、在 .env 设置 WORKBENCH_UPDATE_AGENT_TOKEN，并启动宿主机 Update Agent（见 docs/packaging.md）。
+            <p v-if="!versionInfo?.update_enabled" class="error-box" role="status">
+              当前环境不支持在线更新。服务器首次需部署支持自更新的镜像，之后即可在此更新。
             </p>
             <p v-if="updateCheck" class="rounded-lg border border-line bg-panel-2 p-3 font-mono text-[12px] text-muted-foreground">
-              远端 {{ updateCheck.github_repo }}@{{ updateCheck.github_ref }} → {{ updateCheck.latest_sha_short }}
+              远端 {{ updateCheck.github_repo }}@{{ updateCheck.release_tag }} → {{ updateCheck.latest_sha_short }}
               · {{ updateCheck.update_available ? '有可用更新' : '已是最新' }}
             </p>
             <div v-if="updateProgressVisible" class="rounded-lg border border-line bg-panel-2 p-4" role="status" aria-live="polite">
@@ -734,7 +752,7 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
               <p v-if="updateMessage && updatePhase !== 'failed'" class="mt-3 text-[12px] leading-5 text-muted-foreground">{{ updateMessage }}</p>
               <p v-if="updateStuckQueued" class="mt-3 flex items-start gap-2 text-[12px] leading-5 text-warning">
                 <CircleAlert :size="14" class="mt-0.5 shrink-0" />
-                已等待超过 20 秒仍停在队列：请检查宿主机 `systemctl status workbench-update-agent` 是否在运行，以及 token / 控制目录是否一致。
+                等待时间较长，请检查服务器容器日志；刷新页面可恢复更新进度。
               </p>
             </div>
             <p v-if="versionError" class="error-box whitespace-pre-wrap break-words" role="alert">{{ versionError }}</p>
@@ -743,7 +761,7 @@ function copyConfig(kind: 'url' | 'device' | 'jwt') {
             <footer class="flex flex-wrap justify-end gap-2 border-t border-line pt-5">
               <Button type="button" :disabled="versionLoading || applyingUpdate" @click="loadVersion" variant="outline"><LoaderCircle v-if="versionLoading" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />刷新版本</Button>
               <Button type="button" :disabled="checkingUpdate || applyingUpdate" @click="checkForUpdate" variant="outline"><LoaderCircle v-if="checkingUpdate" :size="15" class="animate-spin" /><RefreshCw v-else :size="15" />{{ checkingUpdate ? '检查中…' : '检查更新' }}</Button>
-              <Button type="button" :disabled="applyingUpdate || checkingUpdate" :title="versionInfo?.agent_configured ? undefined : '需先配置 Update Agent'" @click="applyUpdate"><LoaderCircle v-if="applyingUpdate" :size="15" class="animate-spin" /><Package v-else :size="15" />{{ applyingUpdate ? '更新中…' : '更新到最新' }}</Button>
+              <Button type="button" :disabled="applyingUpdate || checkingUpdate" :title="versionInfo?.update_enabled ? undefined : '当前环境不支持在线更新'" @click="applyUpdate"><LoaderCircle v-if="applyingUpdate" :size="15" class="animate-spin" /><Package v-else :size="15" />{{ applyingUpdate ? '更新中…' : '更新到最新' }}</Button>
             </footer>
           </div>
         </div>

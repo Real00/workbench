@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Workbench 服务器一键部署 / 升级（GHCR + Update Agent）
+# Workbench 服务器一键部署 / 升级（GHCR + 容器内自更新）
 #
 # 数据安全约定（脚本强制遵守）：
 #   - 永不执行 docker compose down -v / volume rm / volume prune / system prune --volumes
@@ -11,7 +11,6 @@
 #   B) 精简部署目录（推荐）：把下列文件放在同一目录后执行 ./install-server.sh
 #        compose.ghcr.yaml
 #        install-server.sh          （本脚本，可放目录根）
-#        deploy/update-agent/agent.py
 #        .env                       （已有生产配置务必保留）
 #   sudo INSTALL_DIR=/data/workbench ./install-server.sh
 #   sudo COMPOSE_PROJECT_NAME=workbench ./install-server.sh
@@ -20,7 +19,6 @@
 #   INSTALL_DIR          部署目录（默认：脚本所在目录，若其旁已有 compose/.env）
 #   COMPOSE_PROJECT_NAME 强制使用的 compose 项目名（默认自动探测运行中的实例）
 #   COMPOSE_FILE         默认 compose.ghcr.yaml
-#   SKIP_AGENT=1         不安装 systemd Update Agent
 #   SKIP_LOGIN=1         跳过 docker login ghcr.io 提示
 #   GHCR_IMAGE           默认 ghcr.io/real00/workbench:latest
 
@@ -28,7 +26,6 @@ set -euo pipefail
 
 COMPOSE_FILE="${COMPOSE_FILE:-compose.ghcr.yaml}"
 GHCR_IMAGE="${GHCR_IMAGE:-ghcr.io/real00/workbench:latest}"
-SKIP_AGENT="${SKIP_AGENT:-0}"
 SKIP_LOGIN="${SKIP_LOGIN:-0}"
 
 log()  { printf '+ %s\n' "$*"; }
@@ -66,25 +63,8 @@ else
 当前脚本目录：${SCRIPT_DIR}
 需要至少：
   ${COMPOSE_FILE}
-  deploy/update-agent/agent.py
   .env（已有实例请用现成的，勿覆盖）"
 fi
-
-find_agent_file() {
-  local name="$1"
-  local candidate
-  for candidate in \
-    "${SOURCE_ROOT}/deploy/update-agent/${name}" \
-    "${SOURCE_ROOT}/update-agent/${name}" \
-    "${SCRIPT_DIR}/deploy/update-agent/${name}" \
-    "${SCRIPT_DIR}/update-agent/${name}"; do
-    if [[ -f "${candidate}" ]]; then
-      printf '%s' "${candidate}"
-      return 0
-    fi
-  done
-  return 1
-}
 
 if [[ -n "${INSTALL_DIR:-}" ]]; then
   mkdir -p "${INSTALL_DIR}"
@@ -100,7 +80,7 @@ else
   INSTALL_DIR="$(cd "${INSTALL_DIR}" && pwd)"
 fi
 
-[[ "$(id -u)" -eq 0 ]] || die "请用 root 或 sudo 运行（需要写 systemd / 部署目录）"
+[[ "$(id -u)" -eq 0 ]] || die "请用 root 或 sudo 运行（需要访问 Docker / 部署目录）"
 
 require_cmd docker
 docker compose version >/dev/null 2>&1 || die "需要 Docker Compose v2（docker compose）"
@@ -206,8 +186,6 @@ fi
 # ---------- 同步部署文件（不覆盖已有 .env）----------
 log "部署目录：${INSTALL_DIR}"
 mkdir -p "${INSTALL_DIR}"
-mkdir -p "${INSTALL_DIR}/update-control"
-mkdir -p "${INSTALL_DIR}/deploy/update-agent"
 
 copy_file() {
   local src="$1" dest="$2" mode="${3:-0644}"
@@ -222,18 +200,7 @@ copy_file() {
   log "已同步：${dest}"
 }
 
-AGENT_PY="$(find_agent_file agent.py)" || die "缺少 deploy/update-agent/agent.py（可放在素材目录的 deploy/update-agent/ 或 update-agent/）"
-AGENT_UNIT="$(find_agent_file workbench-update-agent.service || true)"
-AGENT_ENV_EXAMPLE="$(find_agent_file update-agent.env.example || true)"
-
 copy_file "${SOURCE_ROOT}/${COMPOSE_FILE}" "${INSTALL_DIR}/${COMPOSE_FILE}"
-copy_file "${AGENT_PY}" "${INSTALL_DIR}/deploy/update-agent/agent.py" 0755
-if [[ -n "${AGENT_UNIT}" ]]; then
-  copy_file "${AGENT_UNIT}" "${INSTALL_DIR}/deploy/update-agent/workbench-update-agent.service"
-fi
-if [[ -n "${AGENT_ENV_EXAMPLE}" ]]; then
-  copy_file "${AGENT_ENV_EXAMPLE}" "${INSTALL_DIR}/deploy/update-agent/update-agent.env.example"
-fi
 
 if [[ ! -f "${INSTALL_DIR}/.env" ]]; then
   if [[ -f "${SOURCE_ROOT}/.env" && "${SOURCE_ROOT}/.env" != "${INSTALL_DIR}/.env" ]]; then
@@ -249,33 +216,20 @@ else
   log "保留已有 .env（不覆盖）"
 fi
 
-# 确保更新相关变量存在（缺则追加随机 token；已有则不动）
-ensure_env_key() {
-  local key="$1" value="$2"
-  if grep -qE "^${key}=" "${INSTALL_DIR}/.env" 2>/dev/null; then
-    return 0
-  fi
-  # 若只有注释行，也算未配置
-  if grep -qE "^# *${key}=" "${INSTALL_DIR}/.env" 2>/dev/null && ! grep -qE "^${key}=" "${INSTALL_DIR}/.env"; then
-    printf '\n%s=%s\n' "${key}" "${value}" >>"${INSTALL_DIR}/.env"
-    log "已向 .env 追加 ${key}"
-    return 0
-  fi
-  if ! grep -qE "^${key}=" "${INSTALL_DIR}/.env"; then
-    printf '\n%s=%s\n' "${key}" "${value}" >>"${INSTALL_DIR}/.env"
-    log "已向 .env 追加 ${key}"
-  fi
-}
-
-if ! grep -qE '^WORKBENCH_UPDATE_AGENT_TOKEN=.+' "${INSTALL_DIR}/.env" 2>/dev/null; then
-  TOKEN="$(python3 - <<'PY'
-import secrets
-print(secrets.token_urlsafe(32))
-PY
-)"
-  ensure_env_key "WORKBENCH_UPDATE_AGENT_TOKEN" "${TOKEN}"
+# 一次性迁移：停用旧宿主机更新服务，避免它继续消费历史请求。
+if command -v systemctl >/dev/null 2>&1 && \
+   systemctl cat workbench-update-agent.service >/dev/null 2>&1; then
+  systemctl disable --now workbench-update-agent.service
+  log "已停用旧更新服务，后续由容器内启动器管理更新"
 fi
-ensure_env_key "WORKBENCH_UPDATE_CONTROL_DIR" "/app/data/update-control"
+python3 - "${INSTALL_DIR}/.env" <<'PYENV'
+import pathlib
+import sys
+path = pathlib.Path(sys.argv[1])
+obsolete = {"WORKBENCH_UPDATE_AGENT_TOKEN", "WORKBENCH_UPDATE_CONTROL_DIR", "WORKBENCH_UPDATE_GITHUB_REF"}
+lines = path.read_text().splitlines()
+path.write_text("\n".join(line for line in lines if line.lstrip("# ").split("=", 1)[0] not in obsolete) + "\n")
+PYENV
 
 # 写入 compose 项目名，后续手动 docker compose 也一致
 if ! grep -qE '^COMPOSE_PROJECT_NAME=' "${INSTALL_DIR}/.env" 2>/dev/null; then
@@ -314,51 +268,6 @@ if [[ -n "${MONGO_CID}" ]]; then
   fi
 fi
 
-# ---------- Update Agent ----------
-if [[ "${SKIP_AGENT}" != "1" ]]; then
-  AGENT_TOKEN="$(grep -E '^WORKBENCH_UPDATE_AGENT_TOKEN=' "${INSTALL_DIR}/.env" | head -n1 | cut -d= -f2-)"
-  [[ -n "${AGENT_TOKEN}" ]] || die ".env 中缺少 WORKBENCH_UPDATE_AGENT_TOKEN"
-
-  cat >"${INSTALL_DIR}/update-agent.env" <<EOF
-UPDATE_AGENT_TOKEN=${AGENT_TOKEN}
-EOF
-  chmod 0600 "${INSTALL_DIR}/update-agent.env"
-
-  UNIT_PATH="/etc/systemd/system/workbench-update-agent.service"
-  cat >"${UNIT_PATH}" <<EOF
-[Unit]
-Description=Workbench Update Agent (host-side docker compose pull/up)
-After=network-online.target docker.service
-Wants=network-online.target
-Requires=docker.service
-
-[Service]
-Type=simple
-WorkingDirectory=${INSTALL_DIR}
-Environment=UPDATE_CONTROL_DIR=${INSTALL_DIR}/update-control
-Environment=COMPOSE_DIR=${INSTALL_DIR}
-Environment=COMPOSE_FILE=${COMPOSE_FILE}
-Environment=COMPOSE_SERVICE=app
-Environment=UPDATE_POLL_SECONDS=2
-Environment=COMPOSE_PROJECT_NAME=${PROJECT_NAME}
-EnvironmentFile=-${INSTALL_DIR}/update-agent.env
-ExecStart=/usr/bin/python3 ${INSTALL_DIR}/deploy/update-agent/agent.py
-Restart=always
-RestartSec=3
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  # Agent 内 docker compose 需带上项目名：通过环境变量 COMPOSE_PROJECT_NAME（compose 自动读取）
-  systemctl daemon-reload
-  systemctl enable --now workbench-update-agent.service
-  log "Update Agent 已启用：systemctl status workbench-update-agent"
-else
-  log "SKIP_AGENT=1，跳过 Update Agent 安装"
-fi
-
 PORT="$(grep -E '^WORKBENCH_PORT=' "${INSTALL_DIR}/.env" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
 PORT="${PORT:-8080}"
 
@@ -372,7 +281,7 @@ cat <<EOF
   Mongo 卷: ${EXPECTED_MONGO_VOLUME:-${PROJECT_NAME}_mongo-data}（未删除、未 prune）
 
 设置页 →「版本更新」可检查并一键更新。
-日常手动升级（同样不删卷）：
+基础镜像升级（同样不删卷）：
   cd ${INSTALL_DIR} && COMPOSE_PROJECT_NAME=${PROJECT_NAME} docker compose -f ${COMPOSE_FILE} pull app && \\
     COMPOSE_PROJECT_NAME=${PROJECT_NAME} docker compose -f ${COMPOSE_FILE} up -d app
 

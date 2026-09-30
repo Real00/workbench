@@ -11,10 +11,10 @@ def test_workbench_environment_prefix_and_static_compatibility(monkeypatch) -> N
     assert settings.static_dir == Path("/tmp/workbench-static")
 
 
-def test_update_control_dir_empty_string_is_none(monkeypatch) -> None:
-    monkeypatch.setenv("WORKBENCH_UPDATE_CONTROL_DIR", "")
+def test_release_root_empty_string_is_none(monkeypatch) -> None:
+    monkeypatch.setenv("WORKBENCH_RELEASE_ROOT", "")
     settings = Settings(_env_file=None)
-    assert settings.update_control_dir is None
+    assert settings.release_root is None
 
 
 def test_cors_always_allows_tauri_desktop_origins() -> None:

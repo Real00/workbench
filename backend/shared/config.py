@@ -45,10 +45,10 @@ class Settings(BaseSettings):
     )
     git_sha: str = "unknown"
     built_at: str = ""
-    update_control_dir: OptionalPath = None
-    update_agent_token: str = ""
+    release_root: OptionalPath = None
+    instance_id: str = ""
     update_github_repo: str = "real00/workbench"
-    update_github_ref: str = "main"
+    update_release_tag: str = "server-latest"
     update_github_token: str = ""
     model_config = SettingsConfigDict(
         env_prefix="WORKBENCH_", env_file=".env", extra="ignore", populate_by_name=True

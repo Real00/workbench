@@ -10,11 +10,10 @@ from system.routes import register_routes
 class SystemModule:
     def register(self, app: web.Application, context: ModuleContext) -> None:
         github = context.overrides.get("github_commits") or GithubCommitClient()
-        control_store = context.overrides.get("update_control_store")
         service = SystemApplicationService(
             context.settings,
             github,
-            control_store=control_store,
+            release_client=context.overrides.get("release_client"),
         )
         app[SYSTEM] = service
         register_routes(app)

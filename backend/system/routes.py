@@ -1,7 +1,7 @@
 from aiohttp import web
 
 from api.http import response
-from shared.web_keys import SYSTEM
+from shared.web_keys import SETTINGS, SYSTEM
 
 
 async def get_version(request: web.Request) -> web.Response:
@@ -37,7 +37,14 @@ async def download_desktop_dmg(request: web.Request) -> web.Response:
     )
 
 
+async def health(request: web.Request) -> web.Response:
+    # aiohttp only serves requests after all module startup hooks have completed.
+    settings = request.app[SETTINGS]
+    return response({"git_sha": settings.git_sha, "instance": settings.instance_id})
+
+
 def register_routes(app: web.Application) -> None:
+    app.router.add_get("/health", health)
     app.router.add_get("/api/v1/system/version", get_version)
     app.router.add_post("/api/v1/system/updates/check", check_update)
     app.router.add_post("/api/v1/system/updates/apply", apply_update)

@@ -36,7 +36,7 @@ function onOpenChange(open: boolean) {
         <AlertDialogCancel @click="resolveConfirm(false)">取消</AlertDialogCancel>
         <AlertDialogAction
           :variant="state.danger ? 'destructive' : 'default'"
-          @click="resolveConfirm(true)"
+          @click.capture="resolveConfirm(true)"
         >
           {{ state.confirmText }}
         </AlertDialogAction>

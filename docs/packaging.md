@@ -4,7 +4,7 @@
 
 | 路径 | 产物 | 用途 |
 | --- | --- | --- |
-| Docker 镜像 | 单进程服务（API + 前端静态资源 + Mongo） | 服务器部署、打包验证 |
+| Docker 镜像 | 应用服务（API + 前端静态资源）及独立 Mongo | 服务器部署、打包验证 |
 | Tauri 桌面端 | `Workbench.app` / `.dmg`（仅前端壳） | macOS 桌面客户端 |
 | Tauri Android | debug / release APK（仅前端壳） | 安卓客户端 |
 
@@ -149,7 +149,7 @@ docker compose up --build
 1. `node:24-alpine` 阶段：以仓库根为 workspace `pnpm install --frozen-lockfile`，构建 `frontend/dist`。默认走 npmmirror（`ARG NPM_REGISTRY` 可覆盖），因 npmjs 在部分网络下拉取 optional 原生依赖不稳定。
 2. `uv:python3.12-bookworm-slim` 运行时阶段：安装后端依赖，前端产物拷贝为 `backend/static`。
 
-运行时由一个 aiohttp 进程同端口提供 API 和前端资源。
+运行时由独立启动器管理 aiohttp 子进程，API 和前端资源仍使用同一端口。启动器只依赖 Python 标准库，保存在镜像 `/opt/workbench/updater` 中，不随应用包更新。
 
 ### 关键配置
 
@@ -161,14 +161,13 @@ docker compose up --build
 | `WORKBENCH_MONGO_URI` | compose 内固定为 `mongodb://mongo:27017` |
 | `WORKBENCH_UPLOAD_DIR` | 容器内固定 `/app/data/uploads` |
 | `WORKBENCH_CORS_ORIGINS` | 独立网页域名访问 API 时配置（桌面端来源始终放行） |
-| `WORKBENCH_UPDATE_AGENT_TOKEN` | 与宿主机 Update Agent 共享的 HMAC 密钥；未配置则设置页不能一键更新 |
-| `WORKBENCH_UPDATE_CONTROL_DIR` | 容器内控制目录（GHCR compose 示例为 `/app/data/update-control`） |
-| `WORKBENCH_UPDATE_GITHUB_REPO` / `WORKBENCH_UPDATE_GITHUB_REF` | 检查更新时对比的仓库与分支（默认 `real00/workbench` @ `main`） |
+| `WORKBENCH_RELEASE_ROOT` | 版本持久化目录，镜像默认 `/app/data/releases`，Compose 挂载 `app-releases` 卷 |
+| `WORKBENCH_UPDATE_GITHUB_REPO` / `WORKBENCH_UPDATE_RELEASE_TAG` | 更新仓库与发布频道（默认 `real00/workbench` / `server-latest`） |
 | `WORKBENCH_UPDATE_GITHUB_TOKEN` | 私有仓调用 GitHub API 检查更新时需要 |
 
-数据持久化在三个 named volume：`mongo-data`（数据库）、`app-uploads`（上传文件）、`app-knowledge`（知识库 Markdown 文件），`docker compose down` 不会丢失，加 `-v` 才会。
+数据持久化在四个 named volume：`mongo-data`（数据库）、`app-uploads`（上传文件）、`app-knowledge`（知识库 Markdown 文件）、`app-releases`（已安装应用版本与更新状态），`docker compose down` 不会丢失，加 `-v` 才会。
 
-镜像构建时写入 `WORKBENCH_GIT_SHA` / `WORKBENCH_BUILT_AT`（CI 自动传入），设置页「版本更新」据此展示当前版本。
+镜像和更新包均包含 `release.json`。启动器读取实际运行版本的元信息，并传入 `WORKBENCH_GIT_SHA` / `WORKBENCH_BUILT_AT`；设置页展示应用版本，可能不同于基础镜像版本。
 
 ### 生产：从 GHCR 拉取
 
@@ -183,7 +182,6 @@ sudo ./deploy/install-server.sh
 # 方式 B：精简目录（例如 /data/workbench），同目录放入：
 #   compose.ghcr.yaml
 #   install-server.sh
-#   deploy/update-agent/agent.py
 #   .env（已有生产配置）
 cd /data/workbench
 sudo ./install-server.sh
@@ -196,41 +194,46 @@ sudo COMPOSE_PROJECT_NAME=workbench ./install-server.sh
 手动步骤：
 
 ```bash
-cp .env.example .env   # 填入 JWT / 管理员密码 / ENCRYPTION_KEY / UPDATE_AGENT_TOKEN 等
-mkdir -p update-control
+cp .env.example .env   # 填入 JWT / 管理员密码 / ENCRYPTION_KEY 等
 docker login ghcr.io   # 私有包需要
 docker compose -f compose.ghcr.yaml up -d
 ```
 
-日常发版后在服务器执行：
+日常更新：打开系统设置 →「版本更新」→「更新到最新」。无需安装宿主机服务或挂载 Docker socket。
+
+### 容器内更新
+
+1. CI 在 `main` 通过检查后，构建 Linux amd64 / arm64 的离线更新包：后端、前端静态资源、锁定的 requirements 和对应平台的 wheels。
+2. 完整包先上传到不可变的 `server-<完整 SHA>` Release，再刷新 `server-latest` 中的架构清单。检查更新只查询已发布的包，不对比分支上尚未构建的提交。
+3. 更新器校验 SHA-256、大小、运行环境版本，拒绝路径穿越和链接，然后在独立版本目录创建虚拟环境并离线安装依赖。准备期间旧服务持续运行。
+4. 准备完成后，启动器向旧应用发送 SIGTERM（最多等待 30 秒），启动新版并检查 `/health` 的实例标识和版本。所有模块启动完成后连续三次检查通过才提交版本切换。
+5. 新版启动失败或 90 秒未就绪，恢复原版本并在页面显示失败原因。重启或断电打断未提交的切换，也会恢复原版本。只保留当前版和上一版，失败包会清理。
+6. 网页确认完成后自动刷新。页面关闭不会取消更新，重新进入设置会恢复进行中的状态。Tauri 客户端仍需单独更新。
+
+程序回退不撤销数据库或文件的数据变更，新增迁移必须兼容上一应用版本。此方案面向单实例；同一版本卷不能由多个启动器共同使用。
+
+**持久化与基础镜像**
+
+- 重启或用同一镜像重建容器，继续运行版本卷中已提交的版本。
+- 部署不同 SHA 的基础镜像时，启动器改用该镜像自带版本，随后可继续页面更新。
+- Python、系统库或启动协议不兼容时，更新包会要求升级基础镜像。修改运行环境时必须同时递增 `backend/updater/protocol.py` 的 `RUNTIME`。
+- 升级基础镜像使用 `docker compose -f compose.ghcr.yaml pull app` 和 `docker compose -f compose.ghcr.yaml up -d app`；保留所有数据卷。
+- 私有仓需在 `.env` 配置 `WORKBENCH_UPDATE_GITHUB_TOKEN`（contents:read），并重建 app 使配置生效。`docker login` 仅授权镜像仓库。
+
+**从旧部署迁移一次**
+
+使用新版 Compose（增加 `app-releases` 卷）和镜像，沿用原 Compose 项目名及 `.env`，运行 `deploy/install-server.sh`。脚本会停用旧 `workbench-update-agent` systemd 服务，并移除旧的更新 token / 控制目录配置；不删除业务数据。旧部署目录内的 `update-control/`、`update-agent.env`、`deploy/update-agent/` 已不再使用，可在迁移后自行删除。
+
+**本地打包验证**
 
 ```bash
-docker compose -f compose.ghcr.yaml pull app
-docker compose -f compose.ghcr.yaml up -d app
+docker build -f deploy/Dockerfile --target runtime -t workbench:test .
+docker buildx build -f deploy/Dockerfile --target bundle-output \
+  --build-arg WORKBENCH_GIT_SHA=<40位提交SHA> \
+  --output type=local,dest=/tmp/workbench-server-bundle .
 ```
 
-或使用下方 Update Agent，在系统设置里点「更新到最新」。
-
-### 一键更新（宿主机 Update Agent）
-
-**不要**把 `/var/run/docker.sock` 挂进工作台容器。应用只向共享目录写 `request.json`；宿主机 Agent 校验 HMAC 后执行固定的 `docker compose pull/up`。
-
-1. 服务器部署目录放好 `compose.ghcr.yaml`、`.env`，并创建 `update-control/`（已在 compose 中 bind mount）。
-2. 复制 Agent 与 systemd 单元（路径按实际修改）：
-
-```bash
-# 假设部署目录为 /opt/workbench，内含 compose.ghcr.yaml 与 deploy/update-agent/
-sudo cp /opt/workbench/deploy/update-agent/update-agent.env.example /opt/workbench/update-agent.env
-# 编辑 update-agent.env：UPDATE_AGENT_TOKEN 与 .env 里 WORKBENCH_UPDATE_AGENT_TOKEN 一致
-sudo cp /opt/workbench/deploy/update-agent/workbench-update-agent.service /etc/systemd/system/
-# 按需编辑单元中的 WorkingDirectory / Environment 路径
-sudo systemctl daemon-reload
-sudo systemctl enable --now workbench-update-agent
-```
-
-3. 重启 app 容器使 `WORKBENCH_UPDATE_*` 生效后，打开系统设置 →「版本更新」：检查更新 / 更新到最新。
-
-Agent 只接受协议内的请求文件，不执行客户端传入的任意命令。更新期间 API 会短暂不可用，页面会轮询直到新 `git_sha` 出现或超时。
+更新运行时的测试在 `backend/tests/test_updater.py`，覆盖重复请求、下载校验、恶意归档、依赖失败、真实子进程启动/回退、中断恢复和信号转发。
 
 ### 桌面端客户端更新（DMG）
 
@@ -256,6 +259,7 @@ Agent 只接受协议内的请求文件，不执行客户端传入的任意命�
 | --- | --- | --- |
 | `check` | ubuntu + mongo:8 服务容器 | 后端 mypy/pytest、前端 typecheck/test/build |
 | `docker` | ubuntu | 构建镜像并推送到 GHCR |
+| `server-bundle` / `server-publish` | ubuntu + Buildx | 构建双架构离线包，发布不可变版本并刷新 `server-latest` |
 | `desktop` | macOS | `pnpm tauri build`，上传 dmg；main 刷新 `desktop-latest` |
 | `android` | ubuntu | `pnpm tauri android build --apk`（release），上传 APK；main 刷新 `android-latest` |
 
