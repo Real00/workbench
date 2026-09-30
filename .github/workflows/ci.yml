@@ -102,7 +102,7 @@ jobs:
     permissions:
       contents: write
     env:
-      VITE_API_BASE_URL: ${{ inputs.api_base_url }}
+      VITE_API_BASE_URL: ${{ inputs.api_base_url || 'https://workbench.reelab.cc' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -179,7 +179,7 @@ jobs:
     permissions:
       contents: write
     env:
-      VITE_API_BASE_URL: ${{ inputs.api_base_url }}
+      VITE_API_BASE_URL: ${{ inputs.api_base_url || 'https://workbench.reelab.cc' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

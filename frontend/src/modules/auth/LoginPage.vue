@@ -2,19 +2,9 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Globe, LockKeyhole, UserRound } from '@lucide/vue'
-import { api, apiError, deviceLabel, ensureDeviceId, getApiBase, isTauriShell, setApiBase, setDeviceCredentials, setToken } from '../../shared/api/client'
+import { api, apiError, DEFAULT_TAURI_API_BASE, deviceLabel, ensureDeviceId, getApiBase, isTauriShell, setApiBase, setDeviceCredentials, setToken } from '../../shared/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
-function defaultTauriApiBase() {
-  const saved = getApiBase()
-  if (saved) return saved
-  // Android 模拟器访问宿主机用 10.0.2.2；真机请填局域网 IP
-  if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
-    return 'http://10.0.2.2:8080'
-  }
-  return 'http://127.0.0.1:8080'
-}
 
 const router = useRouter()
 const route = useRoute()
@@ -23,8 +13,8 @@ const password = ref('')
 const remember = ref(isTauriShell)
 const loading = ref(false)
 const error = ref('')
-// Tauri 壳没有同源后端：首次启动需要指定服务器地址
-const server = ref(isTauriShell ? defaultTauriApiBase() : getApiBase())
+// Tauri 壳默认连云端；仍可改服务器地址。已保存的 localStorage 优先（见 getApiBase）
+const server = ref(isTauriShell ? (getApiBase() || DEFAULT_TAURI_API_BASE) : getApiBase())
 const deviceName = deviceLabel()
 
 async function login() {
@@ -81,7 +71,7 @@ async function login() {
         <label v-if="isTauriShell" class="field-label mt-8">服务器地址
           <span class="relative mt-2 block">
             <Globe :size="16" class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2" />
-            <Input v-model="server" class="!mt-0 pl-8" autocomplete="url" spellcheck="false" placeholder="https://你的云端域名或 http://127.0.0.1:8080" />
+            <Input v-model="server" class="!mt-0 pl-8" autocomplete="url" spellcheck="false" placeholder="https://workbench.reelab.cc" />
           </span>
         </label>
         <label class="field-label mt-4">密码

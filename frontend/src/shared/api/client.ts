@@ -1,8 +1,10 @@
 import axios, { AxiosError } from 'axios'
 
 const API_BASE_KEY = 'workbench_api_base'
-/** 打包期默认值：Tauri 壳可留空，登录页会写入运行时地址；网页端同源部署为空即同源 */
-const ENV_API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+/** 打包期烧入；未设置时 Tauri 壳回落到云端默认地址 */
+const ENV_API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '')
+/** Tauri 壳（桌面 / Android）未配置时的默认 API */
+export const DEFAULT_TAURI_API_BASE = 'https://workbench.reelab.cc'
 
 /** Tauri 壳（桌面 / Android），用于登录页服务器地址等 */
 export const isTauriShell = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -11,8 +13,15 @@ export const isTauriShell = typeof window !== 'undefined' && '__TAURI_INTERNALS_
 export const isDesktopShell =
   isTauriShell && typeof navigator !== 'undefined' && !/Android/i.test(navigator.userAgent)
 
-let apiBase =
-  (typeof localStorage !== 'undefined' ? localStorage.getItem(API_BASE_KEY) : null) ?? ENV_API_BASE
+function resolveInitialApiBase() {
+  const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(API_BASE_KEY) : null
+  if (saved) return saved
+  if (ENV_API_BASE) return ENV_API_BASE
+  if (isTauriShell) return DEFAULT_TAURI_API_BASE
+  return ''
+}
+
+let apiBase = resolveInitialApiBase()
 
 /** 当前 API 地址（运行时可变，登录页可设置） */
 export function getApiBase() {

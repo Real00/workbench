@@ -59,8 +59,9 @@ Dock / `.app` / 托盘图标来自 `frontend/src-tauri/icons/`（含 `icon.icns`
 
 打包的桌面壳**只含前端，不含后端**。API 地址的确定顺序（见 `frontend/src/shared/api/client.ts`）：
 
-1. 打包期默认值：构建时设置 `VITE_API_BASE_URL`（如 `VITE_API_BASE_URL=https://your-server pnpm tauri build`）；
-2. 运行时覆盖：登录页可设置服务器地址，保存在 `localStorage`（`workbench_api_base`），优先于打包期默认值。
+1. 运行时覆盖：登录页保存的 `localStorage`（`workbench_api_base`）；
+2. 打包期默认值：构建时 `VITE_API_BASE_URL`（CI 默认烧入 `https://workbench.reelab.cc`）；
+3. 代码兜底：Tauri 壳未配置时用 `https://workbench.reelab.cc`。
 
 后端跨源放行无需配置：`tauri://localhost`、`http://tauri.localhost`、`https://tauri.localhost` 在 `backend/shared/config.py` 中始终放行（桌面与 Android 共用）。若另用独立网页域名访问 API，才需要配置 `WORKBENCH_CORS_ORIGINS`。
 
@@ -111,13 +112,13 @@ frontend/src-tauri/gen/android/app/build/outputs/apk/universal/debug/
 
 ### 如何连后端
 
-与桌面相同：登录页填写 API 地址。
+与桌面相同：默认已指向 `https://workbench.reelab.cc`；登录页仍可改。
 
 | 环境 | 推荐地址 |
 | --- | --- |
+| 默认（云端） | `https://workbench.reelab.cc` |
 | Android 模拟器访问宿主机 | `http://10.0.2.2:8080` |
 | 真机访问局域网后端 | `http://<电脑局域网 IP>:8080` |
-| 云端 HTTPS | `https://your-server` |
 
 debug / release 均已允许 cleartext HTTP（`usesCleartextTraffic`），以便连本机与局域网。Android WebView Origin 为 `http://tauri.localhost`（开启 https scheme 则为 `https://tauri.localhost`），后端默认已放行。
 
