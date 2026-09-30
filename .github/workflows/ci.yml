@@ -194,7 +194,8 @@ jobs:
           java-version: 17
       - uses: android-actions/setup-android@v3
         with:
-          packages: 'tools platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973'
+          # 不要装已废弃的 `tools`；cmdline-tools 由 action 自带
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0 ndk;27.0.12077973'
       - name: 设置 NDK_HOME
         run: echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
