@@ -55,18 +55,14 @@ function rangeLabel(task: Task): string {
   return `开始 ${task.start_date!.slice(0, 10)} · 未设截止`
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (ch) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] ?? ch
-  ))
-}
-
 const options = computed<CalendarOptions>(() => ({
   plugins: [classicThemePlugin, dayGridPlugin, listPlugin, interactionPlugin],
   initialView: mode.value === 'list' ? 'listMonth' : 'dayGridMonth',
   locale: zhCn,
   colorScheme: 'light',
   height: 'auto',
+  /* 议程（listMonth）高度全靠事件行撑起：无事件时若无此文案会塌成一条无文字的空表 */
+  noEventsText: '本月暂无日程——可翻月查找，或调整筛选条件',
   firstDay: 1,
   headerToolbar: {
     left: 'prev,next today',
@@ -94,18 +90,16 @@ const options = computed<CalendarOptions>(() => ({
       } satisfies CalendarEventProps,
     }
   }),
-  eventDidMount: ({ el, event }) => {
+  eventDidMount: ({ el, event, view }) => {
     const summary = event.extendedProps as CalendarEventProps
     el.title = `${summary.title}\n负责人：${summary.assignee}\n${summary.range}\n状态：${statusMap[summary.status]}`
-  },
-  /* 议程（list）视图的标题不着事件底色，改用状态文字色并给完成/取消加删除线 */
-  eventContent: ({ event, view }) => {
-    if (!view.type.startsWith('list')) return undefined
-    const summary = event.extendedProps as CalendarEventProps
-    const style = statusStyles[summary.status]
-    const strike = summary.status === 'done' || summary.status === 'cancelled'
-    return {
-      html: `<span style="color:${style.text};${strike ? 'text-decoration:line-through;' : ''}">${escapeHtml(event.title)}</span>`,
+    /* 议程（list）行的标题不着事件底色：改用状态文字色，终态加删除线。
+       注意不能用 eventContent 实现：v7 里其回调返回 undefined 会吞掉默认内容，
+       月历事件会塌成无文字的空条 */
+    if (view.type.startsWith('list')) {
+      const style = statusStyles[summary.status]
+      el.style.color = style.text
+      if (summary.status === 'done' || summary.status === 'cancelled') el.style.textDecoration = 'line-through'
     }
   },
   eventClick: ({ event }: { event: { id: string } }) => store.openTask(store.tasks.find((task) => task.id === event.id)),

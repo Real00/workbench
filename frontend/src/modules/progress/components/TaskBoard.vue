@@ -8,6 +8,8 @@ import { useProgressStore } from '../store'
 import { isBlocked, latestEntry, priorityMap, statusMap, type Task, type TaskStatus } from '../types'
 
 const props = defineProps<{ tasks: Task[] }>()
+/* 状态被改动（拖拽或行内下拉）后通知页面：若残留的状态筛选与新状态冲突，由页面清除 */
+const emit = defineEmits<{ (e: 'statusChanged', status: TaskStatus): void }>()
 const store = useProgressStore()
 const columns: TaskStatus[] = ['todo', 'in_progress', 'done', 'cancelled']
 
@@ -66,11 +68,13 @@ async function onDrop(column: TaskStatus) {
   const task = props.tasks.find(item => item.id === id)
   if (!task || task.status === column) return
   await store.patchTask(task.id, { status: column })
+  emit('statusChanged', column)
 }
 
 async function onStatusChange(task: Task, status: TaskStatus | null | undefined) {
   if (!status || status === task.status) return
   await store.patchTask(task.id, { status })
+  emit('statusChanged', status)
 }
 
 function projectName(task: Task): string | null {

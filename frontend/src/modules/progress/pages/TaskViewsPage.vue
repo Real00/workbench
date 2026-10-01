@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, reactive, ref } from 'vue'
-import { CalendarDays, CheckSquare2, Columns3, GanttChart, List, Plus, Search } from '@lucide/vue'
+import { CalendarDays, CheckSquare2, Columns3, GanttChart, List, ListFilter, Plus, Search, X } from '@lucide/vue'
 import { useProgressStore } from '../store'
 import TaskList from '../components/TaskList.vue'
 import TaskBoard from '../components/TaskBoard.vue'
 import {
+  TASK_FILTER_NONE,
   emptyTaskViewFilters,
   hasActiveTaskFilters,
   taskMatchesFilters,
   type TaskViewFilters,
 } from '../task-filters'
+import { priorityMap, statusMap, type TaskStatus } from '../types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 const TaskCalendar = defineAsyncComponent(() => import('../components/TaskCalendar.vue'))
@@ -27,8 +29,40 @@ const filteredTasks = computed(() => store.tasks.filter(task => taskMatchesFilte
 
 const filtering = computed(() => hasActiveTaskFilters(filters))
 
+/**
+ * 筛选偏好由 TaskList 的 v-model 同步持久化；TaskList 未挂载（看板/日历/甘特）时
+ * v-model 断开，页面级清除必须直接写偏好，否则切回列表时筛选会从 localStorage「复活」
+ */
 function clearFilters() {
   Object.assign(filters, emptyTaskViewFilters())
+  store.setTaskListPrefs({ status: '', priority: '', assignee: '', project: '', overdueOnly: false })
+}
+
+/* 非列表视图没有 TaskList 的筛选行，激活的筛选必须显形为可单独移除的 chip */
+const activeFilterChips = computed(() => {
+  const chips: { label: string; clear: () => void }[] = []
+  if (filters.status) chips.push({ label: `状态：${statusMap[filters.status]}`, clear: () => clearFilter('status') })
+  if (filters.priority) chips.push({ label: `优先级：${priorityMap[filters.priority]}`, clear: () => clearFilter('priority') })
+  if (filters.assignee) {
+    const label = filters.assignee === TASK_FILTER_NONE ? '未分配' : store.memberMap.get(filters.assignee)?.name ?? '未知成员'
+    chips.push({ label: `负责人：${label}`, clear: () => clearFilter('assignee') })
+  }
+  if (filters.project) {
+    const label = filters.project === TASK_FILTER_NONE ? '无项目' : store.projects.find(project => project.id === filters.project)?.name ?? '未知项目'
+    chips.push({ label: `项目：${label}`, clear: () => clearFilter('project') })
+  }
+  if (filters.query.trim()) chips.push({ label: `搜索：${filters.query.trim()}`, clear: () => { filters.query = '' } })
+  return chips
+})
+
+function clearFilter(key: 'status' | 'priority' | 'assignee' | 'project') {
+  filters[key] = ''
+  store.setTaskListPrefs({ [key]: '' })
+}
+
+/* 看板里改动任务状态后，与新状态冲突的状态筛选自动解除，避免卡片拖过去即被隐藏 */
+function onBoardStatusChanged(status: TaskStatus) {
+  if (filters.status && filters.status !== status) clearFilter('status')
 }
 
 const views = [
@@ -64,6 +98,20 @@ const views = [
         <Button v-if="filtering" type="button" variant="outline" size="sm" class="shrink-0" @click="clearFilters">清除筛选</Button>
       </div>
     </div>
+    <div v-if="view !== 'list' && activeFilterChips.length" class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-line bg-panel px-3 py-2" role="group" aria-label="生效中的筛选">
+      <span class="flex items-center gap-1 text-[11px] font-medium text-muted-foreground"><ListFilter :size="13" aria-hidden="true" />生效筛选</span>
+      <button
+        v-for="chip in activeFilterChips"
+        :key="chip.label"
+        type="button"
+        class="filter-chip filter-chip--active inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs transition-colors"
+        :aria-label="`移除筛选：${chip.label}`"
+        @click="chip.clear()"
+      >
+        {{ chip.label }}<X :size="13" aria-hidden="true" />
+      </button>
+      <span class="ml-auto hidden text-[11px] text-muted-foreground sm:inline">来自列表的筛选，点击移除</span>
+    </div>
     <div v-if="store.loading" class="card p-2">
       <div v-for="i in 6" :key="i" class="flex items-center gap-4 px-3 py-3">
         <div class="skeleton h-6 w-1.5 rounded" /><div class="flex-1"><div class="skeleton h-3.5 w-2/5" /><div class="skeleton mt-2 h-2.5 w-1/4" /></div>
@@ -81,7 +129,7 @@ const views = [
         v-model:assignee-filter="filters.assignee"
         v-model:project-filter="filters.project"
       />
-      <TaskBoard v-else-if="view === 'board'" :tasks="filteredTasks" />
+      <TaskBoard v-else-if="view === 'board'" :tasks="filteredTasks" @status-changed="onBoardStatusChanged" />
       <TaskCalendar v-else-if="view === 'calendar'" :tasks="filteredTasks" />
       <TaskGantt v-else :tasks="filteredTasks" />
     </template>

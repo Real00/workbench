@@ -350,11 +350,11 @@ watch(isNarrow, async (narrow) => {
   fill: var(--muted-foreground);
   text-decoration: line-through;
 }
-/* 条形右侧标签：略小一档的次要色，弱化「任务名 · 负责人」整串的视觉重量 */
+/* 条形右侧标签：与代码注释「深色文字保证可读」对齐——主文字色，不再用次要灰 */
 :deep(.bar-label.big) {
   font-size: 13px;
   font-weight: 500;
-  fill: var(--color-text-secondary);
+  fill: var(--color-text);
 }
 /* 图例按「底色 + 进度段」表达条形语言：进度色会覆盖条身（100% 完成的条整根是进度色） */
 .gantt-legend-swatch {

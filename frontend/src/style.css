@@ -11,6 +11,8 @@
   --color-panel-2: #f1f4f8;
   --color-line: #e4e7ec;
   --color-cyan: #2563eb;
+  /* 品牌蓝加深一档：用于「浅蓝底上的强调文字」激活态（#2563eb 在 .1 蓝底上仅 4.2:1，不达 AA） */
+  --color-cyan-strong: #1d4ed8;
   --color-text: #202939;
   --color-text-secondary: #475467;
   --color-success: #16794b;
@@ -145,7 +147,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 }
 .nav-link { display: flex; min-height: 42px; align-items: center; gap: 12px; border-radius: 8px; padding: 0 12px; color: var(--muted-foreground); font-size: 14px; white-space: nowrap; transition: background-color .15s, color .15s; }
 .nav-link:hover { background: var(--color-panel-2); color: var(--color-text); }
-.nav-link.router-link-active, .nav-link--active { background: rgb(37 99 235 / .1); color: var(--color-cyan); box-shadow: inset 2px 0 var(--color-cyan); }
+.nav-link.router-link-active, .nav-link--active { background: rgb(37 99 235 / .1); color: var(--color-cyan-strong); box-shadow: inset 2px 0 var(--color-cyan); }
 .page-wrap { container-type: inline-size; width: 100%; min-width: 0; max-width: 1500px; margin: auto; padding: 32px 32px 88px; }
 .page-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
 .page-header h1 { margin-top: 5px; font-family: var(--font-display); font-size: 24px; font-weight: 600; color: var(--color-text); letter-spacing: 0; }
@@ -233,7 +235,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .skill-input-field::placeholder { color: var(--muted-foreground); }
 .kind-option { border: 1px solid #cbd2dc; border-radius: 99px; padding: 5px 12px; font-size: 12px; color: var(--muted-foreground); }
 .kind-option:hover { border-color: #98a2b3; color: var(--color-text-secondary); }
-.kind-option--active { border-color: rgb(37 99 235 / .55); background: rgb(37 99 235 / .1); color: var(--color-cyan); }
+.kind-option--active { border-color: rgb(37 99 235 / .55); background: rgb(37 99 235 / .1); color: var(--color-cyan-strong); }
 .project-cover { display: flex; height: 56px; align-items: center; gap: 10px; overflow: hidden; border: 1px solid var(--color-line); border-radius: 9px; background: linear-gradient(120deg, rgb(37 99 235 / .08), rgb(37 99 235 / .2)); padding: 0 12px; }
 .cover-swatch { width: 26px; height: 26px; border: 2px solid transparent; border-radius: 8px; }
 .cover-swatch:hover { border-color: #98a2b3; }
@@ -378,6 +380,9 @@ textarea.ai-bubble--edit:focus-visible:not([data-slot]) {
 }
 .gantt-shell .bar-label { font-family: var(--font-sans); }
 .gantt-shell .gantt-container { min-height: 240px; }
+/* 悬停条形时表头出现的日期范围高亮带：库样式把它挂在 --g-progress-color 上，
+   会跟随品牌进度蓝变成饱和底色，压住其上的日期文字（蓝底黑字不可读），改为品牌色的浅投影 */
+.gantt-shell .gantt-container .date-range-highlight { background-color: rgb(37 99 235 / .13); }
 
 .error-box, .success-box { display: flex; align-items: center; gap: 7px; border-radius: 8px; padding: 10px 12px; font-size: 12px; overflow-wrap: anywhere; }
 /* 保存成功的一瞬反馈：任务编辑器与资源面板共用 */
