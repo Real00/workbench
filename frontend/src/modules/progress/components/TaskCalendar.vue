@@ -98,8 +98,12 @@ const options = computed<CalendarOptions>(() => ({
        月历事件会塌成无文字的空条 */
     if (view.type.startsWith('list')) {
       const style = statusStyles[summary.status]
-      el.style.color = style.text
-      if (summary.status === 'done' || summary.status === 'cancelled') el.style.textDecoration = 'line-through'
+      const terminal = summary.status === 'done' || summary.status === 'cancelled'
+      // text-decoration 从 table-row 向单元格文字的传播在浏览器间不可靠，逐格（含链接）上色
+      for (const cell of el.querySelectorAll<HTMLElement>('td, a')) {
+        cell.style.color = style.text
+        if (terminal) cell.style.textDecoration = 'line-through'
+      }
     }
   },
   eventClick: ({ event }: { event: { id: string } }) => store.openTask(store.tasks.find((task) => task.id === event.id)),
@@ -136,7 +140,7 @@ const options = computed<CalendarOptions>(() => ({
 </template>
 
 <style scoped>
-/* 已取消：虚线边框区分待处理（月历块事件）；议程标题样式由 eventContent 控制 */
+/* 已取消：虚线边框区分待处理（月历块事件）；议程行的文字色 / 删除线由上方 eventDidMount 设置 */
 :deep(.task-event--cancelled) {
   border-style: dashed;
 }

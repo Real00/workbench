@@ -210,15 +210,18 @@ class PydanticPulseAgent:
         connected: list[str] = []
         notices: list[str] = []
         for server in settings.mcp_servers:
-            toolset = prefixed_toolset(server)
+            toolset = None
             try:
+                # prefixed_toolset 的构造也可能失败（URL/传输层问题），一并按服务器粒度降级
+                toolset = prefixed_toolset(server)
                 await asyncio.wait_for(toolset.__aenter__(), MCP_CONNECT_TIMEOUT_SECONDS)
             except Exception as exc:  # noqa: BLE001 — 连接失败按服务器粒度降级
                 logger.warning("MCP server %s unavailable: %s", server.name, exc)
-                try:
-                    await toolset.__aexit__(None, None, None)
-                except Exception:  # noqa: BLE001 — 清理失败可忽略
-                    pass
+                if toolset is not None:
+                    try:
+                        await toolset.__aexit__(None, None, None)
+                    except Exception:  # noqa: BLE001 — 清理失败可忽略
+                        pass
                 notices.append(
                     f"MCP 服务器 {server.name} 连接失败，本轮已跳过：{type(exc).__name__}"
                 )
@@ -252,18 +255,23 @@ class PydanticPulseAgent:
                     read_tool_functions(self.contributions), lambda: ai_model(settings)
                 )
             )
-        toolsets, connected_servers, mcp_notices = await self._connect_mcp(settings)
-        instructions = compose_instructions(
-            *(item.instructions for item in self.contributions),
-            skill_instructions(settings.skills),
-            mcp_instructions(connected_servers),
-        )
-        model = ai_model(settings)
-        model_settings: OpenAIResponsesModelSettings = {}
-        if model.profile.get("openai_supports_reasoning"):
-            model_settings["openai_reasoning_summary"] = "auto"
-        model_settings["parallel_tool_calls"] = settings.agent_options.parallel_tool_calls
+        toolsets: list[Any] = []
         try:
+            # 从拿到 toolsets 起任何一步失败都必须走 finally 关闭已打开的 MCP 会话，
+            # 因此连接、指令组装与模型构造全部纳入 try 范围
+            toolsets, connected_servers, mcp_notices = await self._connect_mcp(settings)
+            instructions = compose_instructions(
+                *(item.instructions for item in self.contributions),
+                skill_instructions(settings.skills),
+                mcp_instructions(connected_servers),
+            )
+            model = ai_model(settings)
+            model_settings: OpenAIResponsesModelSettings = {}
+            if model.profile.get("openai_supports_reasoning"):
+                model_settings["openai_reasoning_summary"] = "auto"
+            model_settings["parallel_tool_calls"] = (
+                settings.agent_options.parallel_tool_calls
+            )
             agent: Agent[AgentDeps, str] = Agent(
                 model,
                 name="pulse",

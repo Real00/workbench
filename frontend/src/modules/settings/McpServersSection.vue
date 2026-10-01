@@ -107,15 +107,22 @@ function payload() {
   }
 }
 
+/* 行级校验：save() 逐行收集第一个问题；test() 只校验目标行本身，
+   其他行的配置问题不应阻塞单行连接测试 */
+function rowIssueAt(index: number): string | null {
+  const row = rows.value[index]
+  if (!row) return null
+  const name = row.name.trim()
+  if (!NAME_PATTERN.test(name)) return '服务器名称需以小写字母开头，仅含小写字母 / 数字 / - / _（不超过 32 字符）'
+  if (rows.value.some((other, i) => i !== index && other.name.trim() === name)) return `服务器名称重复：${name}`
+  if (!/^https?:\/\/.+/.test(row.url.trim())) return `「${name}」的地址必须是 http(s) Streamable HTTP 端点`
+  return null
+}
+
 function rowIssues(): string | null {
-  const seen = new Set<string>()
-  for (const row of rows.value) {
-    const name = row.name.trim()
-    if (!NAME_PATTERN.test(name)) return '服务器名称需以小写字母开头，仅含小写字母 / 数字 / - / _（不超过 32 字符）'
-    if (seen.has(name)) return `服务器名称重复：${name}`
-    seen.add(name)
-    const url = row.url.trim()
-    if (!/^https?:\/\/.+/.test(url)) return `「${name}」的地址必须是 http(s) Streamable HTTP 端点`
+  for (let index = 0; index < rows.value.length; index++) {
+    const issue = rowIssueAt(index)
+    if (issue) return issue
   }
   return null
 }
@@ -146,13 +153,15 @@ async function save() {
 
 async function test(index: number) {
   const row = rows.value[index]
-  const issue = rowIssues()
   const url = row.url.trim()
   if (!/^https?:\/\/.+/.test(url)) {
     testResult.value = { index, ok: false, text: '先填写合法的 http(s) 地址' }
     return
   }
-  if (issue && !issue.includes(row.name.trim())) {
+  // 只校验本行（名称格式 / 重名）：此前用「报错文本是否包含本行名」判断恰与报错格式相反，
+  // 出错行反而绕过守卫去探测远端；其他行的问题不阻塞本行测试
+  const issue = rowIssueAt(index)
+  if (issue) {
     testResult.value = { index, ok: false, text: issue }
     return
   }

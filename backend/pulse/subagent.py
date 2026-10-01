@@ -14,7 +14,9 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 
 from pulse.deps import AgentDeps
 
-SCOUT_TIMEOUT_SECONDS = 90.0
+# 超时预算：主 Agent retries=2，最坏 3 次尝试全部超时；3×T 加上每次尝试间的模型往返
+# 必须小于前端 SSE 整流超时（AiDock STREAM_TIMEOUT_MS=240s），否则整轮对话会被前端掐断
+SCOUT_TIMEOUT_SECONDS = 60.0
 SCOUT_MAX_OUTPUT_CHARS = 8000
 
 SCOUT_INSTRUCTIONS = (

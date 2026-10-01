@@ -67,14 +67,13 @@ async function onDrop(column: TaskStatus) {
   onDragEnd()
   const task = props.tasks.find(item => item.id === id)
   if (!task || task.status === column) return
-  await store.patchTask(task.id, { status: column })
-  emit('statusChanged', column)
+  // patchTask 失败时任务留在原状态（runSave 已弹出错误），不能按新状态清除筛选
+  if (await store.patchTask(task.id, { status: column })) emit('statusChanged', column)
 }
 
 async function onStatusChange(task: Task, status: TaskStatus | null | undefined) {
   if (!status || status === task.status) return
-  await store.patchTask(task.id, { status })
-  emit('statusChanged', status)
+  if (await store.patchTask(task.id, { status })) emit('statusChanged', status)
 }
 
 function projectName(task: Task): string | null {

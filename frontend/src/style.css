@@ -324,6 +324,8 @@ textarea.ai-bubble--edit:focus-visible:not([data-slot]) {
 .ai-tool--start { border-color: rgb(37 99 235 / .35); color: var(--color-cyan); }
 .ai-tool--done { border-color: rgb(92 224 174 / .3); color: var(--color-success); }
 .ai-tool--retry { border-color: rgb(251 191 36 / .35); color: var(--color-warning); }
+/* retry 芯片内联展示失败原因（如 MCP 服务器连接失败被跳过），悬停 title 提供完整文本 */
+.ai-tool-note { font-family: var(--font-sans); font-style: normal; font-size: 11px; opacity: .85; }
 .ai-ops { display: grid; gap: 8px; }
 .ai-think { justify-self: start; max-width: 92%; max-height: 180px; overflow-y: auto; border-left: 2px solid #cbd2dc; padding: 4px 10px; color: var(--muted-foreground); }
 .ai-think b { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--muted-foreground); }

@@ -478,6 +478,79 @@ async def test_stream_skips_unreachable_mcp_server(monkeypatch):
     assert any(event["type"] == "text" for event in events)
 
 
+class _FakeMcpToolset:
+    """记录进入/退出轨迹的假工具集，用于验证降级与清理路径。"""
+
+    def __init__(self, *, enter_error: Exception | None = None):
+        self._enter_error = enter_error
+        self.entered = False
+        self.exited = False
+
+    async def __aenter__(self):
+        if self._enter_error:
+            raise self._enter_error
+        self.entered = True
+        return self
+
+    async def __aexit__(self, *exc_info):
+        self.exited = True
+
+
+async def test_connect_mcp_degrades_on_construction_failure(monkeypatch):
+    alive = _FakeMcpToolset()
+
+    def fake_prefixed(server: McpServerConnection) -> object:
+        if server.name == "boom":
+            raise ValueError("构造失败")  # URL/传输层问题可能在构造阶段就抛出
+        if server.name == "dead":
+            return _FakeMcpToolset(enter_error=TimeoutError())
+        return alive
+
+    monkeypatch.setattr("pulse.agent.prefixed_toolset", fake_prefixed)
+    agent = PydanticPulseAgent()
+    settings = AIConnectionSettings(
+        "https://example.test/v1",
+        "test",
+        "secret",
+        mcp_servers=(
+            McpServerConnection(name="boom", url="https://boom.test/mcp"),
+            McpServerConnection(name="dead", url="https://dead.test/mcp"),
+            McpServerConnection(name="alive", url="https://alive.test/mcp"),
+        ),
+    )
+    toolsets, connected, notices = await agent._connect_mcp(settings)
+    assert connected == ["alive"]
+    assert toolsets == [alive] and alive.entered
+    assert len(notices) == 2
+    assert "boom" in notices[0] and "ValueError" in notices[0]
+    assert "dead" in notices[1] and "TimeoutError" in notices[1]
+
+
+async def test_stream_closes_mcp_toolsets_when_model_setup_fails(monkeypatch):
+    """连接成功后模型构造失败：已打开的 MCP 会话也必须被 finally 关闭，不能泄漏。"""
+
+    toolset = _FakeMcpToolset()
+    monkeypatch.setattr("pulse.agent.prefixed_toolset", lambda server: toolset)
+
+    def broken_model(_settings):
+        raise RuntimeError("模型配置不可用")
+
+    monkeypatch.setattr("pulse.agent.ai_model", broken_model)
+    monkeypatch.setattr("pulse.agent.preload_tools", no_preload())
+    agent = PydanticPulseAgent()
+    settings = AIConnectionSettings(
+        "https://example.test/v1",
+        "test",
+        "secret",
+        mcp_servers=(McpServerConnection(name="alive", url="https://alive.test/mcp"),),
+    )
+    deps = AgentDeps(progress=memory_progress())
+    with pytest.raises(RuntimeError):
+        async for _event in agent.stream("你好", deps, settings):
+            pass
+    assert toolset.entered and toolset.exited
+
+
 # ---------- 路由冒烟 ----------
 
 

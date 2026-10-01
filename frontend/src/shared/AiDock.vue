@@ -508,6 +508,7 @@ const toolLabels: Record<string, string> = {
   read_attachment: '阅读附件',
   update_document: '排队更新文档',
   link_entry: '排队关联条目',
+  mcp: 'MCP',
 }
 
 function idListText(value: unknown, resolve: (id: string) => string | undefined) {
@@ -1019,8 +1020,16 @@ function copyTurn(turn: ChatTurn) {
           </div>
           <template v-else>
             <div v-if="turn.tools.length" class="ai-tools">
-              <span v-for="(tool, index) in turn.tools" :key="`${tool.name}-${index}`" :class="['ai-tool', `ai-tool--${tool.status}`]">
-                <Wrench :size="11" />{{ toolLabels[tool.name] ?? tool.name }}
+              <span
+                v-for="(tool, index) in turn.tools"
+                :key="`${tool.name}-${index}`"
+                :class="['ai-tool', `ai-tool--${tool.status}`]"
+                :title="tool.result || undefined"
+              >
+                <Wrench :size="11" />{{ toolLabels[tool.name] ?? tool.name }}<em
+                  v-if="tool.status === 'retry' && tool.result"
+                  class="ai-tool-note"
+                >{{ tool.result }}</em>
               </span>
             </div>
             <div v-if="turn.thinking" class="ai-think">
